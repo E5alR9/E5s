@@ -1,42 +1,73 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
+local TS = game:GetService("TweenService")
 local bhop, freeze = false, false
 
 _G.emoteSwaps = {{current = "APose", needed = "SnowmobileCruise"}}
 
-local function dl(u) 
-    task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) 
+local activeNotifications = {}
+local function notify(t, s)
+    local sg = Instance.new("ScreenGui", p:WaitForChild("PlayerGui"))
+    local f = Instance.new("Frame", sg)
+    
+    local baseY = 0.84
+    local offsetPerNotify = 0.08
+    
+    f.Size = UDim2.new(0, 220, 0, 60)
+    f.Position = UDim2.new(1, 20, baseY, 0)
+    f.BackgroundColor3 = Color3.new(0, 0, 0)
+    f.BackgroundTransparency = 0.5
+    f.BorderSizePixel = 0
+    
+    local tl = Instance.new("TextLabel", f)
+    tl.Size, tl.Position, tl.Text, tl.TextColor3, tl.BackgroundTransparency, tl.TextSize, tl.Font, tl.TextXAlignment = UDim2.new(1, -10, 0.6, 0), UDim2.new(0, 10, 0, 0), t, Color3.new(1, 1, 1), 1, 16, 3, 0
+    
+    local sl = Instance.new("TextLabel", f)
+    sl.Size, sl.Position, sl.Text, sl.TextColor3, sl.BackgroundTransparency, sl.TextSize, sl.Font, sl.TextXAlignment = UDim2.new(1, -10, 0.4, 0), UDim2.new(0, 10, 0.5, 0), s, Color3.new(0.9, 0.9, 0.9), 1, 13, 3, 0
+
+    local ti = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
+    for i, note in ipairs(activeNotifications) do
+        local targetY = baseY - (i * offsetPerNotify)
+        TS:Create(note, ti, {Position = UDim2.new(1, -230, targetY, 0)}):Play()
+    end
+
+    table.insert(activeNotifications, 1, f)
+    TS:Create(f, ti, {Position = UDim2.new(1, -230, baseY, 0)}):Play()
+    
+    task.delay(1.5, function()
+        local out = TS:Create(f, ti, {Position = UDim2.new(1, 20, f.Position.Y.Scale, 0)})
+        out:Play()
+        out.Completed:Connect(function()
+            for i, note in ipairs(activeNotifications) do
+                if note == f then
+                    table.remove(activeNotifications, i)
+                    break
+                end
+            end
+            sg:Destroy()
+        end)
+    end)
 end
 
+local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
 
 pcall(function()
     local E = game:GetService("ReplicatedStorage").Items.Emotes
-    E.RockinStride.Name = "Stride"
-    E.Broom.Name = "SnowmobileCruise"
+    E.RockinStride.Name, E.Broom.Name = "Stride", "SnowmobileCruise"
 end)
 
 p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.new(0,0)) end)
 
 local function run(c)
     local h = c:WaitForChild("Head", 5)
-    if h then 
-        h.Transparency = 1 
-        for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end 
-    end
+    if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
     task.wait(1)
     dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
 end
 
-UIS.InputBegan:Connect(function(i, g) 
-    if g then return end 
-    if i.KeyCode == Enum.KeyCode.Space then bhop = true 
-    elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = true end 
-end)
-
-UIS.InputEnded:Connect(function(i) 
-    if i.KeyCode == Enum.KeyCode.Space then bhop = false 
-    elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = false end 
-end)
+UIS.InputBegan:Connect(function(i, g) if g then return end if i.KeyCode == Enum.KeyCode.Space then bhop = true elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = true end end)
+UIS.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.Space then bhop = false elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = false end end)
 
 RS.Heartbeat:Connect(function()
     local c = p.Character
@@ -46,6 +77,8 @@ RS.Heartbeat:Connect(function()
         local lp = RaycastParams.new() lp.FilterDescendantsInstances = {c}
         if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector * 15, lp) then
             local t = os.clock() while os.clock() - t < 0.3 do end
+            task.wait(0.1)
+            notify("FREEZE", "300MS")
         end
     end
 end)
