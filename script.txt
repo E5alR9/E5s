@@ -1,11 +1,13 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
 local bhop, freeze = false, false
 
-_G.emoteSwaps = {
-    {current = "APose", needed = "Broom"},
-}
+_G.emoteSwaps = {{current = "APose", needed = "Broom"}}
 
-loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua"))()
+local function dl(u) 
+    task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) 
+end
+
+dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
 
 pcall(function()
     local E = game:GetService("ReplicatedStorage").Items.Emotes
@@ -13,22 +15,13 @@ pcall(function()
     E.Broom.Name = "SnowmobileCruise"
 end)
 
-p.Idled:Connect(function() 
-    VU:CaptureController() 
-    VU:ClickButton2(Vector2.new(0,0)) 
-end)
-
-local function dl(u) 
-    pcall(function() loadstring(game:HttpGet(u))() end) 
-end
+p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.new(0,0)) end)
 
 local function run(c)
     local h = c:WaitForChild("Head", 5)
     if h then 
         h.Transparency = 1 
-        for _, v in pairs(h:GetChildren()) do 
-            if v:IsA("Decal") then v.Transparency = 1 end 
-        end 
+        for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end 
     end
     task.wait(1)
     dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
@@ -47,17 +40,12 @@ end)
 
 RS.Heartbeat:Connect(function()
     local c = p.Character
-    local m = c and c:FindFirstChildOfClass("Humanoid")
-    local r = c and c:FindFirstChild("HumanoidRootPart")
-    if bhop and m and m.FloorMaterial ~= Enum.Material.Air then 
-        m:ChangeState(3) 
-    end
+    local m, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
+    if bhop and m and m.FloorMaterial ~= Enum.Material.Air then m:ChangeState(3) end
     if freeze and r then
-        local lp = RaycastParams.new() 
-        lp.FilterDescendantsInstances = {c}
+        local lp = RaycastParams.new() lp.FilterDescendantsInstances = {c}
         if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector * 15, lp) then
-            local t = os.clock() 
-            while os.clock() - t < 0.3 do end
+            local t = os.clock() while os.clock() - t < 0.3 do end
         end
     end
 end)
