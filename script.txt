@@ -1,7 +1,7 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
 local bhop, freeze = false, false
 
-_G.emoteSwaps = {{current = "APose", needed = "Broom"}}
+_G.emoteSwaps = {{current = "APose", needed = "SnowmobileCruise"}}
 
 local function dl(u) 
     task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) 
