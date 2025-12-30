@@ -1,7 +1,17 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
 local bhop, freeze = false, false
 
-_G.emoteSwaps = {{current = "APose", needed = "Broom"}}
+_G.emoteSwaps = {
+    {current = "APose", needed = "Broom"},
+}
+
+loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua"))()
+
+pcall(function()
+    local E = game:GetService("ReplicatedStorage").Items.Emotes
+    E.RockinStride.Name = "Stride"
+    E.Broom.Name = "SnowmobileCruise"
+end)
 
 p.Idled:Connect(function() 
     VU:CaptureController() 
@@ -11,19 +21,6 @@ end)
 local function dl(u) 
     pcall(function() loadstring(game:HttpGet(u))() end) 
 end
-
--- 1. Run Loader first
-task.spawn(function()
-    dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
-    
-    -- 2. Wait for Loader to finish, then Rename
-    task.wait(2) 
-    pcall(function()
-        local E = game:GetService("ReplicatedStorage").Items.Emotes
-        E.RockinStride.Name = "Stride"
-        E.Broom.Name = "SnowmobileCruise"
-    end)
-end)
 
 local function run(c)
     local h = c:WaitForChild("Head", 5)
