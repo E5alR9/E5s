@@ -1,67 +1,71 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
-local bhop, freeze = false, false
+local TS = game:GetService("TweenService")
+local bhop, freeze, activeNotes = false, false, {}
 
-_G.emoteSwaps = {{current = "APose", needed = "SnowmobileCruise"}}
+local function notify(t, s)
+    local sg = Instance.new("ScreenGui", p:WaitForChild("PlayerGui"))
+    local f = Instance.new("Frame", sg)
+    f.Size, f.Position, f.BackgroundColor3, f.BackgroundTransparency, f.BorderSizePixel = UDim2.new(0, 220, 0, 60), UDim2.new(1, 20, 0.84, 0), Color3.new(0,0,0), 0.5, 0
+    
+    local function createLabel(text, size, pos, fontSize)
+        local l = Instance.new("TextLabel", f)
+        l.Size, l.Position, l.Text, l.TextColor3, l.BackgroundTransparency, l.TextSize, l.Font = size, pos, text, Color3.new(1,1,1), 1, fontSize, 3
+        return l
+    end
+    createLabel(t, UDim2.new(1,-10,0.6,0), UDim2.new(0,10,0,0), 16)
+    createLabel(s, UDim2.new(1,-10,0.4,0), UDim2.new(0,10,0.5,0), 13)
 
-local function dl(u) 
-    task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) 
+    local ti = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    for i, v in ipairs(activeNotes) do TS:Create(v, ti, {Position = UDim2.new(1, -230, 0.84 - (i * 0.08), 0)}):Play() end
+    table.insert(activeNotes, 1, f)
+    TS:Create(f, ti, {Position = UDim2.new(1, -230, 0.84, 0)}):Play()
+    
+    task.delay(1.5, function()
+        local out = TS:Create(f, ti, {Position = UDim2.new(1, 20, f.Position.Y.Scale, 0)})
+        out:Play()
+        out.Completed:Connect(function() table.remove(activeNotes, table.find(activeNotes, f)) sg:Destroy() end)
+    end)
 end
 
+local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
 
 pcall(function()
-    local Storage = game:GetService("ReplicatedStorage")
-    
-    local function DuplicateAndKeepOriginal(parent, oldName, newName)
-        local item = parent:FindFirstChild(oldName)
-        if item then
-            local copy = item:Clone()
-            copy.Name = oldName
-            copy.Parent = parent
-            
-            item.Name = newName
-        end
+    local S = game:GetService("ReplicatedStorage").Items
+    local function dup(parent, old, new)
+        local i = parent:FindFirstChild(old)
+        if i then i:Clone().Parent = parent i.Name = new end
     end
-
-    local E = Storage.Items.Emotes
-    DuplicateAndKeepOriginal(E, "RockinStride", "Stride")
-    DuplicateAndKeepOriginal(E, "Broom", "SnowmobileCruise")
-    
-    local C = Storage.Items.Cosmetics
-    DuplicateAndKeepOriginal(C, "ToxicInferno", "BorealisAurora")
+    dup(S.Emotes, "RockinStride", "Stride")
+    dup(S.Emotes, "Broom", "SnowmobileCruise")
+    dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
 end)
 
-p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.new(0,0)) end)
+p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
 
 local function run(c)
     local h = c:WaitForChild("Head", 5)
-    if h then 
-        h.Transparency = 1 
-        for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end 
-    end
+    if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
     task.wait(1)
     dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
 end
 
-UIS.InputBegan:Connect(function(i, g) 
-    if g then return end 
-    if i.KeyCode == Enum.KeyCode.Space then bhop = true 
-    elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = true end 
-end)
-
-UIS.InputEnded:Connect(function(i) 
-    if i.KeyCode == Enum.KeyCode.Space then bhop = false 
-    elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = false end 
-end)
+UIS.InputBegan:Connect(function(i, g) if g then return end if i.KeyCode == Enum.KeyCode.Space then bhop = true elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = true end end)
+UIS.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.Space then bhop = false elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = false end end)
 
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local m, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
     if bhop and m and m.FloorMaterial ~= Enum.Material.Air then m:ChangeState(3) end
     if freeze and r then
-        local lp = RaycastParams.new() lp.FilterDescendantsInstances = {c}
+        local lp = RaycastParams.new()
+        lp.FilterDescendantsInstances = {c}
         if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector * 15, lp) then
-            local t = os.clock() while os.clock() - t < 0.3 do end
+            -- Trigger UI first so it exists before the thread locks
+            notify("FREEZE", "300MS")
+            local t = os.clock()
+            while os.clock() - t < 0.3 do end -- Hard engine freeze
+            task.wait(0.1)
         end
     end
 end)
