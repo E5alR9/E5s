@@ -5,17 +5,17 @@ local bhop, freeze, activeNotes = false, false, {}
 local function notify(t, s)
     local sg = Instance.new("ScreenGui", p:WaitForChild("PlayerGui"))
     local f = Instance.new("Frame", sg)
-    f.Size, f.Position, f.BackgroundColor3, f.BackgroundTransparency, f.BorderSizePixel = UDim2.new(0, 220, 0, 60), UDim2.new(1, 20, 0.84, 0), Color3.new(0,0,0), 0.5, 0
+    f.Size, f.Position, f.BackgroundColor3, f.BackgroundTransparency, f.BorderSizePixel = UDim2.new(0, 220, 0, 60), UDim2.new(1, 20, 0.84, 0), Color3.new(0, 0, 0), 0.5, 0
     
-    local function createLabel(text, size, pos, fontSize)
+    local function createLabel(txt, size, pos, fSize)
         local l = Instance.new("TextLabel", f)
-        l.Size, l.Position, l.Text, l.TextColor3, l.BackgroundTransparency, l.TextSize, l.Font = size, pos, text, Color3.new(1,1,1), 1, fontSize, 3
+        l.Size, l.Position, l.Text, l.TextColor3, l.BackgroundTransparency, l.TextSize, l.Font = size, pos, txt, Color3.new(1, 1, 1), 1, fSize, 3
         return l
     end
-    createLabel(t, UDim2.new(1,-10,0.6,0), UDim2.new(0,10,0,0), 16)
-    createLabel(s, UDim2.new(1,-10,0.4,0), UDim2.new(0,10,0.5,0), 13)
+    createLabel(t, UDim2.new(1, -10, 0.6, 0), UDim2.new(0, 10, 0, 0), 16)
+    createLabel(s, UDim2.new(1, -10, 0.4, 0), UDim2.new(0, 10, 0.5, 0), 13)
 
-    local ti = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    local ti = TweenInfo.new(0.4, 4, 1)
     for i, v in ipairs(activeNotes) do TS:Create(v, ti, {Position = UDim2.new(1, -230, 0.84 - (i * 0.08), 0)}):Play() end
     table.insert(activeNotes, 1, f)
     TS:Create(f, ti, {Position = UDim2.new(1, -230, 0.84, 0)}):Play()
@@ -23,7 +23,11 @@ local function notify(t, s)
     task.delay(1.5, function()
         local out = TS:Create(f, ti, {Position = UDim2.new(1, 20, f.Position.Y.Scale, 0)})
         out:Play()
-        out.Completed:Connect(function() table.remove(activeNotes, table.find(activeNotes, f)) sg:Destroy() end)
+        out.Completed:Connect(function() 
+            local idx = table.find(activeNotes, f)
+            if idx then table.remove(activeNotes, idx) end
+            sg:Destroy() 
+        end)
     end)
 end
 
@@ -57,14 +61,14 @@ RS.Heartbeat:Connect(function()
     local c = p.Character
     local m, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
     if bhop and m and m.FloorMaterial ~= Enum.Material.Air then m:ChangeState(3) end
+    
     if freeze and r then
         local lp = RaycastParams.new()
         lp.FilterDescendantsInstances = {c}
-        if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector * 15, lp) then
-            -- Trigger UI first so it exists before the thread locks
+        if workspace:Raycast(r.Position, Vector3.new(0, -20, 0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector * 15, lp) then
             notify("FREEZE", "300MS")
             local t = os.clock()
-            while os.clock() - t < 0.3 do end -- Hard engine freeze
+            while os.clock() - t < 0.3 do end 
             task.wait(0.1)
         end
     end
