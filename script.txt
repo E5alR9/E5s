@@ -1,33 +1,28 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
 local TS = game:GetService("TweenService")
-local bhop, freeze, activeNotes = false, false, {}
+local bhop, freeze, active = false, false, {}
 
 local function notify(t, s)
-    local sg = Instance.new("ScreenGui", p:WaitForChild("PlayerGui"))
+    local sg = Instance.new("ScreenGui", p.PlayerGui)
     local f = Instance.new("Frame", sg)
-    f.Size, f.Position, f.BackgroundColor3, f.BackgroundTransparency, f.BorderSizePixel = UDim2.new(0, 220, 0, 60), UDim2.new(1, 20, 0.84, 0), Color3.new(0, 0, 0), 0.5, 0
+    f.Size, f.Position, f.BackgroundColor3, f.BackgroundTransparency, f.BorderSizePixel = UDim2.new(0,220,0,60), UDim2.new(1,20,0.84,0), Color3.new(0,0,0), 0.5, 0
     
-    local function createLabel(txt, size, pos, fSize)
+    local function lbl(txt, sz, pos, fs)
         local l = Instance.new("TextLabel", f)
-        l.Size, l.Position, l.Text, l.TextColor3, l.BackgroundTransparency, l.TextSize, l.Font = size, pos, txt, Color3.new(1, 1, 1), 1, fSize, 3
-        return l
+        l.Size, l.Position, l.Text, l.TextColor3, l.BackgroundTransparency, l.TextSize, l.Font = sz, pos, txt, Color3.new(1,1,1), 1, fs, 3
     end
-    createLabel(t, UDim2.new(1, -10, 0.6, 0), UDim2.new(0, 10, 0, 0), 16)
-    createLabel(s, UDim2.new(1, -10, 0.4, 0), UDim2.new(0, 10, 0.5, 0), 13)
+    lbl(t, UDim2.new(1,-10,0.6,0), UDim2.new(0,10,0,0), 16)
+    lbl(s, UDim2.new(1,-10,0.4,0), UDim2.new(0,10,0.5,0), 13)
 
-    local ti = TweenInfo.new(0.4, 4, 1)
-    for i, v in ipairs(activeNotes) do TS:Create(v, ti, {Position = UDim2.new(1, -230, 0.84 - (i * 0.08), 0)}):Play() end
-    table.insert(activeNotes, 1, f)
-    TS:Create(f, ti, {Position = UDim2.new(1, -230, 0.84, 0)}):Play()
+    local ti = TweenInfo.new(0.4, 4)
+    for i, v in ipairs(active) do TS:Create(v, ti, {Position = UDim2.new(1,-230,0.84-(i*0.08),0)}):Play() end
+    table.insert(active, 1, f)
+    TS:Create(f, ti, {Position = UDim2.new(1,-230,0.84,0)}):Play()
     
     task.delay(1.5, function()
-        local out = TS:Create(f, ti, {Position = UDim2.new(1, 20, f.Position.Y.Scale, 0)})
+        local out = TS:Create(f, ti, {Position = UDim2.new(1,20,f.Position.Y.Scale,0)})
         out:Play()
-        out.Completed:Connect(function() 
-            local idx = table.find(activeNotes, f)
-            if idx then table.remove(activeNotes, idx) end
-            sg:Destroy() 
-        end)
+        out.Completed:Connect(function() table.remove(active, table.find(active, f)) sg:Destroy() end)
     end)
 end
 
@@ -36,10 +31,7 @@ dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lu
 
 pcall(function()
     local S = game:GetService("ReplicatedStorage").Items
-    local function dup(parent, old, new)
-        local i = parent:FindFirstChild(old)
-        if i then i:Clone().Parent = parent i.Name = new end
-    end
+    local function dup(p, o, n) local i = p:FindFirstChild(o) if i then i:Clone().Parent = p i.Name = n end end
     dup(S.Emotes, "RockinStride", "Stride")
     dup(S.Emotes, "Broom", "SnowmobileCruise")
     dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
@@ -61,14 +53,12 @@ RS.Heartbeat:Connect(function()
     local c = p.Character
     local m, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
     if bhop and m and m.FloorMaterial ~= Enum.Material.Air then m:ChangeState(3) end
-    
     if freeze and r then
-        local lp = RaycastParams.new()
-        lp.FilterDescendantsInstances = {c}
-        if workspace:Raycast(r.Position, Vector3.new(0, -20, 0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector * 15, lp) then
+        local lp = RaycastParams.new() lp.FilterDescendantsInstances = {c}
+        if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
+            local t = os.clock() while os.clock() - t < 0.3 do end
+            task.wait(0.05)
             notify("FREEZE", "300MS")
-            local t = os.clock()
-            while os.clock() - t < 0.3 do end 
             task.wait(0.1)
         end
     end
