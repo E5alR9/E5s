@@ -6,6 +6,11 @@ local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputServi
 local TS = game:GetService("TweenService")
 local bhop, freeze, active = false, false, {}
 
+-- 直接改名部分 (按照你要求的格式)
+game:GetService("ReplicatedStorage").Items.Emotes.RockinStride.Name = "Stride"
+game:GetService("ReplicatedStorage").Items.Emotes.Broom.Name = "SnowmobileCruise"
+game:GetService("ReplicatedStorage").Items.Cosmetics.ToxicInferno.Name = "BorealisAurora"
+
 local function notify(t, s)
     local sg = Instance.new("ScreenGui", p.PlayerGui)
     local f = Instance.new("Frame", sg)
@@ -32,17 +37,6 @@ end
 
 local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
-
--- --- 使用你指定的格式進行改名 ---
-pcall(function()
-    local S = game:GetService("ReplicatedStorage").Items
-    -- 直接修改名稱屬性
-    S.Emotes.RockinStride.Name = "Stride"
-    S.Emotes.Broom.Name = "SnowmobileCruise"
-    -- 原有的化妝品改名也保留
-    S.Cosmetics.ToxicInferno.Name = "BorealisAurora"
-end)
--- ----------------------------
 
 p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
 
