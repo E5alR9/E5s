@@ -1,14 +1,11 @@
--- [[ 1. 全域配置 ]]
 _G.emoteSwaps = {
     {current = "APose", needed = "SnowmobileCruise"},
 }
 
--- [[ 2. 基礎服務與變數 ]]
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
 local TS = game:GetService("TweenService")
 local bhop, freeze, active = false, false, {}
 
--- [[ 3. 通知系統 ]]
 local function notify(t, s)
     local sg = Instance.new("ScreenGui", p.PlayerGui)
     local f = Instance.new("Frame", sg)
@@ -33,58 +30,42 @@ local function notify(t, s)
     end)
 end
 
--- [[ 4. 遠端加載功能 ]]
 local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
 
--- [[ 5. 物品複製與重命名 (保留原始物件版) ]]
 pcall(function()
     local S = game:GetService("ReplicatedStorage").Items
-    local function dup(parentFolder, oldName, newName) 
-        local original = parentFolder:FindFirstChild(oldName) 
-        if original then 
-            local copy = original:Clone()
-            copy.Name = newName
-            copy.Parent = parentFolder 
+    local function dup(p, o, n) 
+        local i = p:FindFirstChild(o) 
+        if i then 
+            local copy = i:Clone()
+            copy.Name = n
+            copy.Parent = p 
         end 
     end
-    
-    -- 使用 dup 函式來保留原件並產生新名副本
     dup(S.Emotes, "RockinStride", "Stride")
     dup(S.Emotes, "Broom", "SnowmobileCruise")
     dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
 end)
 
--- [[ 6. 防止掛機 (Anti-AFK) ]]
 p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
 
--- [[ 7. 角色初始化 (Headless & Korblox) ]]
 local function run(c)
     local h = c:WaitForChild("Head", 5)
-    if h then 
-        h.Transparency = 1 
-        for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end 
-    end
+    if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
     task.wait(1)
     dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
 end
 
--- [[ 8. 輸入偵測 ]]
 UIS.InputBegan:Connect(function(i, g) if g then return end if i.KeyCode == Enum.KeyCode.Space then bhop = true elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = true end end)
 UIS.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.Space then bhop = false elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = false end end)
 
--- [[ 9. 核心邏輯循環 ]]
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local m, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
-    
-    -- Bhop 邏輯
     if bhop and m and m.FloorMaterial ~= Enum.Material.Air then m:ChangeState(3) end
-    
-    -- Freeze 延遲測試邏輯
     if freeze and r then
-        local lp = RaycastParams.new() 
-        lp.FilterDescendantsInstances = {c}
+        local lp = RaycastParams.new() lp.FilterDescendantsInstances = {c}
         if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
             local t = os.clock() while os.clock() - t < 0.3 do end
             task.wait(0.05)
@@ -94,6 +75,5 @@ RS.Heartbeat:Connect(function()
     end
 end)
 
--- [[ 10. 啟動腳本 ]]
 p.CharacterAdded:Connect(run)
 if p.Character then task.spawn(run, p.Character) end
