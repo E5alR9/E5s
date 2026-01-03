@@ -33,24 +33,16 @@ end
 local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
 
--- --- 修正部分開始 ---
+-- --- 使用你指定的格式進行改名 ---
 pcall(function()
-    local S = game:GetService("ReplicatedStorage"):WaitForChild("Items", 10)
-    local function dup(p, o, n) 
-        if not p then return end
-        local i = p:FindFirstChild(o) 
-        if i then 
-            local copy = i:Clone()
-            copy.Name = n
-            copy.Parent = p 
-        end 
-    end
-    -- 這裡實現了你要求的改名邏輯（透過克隆）
-    dup(S.Emotes, "RockinStride", "Stride")
-    dup(S.Emotes, "Broom", "SnowmobileCruise")
-    dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
+    local S = game:GetService("ReplicatedStorage").Items
+    -- 直接修改名稱屬性
+    S.Emotes.RockinStride.Name = "Stride"
+    S.Emotes.Broom.Name = "SnowmobileCruise"
+    -- 原有的化妝品改名也保留
+    S.Cosmetics.ToxicInferno.Name = "BorealisAurora"
 end)
--- --- 修正部分結束 ---
+-- ----------------------------
 
 p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
 
