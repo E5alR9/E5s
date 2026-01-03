@@ -1,21 +1,25 @@
-local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
-local TS = game:GetService("TweenService")
+-- [[ 1. Configurations & Variables ]]
+_G.emoteSwaps = {{current = "APose", needed = "SnowmobileCruise"}}
+
+local p = game.Players.LocalPlayer
+local UIS, RS, VU, TS = game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser"), game:GetService("TweenService")
 local bhop, freeze, active = false, false, {}
 
+-- [[ 2. Notification System ]]
 local function notify(t, s)
     local sg = Instance.new("ScreenGui", p.PlayerGui)
     local f = Instance.new("Frame", sg)
     f.Size, f.Position, f.BackgroundColor3, f.BackgroundTransparency, f.BorderSizePixel = UDim2.new(0,220,0,60), UDim2.new(1,20,0.84,0), Color3.new(0,0,0), 0.5, 0
     
-    local function lbl(txt, sz, pos, fs)
+    local function lbl(txt, pos, fs)
         local l = Instance.new("TextLabel", f)
-        l.Size, l.Position, l.Text, l.TextColor3, l.BackgroundTransparency, l.TextSize, l.Font = sz, pos, txt, Color3.new(1,1,1), 1, fs, 3
+        l.Size, l.Position, l.Text, l.TextColor3, l.BackgroundTransparency, l.TextSize, l.Font = UDim2.new(1,-10,0.4,0), pos, txt, Color3.new(1,1,1), 1, fs, 3
     end
-    lbl(t, UDim2.new(1,-10,0.6,0), UDim2.new(0,10,0,0), 16)
-    lbl(s, UDim2.new(1,-10,0.4,0), UDim2.new(0,10,0.5,0), 13)
+    lbl(t, UDim2.new(0,10,0.1,0), 16)
+    lbl(s, UDim2.new(0,10,0.5,0), 13)
 
-    local ti = TweenInfo.new(0.4, 4)
-    for i, v in ipairs(active) do TS:Create(v, ti, {Position = UDim2.new(1,-230,0.84-(i*0.08),0)}):Play() end
+    local ti = TweenInfo.new(0.4)
+    for i, v in ipairs(active) do TS:Create(v, ti, {Position = UDim2.new(1,-230, 0.84-(i*0.08), 0)}):Play() end
     table.insert(active, 1, f)
     TS:Create(f, ti, {Position = UDim2.new(1,-230,0.84,0)}):Play()
     
@@ -26,43 +30,59 @@ local function notify(t, s)
     end)
 end
 
-local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
-dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
+-- [[ 3. Loaders ]]
+loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua"))()
 
-pcall(function()
-    local S = game:GetService("ReplicatedStorage").Items
-    local function dup(p, o, n) local i = p:FindFirstChild(o) if i then i:Clone().Parent = p i.Name = n end end
-    dup(S.Emotes, "RockinStride", "Stride")
-    dup(S.Emotes, "Broom", "SnowmobileCruise")
-    dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
-end)
-
-p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
-
-local function run(c)
-    local h = c:WaitForChild("Head", 5)
-    if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
-    task.wait(1)
-    dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
+local items = game:GetService("ReplicatedStorage"):FindFirstChild("Items")
+if items then
+    local function dup(folder, old, new)
+        local f = items:FindFirstChild(folder)
+        local i = f and f:FindFirstChild(old)
+        if i then i:Clone().Parent = f i.Name = new end
+    end
+    dup("Emotes", "RockinStride", "Stride")
+    dup("Emotes", "Broom", "SnowmobileCruise")
+    dup("Cosmetics", "ToxicInferno", "BorealisAurora")
 end
 
-UIS.InputBegan:Connect(function(i, g) if g then return end if i.KeyCode == Enum.KeyCode.Space then bhop = true elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = true end end)
-UIS.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.Space then bhop = false elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = false end end)
+-- [[ 4. Character Logic (Headless & External) ]]
+local function setupChar(c)
+    local h = c:WaitForChild("Head", 5)
+    if h then 
+        h.Transparency = 1 
+        for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end 
+    end
+    task.spawn(pcall, function() 
+        loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() 
+    end)
+end
+
+-- [[ 5. Events & Loops ]]
+p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
+
+UIS.InputBegan:Connect(function(i, g) 
+    if g then return end 
+    if i.KeyCode == Enum.KeyCode.Space then bhop = true 
+    elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = true end 
+end)
+
+UIS.InputEnded:Connect(function(i) 
+    if i.KeyCode == Enum.KeyCode.Space then bhop = false 
+    elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = false end 
+end)
 
 RS.Heartbeat:Connect(function()
     local c = p.Character
-    local m, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
+    local m = c and c:FindFirstChildOfClass("Humanoid")
+    local r = c and c:FindFirstChild("HumanoidRootPart")
+    
     if bhop and m and m.FloorMaterial ~= Enum.Material.Air then m:ChangeState(3) end
     if freeze and r then
-        local lp = RaycastParams.new() lp.FilterDescendantsInstances = {c}
-        if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
-            local t = os.clock() while os.clock() - t < 0.3 do end
-            task.wait(0.05)
-            notify("FREEZE", "300MS")
-            task.wait(0.1)
-        end
+        local t = os.clock() while os.clock() - t < 0.3 do end
+        notify("FREEZE", "300MS")
+        task.wait(0.1)
     end
 end)
 
-p.CharacterAdded:Connect(run)
-if p.Character then task.spawn(run, p.Character) end
+p.CharacterAdded:Connect(setupChar)
+if p.Character then setupChar(p.Character) end
