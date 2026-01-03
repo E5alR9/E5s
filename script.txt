@@ -1,15 +1,6 @@
-_G.emoteSwaps = {
-    {current = "APose", needed = "SnowmobileCruise"},
-}
-
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
 local TS = game:GetService("TweenService")
 local bhop, freeze, active = false, false, {}
-
--- 直接改名部分 (按照你要求的格式)
-game:GetService("ReplicatedStorage").Items.Emotes.RockinStride.Name = "Stride"
-game:GetService("ReplicatedStorage").Items.Emotes.Broom.Name = "SnowmobileCruise"
-game:GetService("ReplicatedStorage").Items.Cosmetics.ToxicInferno.Name = "BorealisAurora"
 
 local function notify(t, s)
     local sg = Instance.new("ScreenGui", p.PlayerGui)
@@ -34,9 +25,19 @@ local function notify(t, s)
         out.Completed:Connect(function() table.remove(active, table.find(active, f)) sg:Destroy() end)
     end)
 end
-
+_G.emoteSwaps = {
+    { current = "APose", needed = "SnowmobileCruise" },
+}
 local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
+
+pcall(function()
+    local S = game:GetService("ReplicatedStorage").Items
+    local function dup(p, o, n) local i = p:FindFirstChild(o) if i then i:Clone().Parent = p i.Name = n end end
+    dup(S.Emotes, "RockinStride", "Stride")
+    dup(S.Emotes, "Broom", "SnowmobileCruise")
+    dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
+end)
 
 p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
 
