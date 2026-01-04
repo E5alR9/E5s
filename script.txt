@@ -1,5 +1,5 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
-local bhop, freeze, fKN = false, false, "PageDown"
+local bhop, freeze = false, false
 
 local function notify(t, s)
     game:GetService("StarterGui"):SetCore("SendNotification", {
@@ -9,39 +9,6 @@ local function notify(t, s)
     })
 end
 
--- [新增：不影響邏輯的小菜單]
-local function mkUI()
-    local sg = Instance.new("ScreenGui", p.PlayerGui)
-    local m = Instance.new("Frame", sg)
-    m.Size, m.Position = UDim2.new(0, 100, 0, 45), UDim2.new(0, 10, 0, 250)
-    m.BackgroundColor3, m.BackgroundTransparency, m.Active, m.Draggable = Color3.new(0,0,0), 0.5, true, true
-    local d = Instance.new("Frame", m)
-    d.Size, d.BackgroundColor3 = UDim2.new(1, 0, 0, 15), Color3.new(0.2, 0.2, 0.2)
-    local b = Instance.new("TextButton", d)
-    b.Size, b.Text, b.TextColor3, b.BackgroundTransparency = UDim2.new(1, 0, 1, 0), "-", Color3.new(1,1,1), 1
-    local l = Instance.new("TextButton", m)
-    l.Size, l.Position = UDim2.new(1, -10, 0, 22), UDim2.new(0, 5, 0, 20)
-    l.BackgroundColor3, l.TextColor3, l.Text = Color3.new(0.1, 0.1, 0.1), Color3.new(1,1,1), fKN
-    b.MouseButton1Click:Connect(function()
-        l.Visible = not l.Visible
-        m.Size = l.Visible and UDim2.new(0, 100, 0, 45) or UDim2.new(0, 100, 0, 15)
-        b.Text = l.Visible and "-" or "+"
-    end)
-    l.MouseButton1Click:Connect(function()
-        l.Text = "..."
-        local con; con = UIS.InputBegan:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.Keyboard then
-                fKN = i.KeyCode.Name
-                l.Text = fKN
-                notify("Key Set", fKN)
-                con:Disconnect()
-            end
-        end)
-    end)
-end
-mkUI()
-
--- [以下為你原本好的邏輯，完全沒動]
 _G.emoteSwaps = {
     { current = "APose", needed = "SnowmobileCruise" },
 }
@@ -82,14 +49,14 @@ UIS.InputBegan:Connect(function(i, g)
     if g then return end 
     if i.KeyCode == Enum.KeyCode.Space then 
         bhop = true 
-    elseif i.KeyCode.Name == fKN then -- 改為連動 UI 的變數
+    elseif i.KeyCode == Enum.KeyCode.PageDown then 
         freeze = true 
     end 
 end)
 UIS.InputEnded:Connect(function(i) 
     if i.KeyCode == Enum.KeyCode.Space then 
         bhop = false 
-    elseif i.KeyCode.Name == fKN then -- 改為連動 UI 的變數
+    elseif i.KeyCode == Enum.KeyCode.PageDown then 
         freeze = false 
     end 
 end)
