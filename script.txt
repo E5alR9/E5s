@@ -1,37 +1,82 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
-local bhop, freeze = false, false
+local SG, bhop, freeze, fKN = game:GetService("StarterGui"), false, false, "PageDown"
 
 local function notify(t, s)
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = t;
-        Text = s;
-        Duration = 1.5;
-    })
+    SG:SetCore("SendNotification", {Title = t, Text = s, Duration = 1.5})
 end
 
-_G.emoteSwaps = {
-    { current = "APose", needed = "SnowmobileCruise" },
-}
+print("--- Script Loading (Stable Toxic Version) ---")
+
+-- 小菜單 UI 邏輯
+local function mkUI()
+    local sg = Instance.new("ScreenGui", p.PlayerGui)
+    local m = Instance.new("Frame", sg)
+    m.Size, m.Position = UDim2.new(0, 100, 0, 45), UDim2.new(0, 10, 0, 120)
+    m.BackgroundColor3, m.BackgroundTransparency, m.Active, m.Draggable = Color3.new(0,0,0), 0.5, true, true
+    
+    local d = Instance.new("Frame", m)
+    d.Size, d.BackgroundColor3 = UDim2.new(1, 0, 0, 15), Color3.new(0.2, 0.2, 0.2)
+    
+    local b = Instance.new("TextButton", d)
+    b.Size, b.Text, b.TextColor3, b.BackgroundTransparency = UDim2.new(1, 0, 1, 0), "-", Color3.new(1,1,1), 1
+    
+    local l = Instance.new("TextButton", m)
+    l.Size, l.Position = UDim2.new(1, -10, 0, 22), UDim2.new(0, 5, 0, 20)
+    l.BackgroundColor3, l.TextColor3, l.Text = Color3.new(0.1, 0.1, 0.1), Color3.new(1,1,1), fKN
+
+    b.MouseButton1Click:Connect(function()
+        l.Visible = not l.Visible
+        m.Size = l.Visible and UDim2.new(0, 100, 0, 45) or UDim2.new(0, 100, 0, 15)
+        b.Text = l.Visible and "-" or "+"
+    end)
+
+    l.MouseButton1Click:Connect(function()
+        l.Text = "..."
+        local con; con = UIS.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.Keyboard then
+                fKN = i.KeyCode.Name
+                l.Text = fKN
+                notify("Key Set", fKN)
+                print("New Freeze Key: "..fKN)
+                con:Disconnect()
+            end
+        end)
+    end)
+end
+mkUI()
+
+-- 外部載入
+_G.emoteSwaps = {{ current = "APose", needed = "SnowmobileCruise" }}
 local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
 
+-- [恢復你提供的原始 dup 置換邏輯]
 pcall(function()
-    local S = game:GetService("ReplicatedStorage").Items
-    local function dup(p, o, n) local i = p:FindFirstChild(o) if i then i:Clone().Parent = p i.Name = n end end
-    dup(S.Emotes, "RockinStride", "Stride")
+    local S = game:GetService("ReplicatedStorage"):WaitForChild("Items")
+    local function dup(folder, old, new) 
+        local i = folder:FindFirstChild(old) 
+        if i then 
+            local k = i:Clone() 
+            k.Name = new 
+            k.Parent = folder 
+            print("Success: "..old.." duplicated to "..new)
+        else
+            print("Failed: "..old.." not found")
+        end 
+    end
+    dup(S:WaitForChild("Emotes"), "RockinStride", "Stride")
     dup(S.Emotes, "Broom", "SnowmobileCruise")
-    dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
+    dup(S:WaitForChild("Cosmetics"), "ToxicInferno", "BorealisAurora")
 end)
 
 p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
 
+-- 全場 Korblox 與透明頭
 local function run(c)
     local h = c:WaitForChild("Head", 5)
     if h then 
         h.Transparency = 1 
-        for _, v in pairs(h:GetChildren()) do 
-            if v:IsA("Decal") then v.Transparency = 1 end 
-        end 
+        for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end 
     end
     task.wait(1)
     dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
@@ -41,26 +86,21 @@ local function setupPlayer(plra)
     plra.CharacterAdded:Connect(run)
     if plra.Character then task.spawn(run, plra.Character) end
 end
-
 game.Players.PlayerAdded:Connect(setupPlayer)
 for _, v in pairs(game.Players:GetPlayers()) do setupPlayer(v) end
 
+-- 按鍵控制
 UIS.InputBegan:Connect(function(i, g) 
     if g then return end 
-    if i.KeyCode == Enum.KeyCode.Space then 
-        bhop = true 
-    elseif i.KeyCode == Enum.KeyCode.PageDown then 
-        freeze = true 
-    end 
+    if i.KeyCode == Enum.KeyCode.Space then bhop = true 
+    elseif i.KeyCode.Name == fKN then freeze = true end 
 end)
 UIS.InputEnded:Connect(function(i) 
-    if i.KeyCode == Enum.KeyCode.Space then 
-        bhop = false 
-    elseif i.KeyCode == Enum.KeyCode.PageDown then 
-        freeze = false 
-    end 
+    if i.KeyCode == Enum.KeyCode.Space then bhop = false 
+    elseif i.KeyCode.Name == fKN then freeze = false end 
 end)
 
+-- Bhop & Freeze 心跳偵測
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local m, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
@@ -76,19 +116,15 @@ RS.Heartbeat:Connect(function()
     end
 end)
 
+-- 私服單人置換 (PureContentSwap)
 local function PureContentSwap()
-    local isPrivate = game.PrivateServerId ~= "" or game.PrivateServerOwnerId ~= 0
-    local onlyMe = #game.Players:GetPlayers() == 1
-    
-    if not (isPrivate and onlyMe) then 
-        print("No need")
+    if not (game.PrivateServerId ~= "" and #game.Players:GetPlayers() == 1) then 
+        print("PCS: No need (Not Solo Private Server)")
         return 
     end
-    
-    local E = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Emotes")
+    local E = game:GetService("ReplicatedStorage").Items.Emotes
     local s, r, b = E:FindFirstChild("Stride"), E:FindFirstChild("RockinStride"), E:FindFirstChild("Broom")
     if not (s and r and b) then return end
-    
     local bm, rm = b:FindFirstChild("EmoteModuleClassic"), r:FindFirstChild("EmoteModuleClassic")
     if bm and rm then
         local nm = bm:Clone()
@@ -97,10 +133,8 @@ local function PureContentSwap()
         rm:Destroy()
         nm.Name, nm.Parent = "EmoteModuleClassic", r
     end
-    
     s:ClearAllChildren()
     for _, i in ipairs(r:GetChildren()) do i:Clone().Parent = s end
-    print("Done")
+    print("PCS: Done")
 end
-
 PureContentSwap()
