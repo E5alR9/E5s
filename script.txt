@@ -12,7 +12,7 @@ l.MouseButton1Click:Connect(function()l.Text="..."local con;con=UIS.InputBegan:C
 mkUI()_G.emoteSwaps={{current="APose",needed="SnowmobileCruise"}}
 local function dl(u)task.spawn(function()pcall(function()loadstring(game:HttpGet(u))()end)end)end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
-pcall(function()local I=game:GetService("ReplicatedStorage").Items local E,C=I.Emotes,I.Cosmetics local function dp(p,o,n)local i=p:FindFirstChild(o)if i then local k=i:Clone()k.Name=n k.Parent=p end end dp(E,"RockinStride","Stride")dp(E,"Broom","SnowmobileCruise")dp(C,"ToxicInferno","BorealisAurora")end)
+pcall(function()local E=game:GetService("ReplicatedStorage").Items.Emotes local function dp(o,n)local i=E:FindFirstChild(o)if i then i:Clone().Parent=E i.Name=n end end dp("RockinStride","Stride")dp("Broom","SnowmobileCruise")end)
 p.Idled:Connect(function()VU:CaptureController()VU:ClickButton2(Vector2.zero)end)
 local function run(c)local h=c:WaitForChild("Head",5)if h then h.Transparency=1 for _,v in pairs(h:GetChildren())do if v:IsA("Decal")then v.Transparency=1 end end end task.wait(1)dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")end
 local function st(plr)plr.CharacterAdded:Connect(run)if plr.Character then task.spawn(run,plr.Character)end end
