@@ -3,11 +3,11 @@ local SG,bhop,freeze,fKN=game:GetService("StarterGui"),false,false,"PageDown"
 local function nt(t,s)SG:SetCore("SendNotification",{Title=t,Text=s,Duration=1.5})end
 local function mkUI()
 local sg=Instance.new("ScreenGui",p.PlayerGui)local m=Instance.new("Frame",sg)
-m.Size,m.Position,m.BackgroundColor3,m.Active,m.Draggable=UDim2.new(0,100,0,45),UDim2.new(0,10,0.5,0),Color3.new(0,0,0),true,true
-m.BackgroundTransparency=0.5 local d=Instance.new("Frame",m)d.Size,d.BackgroundColor3=UDim2.new(1,0,0,15),Color3.new(0.2,0.2,0.2)
-local b=Instance.new("TextButton",d)b.Size,b.Position,b.Text,b.TextColor3,b.BackgroundTransparency=UDim2.new(1,0,1,0),UDim2.new(0,0,0,0),"-",Color3.new(1,1,1),1
-local l=Instance.new("TextButton",m)l.Size,l.Position,l.BackgroundColor3,l.TextColor3,l.Text=UDim2.new(1,-10,0,22),UDim2.new(0,5,0,20),Color3.new(0.1,0.1,0.1),Color3.new(1,1,1),fKN
-b.MouseButton1Click:Connect(function()l.Visible=not l.Visible m.Size=l.Visible and UDim2.new(0,100,0,45) or UDim2.new(0,100,0,15)b.Text=l.Visible and "-" or "+" end)
+m.Size,m.Position,m.BackgroundColor3,m.Active,m.Draggable=UDim2.new(0,100,0,40),UDim2.new(0,10,0.5,0),Color3.new(0,0,0),true,true
+m.BackgroundTransparency=0.5 local d=Instance.new("Frame",m)d.Size,d.BackgroundColor3=UDim2.new(1,0,0,12),Color3.new(0.2,0.2,0.2)
+local b=Instance.new("TextButton",d)b.Size,b.Position,b.Text,b.TextColor3,b.BackgroundTransparency=UDim2.new(0,15,1,0),UDim2.new(1,-15,0,0),"-",Color3.new(1,1,1),1
+local l=Instance.new("TextButton",m)l.Size,l.Position,l.BackgroundColor3,l.TextColor3,l.Text=UDim2.new(1,-10,0,22),UDim2.new(0,5,0,15),Color3.new(0.1,0.1,0.1),Color3.new(1,1,1),fKN
+b.MouseButton1Click:Connect(function()l.Visible=not l.Visible m.Size=l.Visible and UDim2.new(0,100,0,40) or UDim2.new(0,100,0,12)b.Text=l.Visible and "-" or "+" end)
 l.MouseButton1Click:Connect(function()l.Text="..."local con;con=UIS.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.Keyboard then fKN=i.KeyCode.Name l.Text=fKN nt("Key Set",fKN)con:Disconnect()end end)end)end
 mkUI()_G.emoteSwaps={{current="APose",needed="SnowmobileCruise"}}
 local function dl(u)task.spawn(function()pcall(function()loadstring(game:HttpGet(u))()end)end)end
