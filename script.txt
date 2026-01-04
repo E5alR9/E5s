@@ -1,18 +1,19 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
-local SG, bhop, freeze, fKN = game:GetService("StarterGui"), false, false, "PageDown"
+local SG = game:GetService("StarterGui")
+local bhop, freeze, fKN = false, false, "PageDown"
 
 local function notify(t, s)
     SG:SetCore("SendNotification", {Title = t, Text = s, Duration = 1.5})
 end
 
-print("--- Script Loading (Position Adjusted) ---")
+print("--- Script Loaded (Position 200) ---")
 
--- 小菜單 UI 邏輯 (位置已下移)
+-- 小菜單 UI 邏輯
 local function mkUI()
     local sg = Instance.new("ScreenGui", p.PlayerGui)
     local m = Instance.new("Frame", sg)
-    -- Position 從 120 改為 180
-    m.Size, m.Position = UDim2.new(0, 100, 0, 45), UDim2.new(0, 10, 0, 180)
+    -- 位置已設定在 X=10, Y=200，避開聊天室
+    m.Size, m.Position = UDim2.new(0, 100, 0, 45), UDim2.new(0, 10, 0, 200)
     m.BackgroundColor3, m.BackgroundTransparency, m.Active, m.Draggable = Color3.new(0,0,0), 0.5, true, true
     
     local d = Instance.new("Frame", m)
@@ -38,7 +39,6 @@ local function mkUI()
                 fKN = i.KeyCode.Name
                 l.Text = fKN
                 notify("Key Set", fKN)
-                print("New Freeze Key: "..fKN)
                 con:Disconnect()
             end
         end)
@@ -46,23 +46,21 @@ local function mkUI()
 end
 mkUI()
 
--- 外部載入
+-- 外部腳本載入
 _G.emoteSwaps = {{ current = "APose", needed = "SnowmobileCruise" }}
 local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
 
--- [穩定版置換邏輯]
+-- [原始置換邏輯]
 pcall(function()
     local S = game:GetService("ReplicatedStorage"):WaitForChild("Items")
-    local function dup(folder, old, new) 
-        local i = folder:FindFirstChild(old) 
+    local function dup(folder, o, n) 
+        local i = folder:FindFirstChild(o) 
         if i then 
             local k = i:Clone() 
-            k.Name = new 
             k.Parent = folder 
-            print("Success: "..old.." duplicated to "..new)
-        else
-            print("Failed: "..old.." not found")
+            k.Name = n 
+            print("Dup Success: "..o)
         end 
     end
     dup(S:WaitForChild("Emotes"), "RockinStride", "Stride")
@@ -72,7 +70,7 @@ end)
 
 p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
 
--- 全場 Korblox 與透明頭
+-- 全場 Korblox 與透明頭邏輯
 local function run(c)
     local h = c:WaitForChild("Head", 5)
     if h then 
@@ -90,7 +88,7 @@ end
 game.Players.PlayerAdded:Connect(setupPlayer)
 for _, v in pairs(game.Players:GetPlayers()) do setupPlayer(v) end
 
--- 按鍵控制 (優化偵測)
+-- 按鍵偵測與 Freeze 邏輯
 UIS.InputBegan:Connect(function(i, g) 
     if g then return end 
     if i.KeyCode == Enum.KeyCode.Space then bhop = true 
@@ -101,7 +99,6 @@ UIS.InputEnded:Connect(function(i)
     elseif i.KeyCode.Name == fKN then freeze = false end 
 end)
 
--- Bhop & Freeze 心跳偵測
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local m, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
@@ -117,12 +114,16 @@ RS.Heartbeat:Connect(function()
     end
 end)
 
--- 私服單人置換 (PureContentSwap)
+-- 私服單人數據置換
 local function PureContentSwap()
-    if not (game.PrivateServerId ~= "" and #game.Players:GetPlayers() == 1) then return end
-    local E = game:GetService("ReplicatedStorage").Items.Emotes
+    local isPrivate = game.PrivateServerId ~= "" or game.PrivateServerOwnerId ~= 0
+    local onlyMe = #game.Players:GetPlayers() == 1
+    if not (isPrivate and onlyMe) then return end
+    
+    local E = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Emotes")
     local s, r, b = E:FindFirstChild("Stride"), E:FindFirstChild("RockinStride"), E:FindFirstChild("Broom")
     if not (s and r and b) then return end
+    
     local bm, rm = b:FindFirstChild("EmoteModuleClassic"), r:FindFirstChild("EmoteModuleClassic")
     if bm and rm then
         local nm = bm:Clone()
@@ -133,6 +134,6 @@ local function PureContentSwap()
     end
     s:ClearAllChildren()
     for _, i in ipairs(r:GetChildren()) do i:Clone().Parent = s end
-    print("PCS: Done")
+    print("PCS Done")
 end
 PureContentSwap()
