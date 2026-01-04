@@ -1,30 +1,14 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
-local TS = game:GetService("TweenService")
-local bhop, freeze, active = false, false, {}
+local bhop, freeze = false, false
 
 local function notify(t, s)
-    local sg = Instance.new("ScreenGui", p.PlayerGui)
-    local f = Instance.new("Frame", sg)
-    f.Size, f.Position, f.BackgroundColor3, f.BackgroundTransparency, f.BorderSizePixel = UDim2.new(0,220,0,60), UDim2.new(1,20,0.84,0), Color3.new(0,0,0), 0.5, 0
-    
-    local function lbl(txt, sz, pos, fs)
-        local l = Instance.new("TextLabel", f)
-        l.Size, l.Position, l.Text, l.TextColor3, l.BackgroundTransparency, l.TextSize, l.Font = sz, pos, txt, Color3.new(1,1,1), 1, fs, 3
-    end
-    lbl(t, UDim2.new(1,-10,0.6,0), UDim2.new(0,10,0,0), 16)
-    lbl(s, UDim2.new(1,-10,0.4,0), UDim2.new(0,10,0.5,0), 13)
-
-    local ti = TweenInfo.new(0.4, 4)
-    for i, v in ipairs(active) do TS:Create(v, ti, {Position = UDim2.new(1,-230,0.84-(i*0.08),0)}):Play() end
-    table.insert(active, 1, f)
-    TS:Create(f, ti, {Position = UDim2.new(1,-230,0.84,0)}):Play()
-    
-    task.delay(1.5, function()
-        local out = TS:Create(f, ti, {Position = UDim2.new(1,20,f.Position.Y.Scale,0)})
-        out:Play()
-        out.Completed:Connect(function() table.remove(active, table.find(active, f)) sg:Destroy() end)
-    end)
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = t;
+        Text = s;
+        Duration = 1.5;
+    })
 end
+
 _G.emoteSwaps = {
     { current = "APose", needed = "SnowmobileCruise" },
 }
@@ -48,8 +32,21 @@ local function run(c)
     dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
 end
 
-UIS.InputBegan:Connect(function(i, g) if g then return end if i.KeyCode == Enum.KeyCode.Space then bhop = true elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = true end end)
-UIS.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.Space then bhop = false elseif i.KeyCode == Enum.KeyCode.PageDown then freeze = false end end)
+UIS.InputBegan:Connect(function(i, g) 
+    if g then return end 
+    if i.KeyCode == Enum.KeyCode.Space then 
+        bhop = true 
+    elseif i.KeyCode == Enum.KeyCode.PageDown then 
+        freeze = true 
+    end 
+end)
+UIS.InputEnded:Connect(function(i) 
+    if i.KeyCode == Enum.KeyCode.Space then 
+        bhop = false 
+    elseif i.KeyCode == Enum.KeyCode.PageDown then 
+        freeze = false 
+    end 
+end)
 
 RS.Heartbeat:Connect(function()
     local c = p.Character
@@ -68,3 +65,32 @@ end)
 
 p.CharacterAdded:Connect(run)
 if p.Character then task.spawn(run, p.Character) end
+
+local function PureContentSwap()
+    local isPrivate = game.PrivateServerId ~= "" or game.PrivateServerOwnerId ~= 0
+    local onlyMe = #game.Players:GetPlayers() == 1
+    
+    if not (isPrivate and onlyMe) then 
+        print("No need")
+        return 
+    end
+    
+    local E = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Emotes")
+    local s, r, b = E:FindFirstChild("Stride"), E:FindFirstChild("RockinStride"), E:FindFirstChild("Broom")
+    if not (s and r and b) then return end
+    
+    local bm, rm = b:FindFirstChild("EmoteModuleClassic"), r:FindFirstChild("EmoteModuleClassic")
+    if bm and rm then
+        local nm = bm:Clone()
+        nm:ClearAllChildren()
+        for _, o in ipairs(rm:GetChildren()) do o:Clone().Parent = nm end
+        rm:Destroy()
+        nm.Name, nm.Parent = "EmoteModuleClassic", r
+    end
+    
+    s:ClearAllChildren()
+    for _, i in ipairs(r:GetChildren()) do i:Clone().Parent = s end
+    print("Done")
+end
+
+PureContentSwap()
