@@ -1,92 +1,64 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
-local SG, bhop, freeze, fKN = game:GetService("StarterGui"), false, false, "PageDown"
+local bhop, freeze = false, false
 
 local function notify(t, s)
-    SG:SetCore("SendNotification", {Title = t, Text = s, Duration = 1.5})
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = t;
+        Text = s;
+        Duration = 1.5;
+    })
 end
 
-local function createMenu()
-    local sg = Instance.new("ScreenGui", p.PlayerGui)
-    local main = Instance.new("Frame", sg)
-    main.Size, main.Position = UDim2.new(0, 110, 0, 50), UDim2.new(0, 10, 0.5, 0)
-    main.BackgroundColor3, main.BackgroundTransparency = Color3.new(0,0,0), 0.5
-
-    local drag = Instance.new("Frame", main)
-    drag.Size, drag.BackgroundColor3 = UDim2.new(1, 0, 0, 15), Color3.new(0.2, 0.2, 0.2)
-    
-    local mini = Instance.new("TextButton", drag)
-    mini.Size, mini.Position = UDim2.new(0, 15, 1, 0), UDim2.new(1, -15, 0, 0)
-    mini.Text, mini.TextColor3, mini.BackgroundTransparency = "-", Color3.new(1,1,1), 1
-
-    local f = Instance.new("TextBox", main)
-    f.Size, f.Position = UDim2.new(1, -10, 0, 25), UDim2.new(0, 5, 0, 20)
-    f.BackgroundColor3, f.TextColor3, f.Text = Color3.new(0.1,0.1,0.1), Color3.new(1,1,1), "PGDN"
-    f.ClearTextOnFocus = true
-
-    local dragging, dragStart, startPos
-    drag.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging, dragStart, startPos = true, i.Position, main.Position
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = i.Position - dragStart
-            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-
-    mini.MouseButton1Click:Connect(function()
-        f.Visible = not f.Visible
-        main.Size = f.Visible and UDim2.new(0, 110, 0, 50) or UDim2.new(0, 110, 0, 15)
-        mini.Text = f.Visible and "-" or "+"
-    end)
-
-    f.FocusLost:Connect(function(e)
-        if e then 
-            local t = f.Text:upper()
-            fKN = (t=="CTRL" and "LeftControl") or (t=="ALT" and "LeftAlt") or f.Text
-            f.Text = fKN notify("Key Set", fKN)
-        end
-    end)
-end
-createMenu()
-
-_G.emoteSwaps = {{ current = "APose", needed = "SnowmobileCruise" }}
+_G.emoteSwaps = {
+    { current = "APose", needed = "SnowmobileCruise" },
+}
 local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
 
 pcall(function()
-    local E = game:GetService("ReplicatedStorage").Items.Emotes
-    local function dup(o, n) local i = E:FindFirstChild(o) if i then i:Clone().Parent = E i.Name = n end end
-    dup("RockinStride", "Stride")
-    dup("Broom", "SnowmobileCruise")
+    local S = game:GetService("ReplicatedStorage").Items
+    local function dup(p, o, n) local i = p:FindFirstChild(o) if i then i:Clone().Parent = p i.Name = n end end
+    dup(S.Emotes, "RockinStride", "Stride")
+    dup(S.Emotes, "Broom", "SnowmobileCruise")
+    dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
 end)
 
 p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
 
 local function run(c)
     local h = c:WaitForChild("Head", 5)
-    if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
-    task.wait(1) dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
+    if h then 
+        h.Transparency = 1 
+        for _, v in pairs(h:GetChildren()) do 
+            if v:IsA("Decal") then v.Transparency = 1 end 
+        end 
+    end
+    task.wait(1)
+    dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
 end
 
-local function setup(plr)
-    plr.CharacterAdded:Connect(run)
-    if plr.Character then task.spawn(run, plr.Character) end
+local function setupPlayer(plra)
+    plra.CharacterAdded:Connect(run)
+    if plra.Character then task.spawn(run, plra.Character) end
 end
-game.Players.PlayerAdded:Connect(setup)
-for _, v in pairs(game.Players:GetPlayers()) do setup(v) end
+
+game.Players.PlayerAdded:Connect(setupPlayer)
+for _, v in pairs(game.Players:GetPlayers()) do setupPlayer(v) end
 
 UIS.InputBegan:Connect(function(i, g) 
     if g then return end 
-    if i.KeyCode == Enum.KeyCode.Space then bhop = true 
-    elseif i.KeyCode.Name:lower() == fKN:lower() then freeze = true end 
+    if i.KeyCode == Enum.KeyCode.Space then 
+        bhop = true 
+    elseif i.KeyCode == Enum.KeyCode.PageDown then 
+        freeze = true 
+    end 
 end)
 UIS.InputEnded:Connect(function(i) 
-    if i.KeyCode == Enum.KeyCode.Space then bhop = false 
-    elseif i.KeyCode.Name:lower() == fKN:lower() then freeze = false end 
+    if i.KeyCode == Enum.KeyCode.Space then 
+        bhop = false 
+    elseif i.KeyCode == Enum.KeyCode.PageDown then 
+        freeze = false 
+    end 
 end)
 
 RS.Heartbeat:Connect(function()
@@ -97,24 +69,38 @@ RS.Heartbeat:Connect(function()
         local lp = RaycastParams.new() lp.FilterDescendantsInstances = {c}
         if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
             local t = os.clock() while os.clock() - t < 0.3 do end
-            task.wait(0.05) notify("FREEZE", "300MS") task.wait(0.1)
+            task.wait(0.05)
+            notify("FREEZE", "300MS")
+            task.wait(0.1)
         end
     end
 end)
 
 local function PureContentSwap()
-    if not (game.PrivateServerId ~= "" and #game.Players:GetPlayers() == 1) then print("No need") return end
-    local E = game:GetService("ReplicatedStorage").Items.Emotes
+    local isPrivate = game.PrivateServerId ~= "" or game.PrivateServerOwnerId ~= 0
+    local onlyMe = #game.Players:GetPlayers() == 1
+    
+    if not (isPrivate and onlyMe) then 
+        print("No need")
+        return 
+    end
+    
+    local E = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Emotes")
     local s, r, b = E:FindFirstChild("Stride"), E:FindFirstChild("RockinStride"), E:FindFirstChild("Broom")
     if not (s and r and b) then return end
+    
     local bm, rm = b:FindFirstChild("EmoteModuleClassic"), r:FindFirstChild("EmoteModuleClassic")
     if bm and rm then
-        local nm = bm:Clone() nm:ClearAllChildren()
+        local nm = bm:Clone()
+        nm:ClearAllChildren()
         for _, o in ipairs(rm:GetChildren()) do o:Clone().Parent = nm end
-        rm:Destroy() nm.Name, nm.Parent = "EmoteModuleClassic", r
+        rm:Destroy()
+        nm.Name, nm.Parent = "EmoteModuleClassic", r
     end
+    
     s:ClearAllChildren()
     for _, i in ipairs(r:GetChildren()) do i:Clone().Parent = s end
     print("Done")
 end
+
 PureContentSwap()
