@@ -1,23 +1,95 @@
 local p,UIS,RS,VU=game.Players.LocalPlayer,game:GetService("UserInputService"),game:GetService("RunService"),game:GetService("VirtualUser")
 local SG,bhop,freeze,fKN=game:GetService("StarterGui"),false,false,"PageDown"
 local function nt(t,s)SG:SetCore("SendNotification",{Title=t,Text=s,Duration=1.5})end
+
+print("--- Script Loading (Toxic Restored) ---")
+
 local function mkUI()
 local sg=Instance.new("ScreenGui",p.PlayerGui)local m=Instance.new("Frame",sg)
-m.Size,m.Position,m.BackgroundColor3,m.Active,m.Draggable=UDim2.new(0,100,0,40),UDim2.new(0,10,0.5,0),Color3.new(0,0,0),true,true
-m.BackgroundTransparency=0.5 local d=Instance.new("Frame",m)d.Size,d.BackgroundColor3=UDim2.new(1,0,0,12),Color3.new(0.2,0.2,0.2)
-local b=Instance.new("TextButton",d)b.Size,b.Position,b.Text,b.TextColor3,b.BackgroundTransparency=UDim2.new(0,15,1,0),UDim2.new(1,-15,0,0),"-",Color3.new(1,1,1),1
-local f=Instance.new("TextBox",m)f.Size,f.Position,f.BackgroundColor3,f.TextColor3,f.Text=UDim2.new(1,-10,0,22),UDim2.new(0,5,0,15),Color3.new(0.1,0.1,0.1),Color3.new(1,1,1),"PGDN"
-f.ClearTextOnFocus=true b.MouseButton1Click:Connect(function()f.Visible=not f.Visible m.Size=f.Visible and UDim2.new(0,100,0,40) or UDim2.new(0,100,0,12)b.Text=f.Visible and "-" or "+" end)
-f.FocusLost:Connect(function(e)if e then local t=f.Text:upper()fKN=(t=="CTRL" and "LeftControl") or (t=="ALT" and "LeftAlt") or f.Text f.Text=fKN nt("Key Set",fKN)end end)end
-mkUI()_G.emoteSwaps={{current="APose",needed="SnowmobileCruise"}}
+m.Size,m.Position,m.BackgroundColor3,m.Active,m.Draggable=UDim2.new(0,100,0,45),UDim2.new(0,10,0,120),Color3.new(0,0,0),true,true
+m.BackgroundTransparency=0.5 local d=Instance.new("Frame",m)d.Size,d.BackgroundColor3=UDim2.new(1,0,0,15),Color3.new(0.2,0.2,0.2)
+local b=Instance.new("TextButton",d)b.Size,b.Position,b.Text,b.TextColor3,b.BackgroundTransparency=UDim2.new(1,0,1,0),UDim2.new(0,0,0,0),"-",Color3.new(1,1,1),1
+local l=Instance.new("TextButton",m)l.Size,l.Position,l.BackgroundColor3,l.TextColor3,l.Text=UDim2.new(1,-10,0,22),UDim2.new(0,5,0,20),Color3.new(0.1,0.1,0.1),Color3.new(1,1,1),fKN
+b.MouseButton1Click:Connect(function()l.Visible=not l.Visible m.Size=l.Visible and UDim2.new(0,100,0,45) or UDim2.new(0,100,0,15)b.Text=l.Visible and "-" or "+" end)
+l.MouseButton1Click:Connect(function()l.Text="..."local con;con=UIS.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.Keyboard then fKN=i.KeyCode.Name l.Text=fKN nt("Key Set",fKN)print("Key Set: "..fKN)con:Disconnect()end end)end)end
+mkUI()
+
+_G.emoteSwaps={{current="APose",needed="SnowmobileCruise"}}
 local function dl(u)task.spawn(function()pcall(function()loadstring(game:HttpGet(u))()end)end)end
 dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
-pcall(function()local E=game:GetService("ReplicatedStorage").Items.Emotes local function dp(o,n)local i=E:FindFirstChild(o)if i then i:Clone().Parent=E i.Name=n end end dp("RockinStride","Stride")dp("Broom","SnowmobileCruise")end)
+
+-- [未精簡前的置換邏輯 - 確保 Toxic 回歸]
+pcall(function()
+    local Items = game:GetService("ReplicatedStorage"):WaitForChild("Items")
+    local Emotes = Items:WaitForChild("Emotes")
+    local Cosmetics = Items:WaitForChild("Cosmetics")
+
+    -- RockinStride 置換
+    local RS_Orig = Emotes:FindFirstChild("RockinStride")
+    if RS_Orig then 
+        local RS_Clone = RS_Orig:Clone()
+        RS_Clone.Name = "Stride"
+        RS_Clone.Parent = Emotes
+        print("Success: RockinStride Shell Created")
+    end
+
+    -- Broom 置換
+    local B_Orig = Emotes:FindFirstChild("Broom")
+    if B_Orig then 
+        local B_Clone = B_Orig:Clone()
+        B_Clone.Name = "SnowmobileCruise"
+        B_Clone.Parent = Emotes
+        print("Success: Broom Shell Created")
+    end
+
+    -- ToxicInferno 置換 (恢復點)
+    local T_Orig = Cosmetics:FindFirstChild("ToxicInferno")
+    if T_Orig then 
+        local T_Clone = T_Orig:Clone()
+        T_Clone.Name = "BorealisAurora"
+        T_Clone.Parent = Cosmetics
+        print("Success: ToxicInferno Shell Created")
+    end
+end)
+
 p.Idled:Connect(function()VU:CaptureController()VU:ClickButton2(Vector2.zero)end)
-local function run(c)local h=c:WaitForChild("Head",5)if h then h.Transparency=1 for _,v in pairs(h:GetChildren())do if v:IsA("Decal")then v.Transparency=1 end end end task.wait(1)dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")end
+
+local function run(c)
+    local h=c:WaitForChild("Head",5)
+    if h then h.Transparency=1 for _,v in pairs(h:GetChildren())do if v:IsA("Decal")then v.Transparency=1 end end end 
+    task.wait(1)
+    dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
+end
+
 local function st(plr)plr.CharacterAdded:Connect(run)if plr.Character then task.spawn(run,plr.Character)end end
 game.Players.PlayerAdded:Connect(st)for _,v in pairs(game.Players:GetPlayers())do st(v)end
-UIS.InputBegan:Connect(function(i,g)if g then return end if i.KeyCode==Enum.KeyCode.Space then bhop=true elseif i.KeyCode.Name:lower()==fKN:lower()then freeze=true end end)
-UIS.InputEnded:Connect(function(i)if i.KeyCode==Enum.KeyCode.Space then bhop=false elseif i.KeyCode.Name:lower()==fKN:lower()then freeze=false end end)
-RS.Heartbeat:Connect(function()local c,r=p.Character,p.Character and p.Character:FindFirstChild("HumanoidRootPart")local h=c and c:FindFirstChildOfClass("Humanoid")if bhop and h and h.FloorMaterial~=Enum.Material.Air then h:ChangeState(3)end if freeze and r then local lp=RaycastParams.new()lp.FilterDescendantsInstances={c}if workspace:Raycast(r.Position,Vector3.new(0,-20,0),lp) or workspace:Raycast(r.Position,r.CFrame.LookVector*15,lp)then local t=os.clock()while os.clock()-t<0.3 do end task.wait(0.05)nt("FREEZE","300MS")task.wait(0.1)end end end)
-local function PCS()if not(game.PrivateServerId~="" and #game.Players:GetPlayers()==1)then print("No need")return end local E=game:GetService("ReplicatedStorage").Items.Emotes local s,r,b=E:FindFirstChild("Stride"),E:FindFirstChild("RockinStride"),E:FindFirstChild("Broom")if not(s and r and b)then return end local bm,rm=b:FindFirstChild("EmoteModuleClassic"),r:FindFirstChild("EmoteModuleClassic")if bm and rm then local nm=bm:Clone()nm:ClearAllChildren()for _,o in ipairs(rm:GetChildren())do o:Clone().Parent=nm end rm:Destroy()nm.Name,nm.Parent="EmoteModuleClassic",r end s:ClearAllChildren()for _,i in ipairs(r:GetChildren())do i:Clone().Parent=s end print("Done")end PCS()
+
+UIS.InputBegan:Connect(function(i,g)if g then return end if i.KeyCode==Enum.KeyCode.Space then bhop=true elseif i.KeyCode.Name==fKN then freeze=true end end)
+UIS.InputEnded:Connect(function(i)if i.KeyCode==Enum.KeyCode.Space then bhop=false elseif i.KeyCode.Name==fKN then freeze=false end end)
+
+RS.Heartbeat:Connect(function()
+    local c,r=p.Character,p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+    local h=c and c:FindFirstChildOfClass("Humanoid")
+    if bhop and h and h.FloorMaterial~=Enum.Material.Air then h:ChangeState(3)end 
+    if freeze and r then 
+        local lp=RaycastParams.new()lp.FilterDescendantsInstances={c}
+        if workspace:Raycast(r.Position,Vector3.new(0,-20,0),lp) or workspace:Raycast(r.Position,r.CFrame.LookVector*15,lp)then 
+            local t=os.clock()while os.clock()-t<0.3 do end task.wait(0.05)nt("FREEZE","300MS")task.wait(0.1)
+        end 
+    end 
+end)
+
+local function PCS()
+    if not(game.PrivateServerId~="" and #game.Players:GetPlayers()==1)then print("Not Solo") return end 
+    local E=game:GetService("ReplicatedStorage").Items.Emotes 
+    local s,r,b=E:FindFirstChild("Stride"),E:FindFirstChild("RockinStride"),E:FindFirstChild("Broom")
+    if not(s and r and b)then return end 
+    local bm,rm=b:FindFirstChild("EmoteModuleClassic"),r:FindFirstChild("EmoteModuleClassic")
+    if bm and rm then 
+        local nm=bm:Clone()nm:ClearAllChildren()for _,o in ipairs(rm:GetChildren())do o:Clone().Parent=nm end 
+        rm:Destroy()nm.Name,nm.Parent="EmoteModuleClassic",r 
+    end 
+    s:ClearAllChildren()for _,i in ipairs(r:GetChildren())do i:Clone().Parent=s end 
+    print("PCS Done")
+end 
+PCS()
