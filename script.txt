@@ -221,7 +221,7 @@ task.spawn(function()
     local function sendInvite()
         local success = pcall(function()
             game:GetService("StarterGui"):SetCore("SendNotification", { 
-                Title = "E5ALR9 - DISCORD", 
+                Title = "E5alR9 - DISCORD", 
                 Text = "Join for more useful?", 
                 Duration = 99999, 
                 Button1 = "YES", 
@@ -245,3 +245,4 @@ task.spawn(function()
     print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ALL SYSTEMS LOADED | @E5ALR9 ////////////////////")
     print("//// [SYSTEM] READY TO OPERATE AT RING-0 ////")
 end)
+
