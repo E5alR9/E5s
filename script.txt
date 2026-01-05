@@ -20,14 +20,14 @@ local function showHeader()
     local floor = "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"
     
     print("\n" .. wall)
-    print([[
-  ________  ________  ________  ___        ________  ________ 
- |\   ____\|\   ____\|\    __  \|\  \      |\   __ \|\   __  \ 
- \ \  \___|  \  \____| \   \|\  \ \  \     \ \  \|\ \ \  \|\  \ 
-  \ \  \____\ \_____  \ \    __  \ \  \     \ \   __ \ \_____\ \
-   \ \  \___|_| _____\ \ \   \ \  \ \  \____ \ \  \\  \\| ____\ \
-    \ \_______\ \_______\ \ __\ \__\ \_______\\ \__\\__\\|\______\
-     \|_______|\|_______| \|__|\|__|\|_______| \|__|\|__|\|______|
+    print([
+  ________  ________  ________  ___       ________  ________ 
+ |\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \ 
+ \ \  \___|  \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \ 
+  \ \  \____\ \_____  \ \   __  \ \  \    \ \   __  \ \______ \
+   \ \  \___|_| _____\ \ \  \ \  \ \  \____\ \  \ \  \|______\ \
+    \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \__\ \_______\
+     \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
     ]])
     print(floor)
     print("|||| \\\\ //// @@@@ [ SYSTEM_OVERRIDE_INITIATED ] @@@@ //// \\\\ ||||")
@@ -145,7 +145,6 @@ task.spawn(function()
         local r = c and c:FindFirstChild("HumanoidRootPart")
         if bhop and c and c:FindFirstChildOfClass("Humanoid") and c:FindFirstChildOfClass("Humanoid").FloorMaterial ~= Enum.Material.Air then c:FindFirstChildOfClass("Humanoid"):ChangeState(3) end
         if freeze and r then
-            -- [[ 加回通知代碼 ]]
             game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Freeze: " .. freezeMS .. "ms"; Duration = 0.5; })
             local t = os.clock() 
             local delayTime = (tonumber(freezeMS) or 300) / 1000
@@ -153,16 +152,21 @@ task.spawn(function()
         end
     end)
 
-    -- 控制視窗
+    -- [[ 控制視窗 - 精確修改：字體加大、重生不消失、修復拖動 ]]
     local sg = Instance.new("ScreenGui", p.PlayerGui)
     sg.Name = "E5_Console"
+    sg.ResetOnSpawn = false -- 修正：重生不消失
+    sg.DisplayOrder = 999
+    
     local m = Instance.new("Frame", sg)
-    m.Size, m.Position = UDim2.new(0, 150, 0, 100), UDim2.new(0, 15, 0.4, 0)
+    m.Size, m.Position = UDim2.new(0, 180, 0, 120), UDim2.new(0, 15, 0.4, 0)
     m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 0.5, 2
-    m.Active, m.Draggable = true, true
+    m.Active, m.Draggable = true, true -- 修正：開啟拖動
     
     local l = Instance.new("TextButton", m)
-    l.Size, l.Position, l.Text = UDim2.new(1, -10, 0, 35), UDim2.new(0, 5, 0, 10), "KEY: " .. fKN
+    l.Size, l.Position = UDim2.new(1, -10, 0, 45), UDim2.new(0, 5, 0, 10)
+    l.Text = "KEY: " .. fKN
+    l.TextSize = 22 -- 修正：字變大
     l.BackgroundColor3, l.TextColor3, l.Font = Color3.new(0.2, 0.2, 0.2), Color3.new(1,1,1), Enum.Font.Code
     l.MouseButton1Click:Connect(function()
         l.Text = "WAIT..."
@@ -174,8 +178,9 @@ task.spawn(function()
     end)
 
     local tb = Instance.new("TextBox", m)
-    tb.Size, tb.Position = UDim2.new(1, -10, 0, 35), UDim2.new(0, 5, 0, 55)
+    tb.Size, tb.Position = UDim2.new(1, -10, 0, 45), UDim2.new(0, 5, 0, 60)
     tb.BackgroundColor3, tb.TextColor3, tb.Text = Color3.new(0.1, 0.1, 0.1), Color3.new(1, 1, 0), tostring(freezeMS)
+    tb.TextSize = 22 -- 修正：字變大
     tb.Font = Enum.Font.Code
     tb.FocusLost:Connect(function()
         local val = tonumber(tb.Text)
