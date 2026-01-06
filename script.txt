@@ -22,10 +22,10 @@ local function showHeader()
     print("\n" .. wall)
     print([[										
   ________  ________  ________  ___       ________   _______
- |\   ____\|\   ____\|\   __  \|\  \     |\    __ \|\   __  \ 
+ |\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \ 
  \ \  \___|  \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \ 
   \ \  \____\ \_____  \ \   __  \ \  \    \ \  __\__\ \_____  \
-   \ \  \___|_| _____\ \ \  \ \  \ \  \____\ \  \\_ \_\| ___\  \
+   \ \  \___|_| _____\ \ \  \ \  \ \  \____\ \  \\_ \_|_____\  \
     \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
      \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
     ]])
@@ -144,11 +144,19 @@ task.spawn(function()
         local c = p.Character
         local r = c and c:FindFirstChild("HumanoidRootPart")
         if bhop and c and c:FindFirstChildOfClass("Humanoid") and c:FindFirstChildOfClass("Humanoid").FloorMaterial ~= Enum.Material.Air then c:FindFirstChildOfClass("Humanoid"):ChangeState(3) end
+        
+        -- [[ 修改後的 Freeze 邏輯：加入射線檢測 ]]
         if freeze and r then
-            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Freeze: " .. freezeMS .. "ms"; Duration = 0.5; })
-            local t = os.clock() 
-            local delayTime = (tonumber(freezeMS) or 300) / 1000
-            while os.clock() - t < delayTime do end 
+            local lp = RaycastParams.new()
+            lp.FilterDescendantsInstances = {c}
+            
+            -- 檢測下方 20 單位或前方 15 單位是否有物體
+            if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector * 15, lp) then
+                game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Freeze: " .. freezeMS .. "ms"; Duration = 0.5; })
+                local t = os.clock() 
+                local delayTime = (tonumber(freezeMS) or 300) / 1000
+                while os.clock() - t < delayTime do end 
+            end
         end
     end)
 
@@ -159,13 +167,11 @@ task.spawn(function()
     sg.DisplayOrder = 999
     
     local m = Instance.new("Frame", sg)
-    -- 主框架尺寸：寬 80, 高 85
     m.Size, m.Position = UDim2.new(0, 80, 0, 85), UDim2.new(0, 15, 0.4, 0)
     m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 0.5, 1
     m.Active = true
-    m.Draggable = true -- 修正：啟用拖動
+    m.Draggable = true 
 
-    -- 頂部拖移條 (標題欄)
     local bar = Instance.new("Frame", m)
     bar.Size = UDim2.new(1, 0, 0, 15)
     bar.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
@@ -180,7 +186,6 @@ task.spawn(function()
     minBtn.TextSize = 14
     minBtn.Font = Enum.Font.Code
 
-    -- 功能內容容器
     local content = Instance.new("Frame", m)
     content.Size = UDim2.new(1, 0, 1, -15)
     content.Position = UDim2.new(0, 0, 0, 15)
@@ -210,16 +215,15 @@ task.spawn(function()
         if val then freezeMS = math.clamp(val, 0, 5000) tb.Text = tostring(freezeMS) end
     end)
 
-    -- 縮小邏輯處理
     local minimized = false
     minBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
         content.Visible = not minimized
         if minimized then
-            m.Size = UDim2.new(0, 80, 0, 15) -- 縮小為標題條
+            m.Size = UDim2.new(0, 80, 0, 15) 
             minBtn.Text = "+"
         else
-            m.Size = UDim2.new(0, 80, 0, 85) -- 恢復原始大小
+            m.Size = UDim2.new(0, 80, 0, 85) 
             minBtn.Text = "-"
         end
     end)
