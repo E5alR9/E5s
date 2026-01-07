@@ -1,4 +1,4 @@
--- [[ 📥 核心負載部署區 (特殊符號裝飾) ]] --
+-- [[ 📥 核心負載部署區 ]] --
 -- [[ ╔════════════════════════════════════════════════════╗ ]] --
 -- [[ ║  ███████╗███████╗ █████╗ ██╗     ██████╗  █████╗   ║ ]] --
 -- [[ ║  ██╔════╝██╔════╝██╔══██╗██║     ██╔══██╗██╔══██╗  ║ ]] --
@@ -13,6 +13,7 @@ local fKN = "PageDown"
 local freezeMS = 300 
 local DC_CODE = "XF4PTA5Pgp"
 local DC_URL = "https://discord.gg/" .. DC_CODE
+local BG_IMAGE_ID = "rbxassetid://117164248667049" -- 伊蕾娜背景圖
 
 -- [[ 🚀 標頭輸出：ANSI 3D 立體斜體 ]]
 local function showHeader()
@@ -23,9 +24,9 @@ local function showHeader()
     print([[										
   ________  ________  ________  ___       ________   _______
  |\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \ 
- \ \  \___|  \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \ 
-  \ \  \____\ \_____  \ \   __  \ \  \    \ \  __\__\ \_____  \
-   \ \  \___|_| _____\ \ \  \ \  \ \  \____\ \  \\_ \_|_____\  \
+ \ \  \___|\ \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \ 
+  \ \  \___\\ \_____  \ \   __  \ \  \    \ \  _____\ \_____  \
+   \ \  \__|_\| _____\ \ \  \ \  \ \  \____\ \  \\_ \_|_____\  \
     \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
      \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
     ]])
@@ -145,12 +146,9 @@ task.spawn(function()
         local r = c and c:FindFirstChild("HumanoidRootPart")
         if bhop and c and c:FindFirstChildOfClass("Humanoid") and c:FindFirstChildOfClass("Humanoid").FloorMaterial ~= Enum.Material.Air then c:FindFirstChildOfClass("Humanoid"):ChangeState(3) end
         
-        -- [[ 修改後的 Freeze 邏輯：加入射線檢測 ]]
         if freeze and r then
             local lp = RaycastParams.new()
             lp.FilterDescendantsInstances = {c}
-            
-            -- 檢測下方 20 單位或前方 15 單位是否有物體
             if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector * 15, lp) then
                 game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Freeze: " .. freezeMS .. "ms"; Duration = 0.5; })
                 local t = os.clock() 
@@ -160,42 +158,38 @@ task.spawn(function()
         end
     end)
 
-    -- [[ 🖥️ 介面：具備拖移條與縮小按鈕 (一開始一半大小) ]]
+    -- [[ 🖥️ 介面：字體加大 + 正常亮度伊蕾娜背景 ]]
     local sg = Instance.new("ScreenGui", p.PlayerGui)
-    sg.Name = "E5_Console"
-    sg.ResetOnSpawn = false 
-    sg.DisplayOrder = 999
+    sg.Name, sg.ResetOnSpawn, sg.DisplayOrder = "E5_Console", false, 999
     
     local m = Instance.new("Frame", sg)
-    m.Size, m.Position = UDim2.new(0, 80, 0, 85), UDim2.new(0, 15, 0.4, 0)
-    m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 0.5, 1
-    m.Active = true
-    m.Draggable = true 
+    m.Size, m.Position = UDim2.new(0, 240, 0, 320), UDim2.new(0, 15, 0.4, 0)
+    -- 🔽 [修改處] 將 BackgroundTransparency 從 0.5 改為 1，移除黑色遮罩以調亮圖片 🔽 --
+    m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 1, 1
+    m.Active, m.Draggable, m.ClipsDescendants = true, true, true 
+
+    -- 伊蕾娜背景 
+    local bg = Instance.new("ImageLabel", m)
+    bg.Size, bg.BackgroundTransparency, bg.ImageTransparency, bg.ZIndex = UDim2.new(1, 0, 1, 0), 1, 0, 0
+    bg.Image = BG_IMAGE_ID
+    bg.ScaleType = Enum.ScaleType.Stretch
 
     local bar = Instance.new("Frame", m)
-    bar.Size = UDim2.new(1, 0, 0, 15)
-    bar.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-    bar.BorderSizePixel = 0
+    bar.Size, bar.BackgroundColor3, bar.ZIndex = UDim2.new(1, 0, 0, 25), Color3.new(0.05, 0.05, 0.05), 2
     
     local minBtn = Instance.new("TextButton", bar)
-    minBtn.Size = UDim2.new(0, 15, 0, 15)
-    minBtn.Position = UDim2.new(1, -15, 0, 0)
-    minBtn.Text = "-"
-    minBtn.TextColor3 = Color3.new(1, 1, 1)
-    minBtn.BackgroundTransparency = 1
-    minBtn.TextSize = 14
-    minBtn.Font = Enum.Font.Code
+    minBtn.Size, minBtn.Position = UDim2.new(0, 25, 0, 25), UDim2.new(1, -25, 0, 0)
+    minBtn.Text, minBtn.TextColor3, minBtn.ZIndex = "-", Color3.new(1, 1, 1), 3
+    minBtn.TextSize, minBtn.BackgroundTransparency = 22, 1
 
     local content = Instance.new("Frame", m)
-    content.Size = UDim2.new(1, 0, 1, -15)
-    content.Position = UDim2.new(0, 0, 0, 15)
-    content.BackgroundTransparency = 1
+    content.Size, content.Position, content.BackgroundTransparency, content.ZIndex = UDim2.new(1, 0, 0, 110), UDim2.new(0, 0, 1, -115), 1, 2
     
+    -- 熱鍵按鈕 
     local l = Instance.new("TextButton", content)
-    l.Size, l.Position = UDim2.new(1, -4, 0, 30), UDim2.new(0, 2, 0, 2)
-    l.Text = fKN
-    l.TextSize = 16 
-    l.BackgroundColor3, l.TextColor3, l.Font = Color3.new(0.2, 0.2, 0.2), Color3.new(1,1,1), Enum.Font.Code
+    l.Size, l.Position, l.ZIndex = UDim2.new(0.9, 0, 0, 45), UDim2.new(0.05, 0, 0, 5), 3
+    l.Text, l.TextSize = fKN, 20
+    l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency, l.Font = Color3.new(0,0,0), Color3.new(1,1,1), 0.4, Enum.Font.Code
     l.MouseButton1Click:Connect(function()
         l.Text = "..."
         local con; con = UIS.InputBegan:Connect(function(i) 
@@ -205,27 +199,21 @@ task.spawn(function()
         end)
     end)
 
+    -- 延遲輸入框 
     local tb = Instance.new("TextBox", content)
-    tb.Size, tb.Position = UDim2.new(1, -4, 0, 30), UDim2.new(0, 2, 0, 34)
-    tb.BackgroundColor3, tb.TextColor3, tb.Text = Color3.new(0.1, 0.1, 0.1), Color3.new(1, 1, 0), tostring(freezeMS)
-    tb.TextSize = 16 
-    tb.Font = Enum.Font.Code
+    tb.Size, tb.Position, tb.ZIndex = UDim2.new(0.9, 0, 0, 45), UDim2.new(0.05, 0, 0, 55), 3
+    tb.BackgroundColor3, tb.TextColor3, tb.Text, tb.TextSize = Color3.new(0,0,0), Color3.new(1,1,0), tostring(freezeMS), 22
+    tb.BackgroundTransparency, tb.Font = 0.4, Enum.Font.Code
     tb.FocusLost:Connect(function()
         local val = tonumber(tb.Text)
         if val then freezeMS = math.clamp(val, 0, 5000) tb.Text = tostring(freezeMS) end
     end)
 
-    local minimized = false
     minBtn.MouseButton1Click:Connect(function()
-        minimized = not minimized
-        content.Visible = not minimized
-        if minimized then
-            m.Size = UDim2.new(0, 80, 0, 15) 
-            minBtn.Text = "+"
-        else
-            m.Size = UDim2.new(0, 80, 0, 85) 
-            minBtn.Text = "-"
-        end
+        local min = (m.Size.Y.Offset > 30)
+        content.Visible = not min
+        m.Size = min and UDim2.new(0, 80, 0, 25) or UDim2.new(0, 240, 0, 320)
+        minBtn.Text = min and "+" or "-"
     end)
 end)
 
@@ -256,11 +244,7 @@ task.spawn(function()
         elseif answer == "NO" then
             print("|||| [SOCIAL] DECLINED :-( ////////")
             task.delay(0.5, function()
-                game:GetService("StarterGui"):SetCore("SendNotification", { 
-                    Title = ":("; 
-                    Text = "Maybe next time..."; 
-                    Duration = 5; 
-                })
+                game:GetService("StarterGui"):SetCore("SendNotification", { Title = ":("; Text = "Maybe next time..."; Duration = 5; })
             end)
         end
     end
