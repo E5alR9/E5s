@@ -1,0 +1,6 @@
+_G.fKN = "PageDown"
+_G.freezeMS = 300
+_G.DC_CODE = "XF4PTA5Pgp"
+_G.DC_URL = "https://discord.gg/" .. _G.DC_CODE
+_G.BG_IMAGE_ID = "rbxassetid://117164248667049"
+print("//// ENV //// Global Variables Initialized")
