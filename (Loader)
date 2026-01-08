@@ -128,7 +128,6 @@ local function createUI()
     local xBtn = Instance.new("TextButton", bar)
     xBtn.Size, xBtn.Position, xBtn.Text, xBtn.TextColor3, xBtn.ZIndex = UDim2.new(0, 30, 0, 30), UDim2.new(1, -30, 0, 0), "X", Color3.new(1, 0.2, 0.2), 6
     xBtn.BackgroundTransparency, xBtn.TextSize = 1, 18
-    -- [[ 修正：點擊 X 僅隱藏 ]]
     xBtn.MouseButton1Click:Connect(function() sg.Enabled = false end)
 
     local minBtn = Instance.new("TextButton", bar)
@@ -175,7 +174,6 @@ end
 
 -- [[ 🔄 角色與物理處理 ]]
 local function run(c)
-    -- [[ 修正：復活時強制顯示 UI ]]
     if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console.Enabled = true end
     
     print("\\\\ HOOK \\\\ Character_Linked: " .. c.Name)
@@ -201,13 +199,19 @@ UIS.InputEnded:Connect(function(i)
     elseif i.KeyCode.Name == _G.fKN then _G.freeze = false end 
 end)
 
+-- [[ 核心修正：加入通知冷卻變量 ]]
+local lastNotify = 0
+
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local m, r = c and c:FindFirstChildOfClass("Humanoid"), c and c:FindFirstChild("HumanoidRootPart")
     if _G.bhop and m and m.FloorMaterial ~= Enum.Material.Air then m:ChangeState(3) end
     if _G.freeze and r then
-        -- [[ 修正：卡住時發送通知 ]]
-        game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Freeze: " .. _G.freezeMS .. "ms"; Duration = 0.5; })
+        -- [[ 修正：卡住時發送通知，並加入 1 秒冷卻防止狂跳 ]]
+        if os.clock() - lastNotify > 1 then
+            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Freeze: " .. _G.freezeMS .. "ms"; Duration = 0.5; })
+            lastNotify = os.clock()
+        end
         
         local lp = RaycastParams.new() lp.FilterDescendantsInstances = {c}
         if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
@@ -242,23 +246,3 @@ end)
 task.wait(6)
 print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ALL SYSTEMS LOADED | @E5ALR9 ////////////////////")
 print("//// [SYSTEM] READY TO OPERATE AT RING-0 ////")
-
------------------------------------------------------------------------------------
--- [[ 💡 核心運作邏輯說明 (註解) ]]
------------------------------------------------------------------------------------
--- 1. Anti-AFK (防斷線系統): 
---    位於 Module 1，透過監測 Player.Idled 事件，自動驅動 VirtualUser 點擊鼠標，
---    繞過 Roblox 的 20 分鐘閒置自動踢除機制。
---
--- 2. UI 穩定性優化 (重要改動):
---    - 縮小按鈕 (+) (-): 僅修改 Frame 的可見性與尺寸，不刪除或重啟腳本，確保狀態保存。
---    - 關閉按鈕 (X): 改為隱藏 Enabled 屬性，確保 UI 資源保留在 PlayerGui 中。
---    - 復活不重啟: 角色死亡復活時 (CharacterAdded)，會強制將 UI 設為顯示，並執行 Korblox 注入。
---
--- 3. 物理判定功能:
---    - Bhop: 當偵測到跳躍鍵按下且玩家在地面時，強行將 Humanoid 狀態切換為 Jumping (3)。
---    - Freeze: 偵測到 PageDown 按下時，執行一個精確到毫秒的 while 循環阻斷物理模擬。
---
--- 4. 資源注入:
---    腳本會自動克隆 ReplicatedStorage 中的動作資源，實現 Stride 動作與動畫替換。
------------------------------------------------------------------------------------
