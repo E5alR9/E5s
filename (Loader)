@@ -181,7 +181,6 @@ local function run(c)
     print("\\\\ HOOK \\\\ Character_Linked: " .. c.Name)
     local h = c:WaitForChild("Head", 5)
     if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
-    task.wait(1)
     pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() end)
 end
 
@@ -189,7 +188,7 @@ task.spawn(function()
     print("//// #### [M3] UI_CONTROLLER_BOOTUP #### ////")
     createUI() 
     if p.Character then task.spawn(run, p.Character) end
-    p.CharacterAdded:Connect(function(char) task.wait(0.5) run(char) end)
+    p.CharacterAdded:Connect(function(char) task.wait(0.1) run(char) end)
 end)
 
 UIS.InputBegan:Connect(function(i, g) 
