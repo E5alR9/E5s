@@ -172,10 +172,9 @@ local function createUI()
     end)
 end
 
--- [[ 🔄 角色與物理處理 ]]
+-- [[ 🔄 角色處理 ]]
 local function run(c)
     if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console.Enabled = true end
-    
     print("\\\\ HOOK \\\\ Character_Linked: " .. c.Name)
     local h = c:WaitForChild("Head", 5)
     if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
@@ -189,59 +188,47 @@ task.spawn(function()
     p.CharacterAdded:Connect(function(char) task.wait(0.1) run(char) end)
 end)
 
--- [[ 🔄 輸入偵測區 ]]
+-- [[ 🔄 輸入偵測 ]]
 UIS.InputBegan:Connect(function(i, g) 
     if g then return end 
     if i.KeyCode == Enum.KeyCode.Space then _G.bhop = true 
-    elseif i.KeyCode.Name == _G.fKN then 
-        _G.freeze = true 
-        print("\\\\ INPUT \\\\ [[ FREEZE_ENGAGED ]]")
-    end 
+    elseif i.KeyCode.Name == _G.fKN then _G.freeze = true print("\\\\ INPUT \\\\ [[ FREEZE_ENGAGED ]]") end 
 end)
-
 UIS.InputEnded:Connect(function(i) 
     if i.KeyCode == Enum.KeyCode.Space then _G.bhop = false 
     elseif i.KeyCode.Name == _G.fKN then _G.freeze = false end 
 end)
 
 -- [[ 🔄 物理與心跳邏輯核心區 ]]
-local lastNotify = 0
-
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local r = c and c:FindFirstChild("HumanoidRootPart")
     local hum = c and c:FindFirstChildOfClass("Humanoid")
 
-    -- Bhop 邏輯
-    if _G.bhop and hum and hum.FloorMaterial ~= Enum.Material.Air then 
-        hum:ChangeState(3) 
-    end
+    -- 1. Bhop 邏輯
+    if _G.bhop and hum and hum.FloorMaterial ~= Enum.Material.Air then hum:ChangeState(3) end
 
-    -- Freeze 邏輯 (Raycast 版)
+    -- 2. Freeze 核心：移除一般按鍵凍結，僅保留 Raycast 觸發
     if _G.freeze and r then
         local lp = RaycastParams.new()
         lp.FilterDescendantsInstances = {c}
-
-        -- [[ 回歸：偵測下方或前方的 Raycast 判定 ]]
+        
+        -- [[ 核心判定：只有 Raycast 掃到東西才跳通知 + 卡住 ]]
         if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
-            -- 1. 執行凍結阻斷 (0.3s)
+            
+            -- 跳出動態數字通知
+            game:GetService("StarterGui"):SetCore("SendNotification", { 
+                Title = "SYSTEM"; 
+                Text = "Freeze: " .. tostring(_G.freezeMS) .. "ms"; 
+                Duration = 0.5; 
+            })
+            
+            -- 執行物理阻斷 (依據 UI 設定的 ms)
             local t = os.clock() 
-            while os.clock() - t < 0.3 do end
+            local delayTime = (tonumber(_G.freezeMS) or 300) / 1000
+            while os.clock() - t < delayTime do end 
             
-            -- 2. 短暫延遲
             task.wait(0.05)
-            
-            -- 3. 冷卻通知 (防止 60fps 洗版)
-            if os.clock() - lastNotify > 1 then
-                game:GetService("StarterGui"):SetCore("SendNotification", { 
-                    Title = "FREEZE"; 
-                    Text = "300MS"; 
-                    Duration = 0.5; 
-                })
-                lastNotify = os.clock()
-            end
-            
-            -- 4. 後續等待
             task.wait(0.1)
         end
     end
