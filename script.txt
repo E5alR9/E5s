@@ -1,4 +1,1 @@
--- [[ E5ALR9 遠端加載啟動器 ]] --
-pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/(Loader)"))()
-end)
+loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/(Loader)"))()
