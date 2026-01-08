@@ -1,0 +1,18 @@
+-- [[ 🟢 E5ALR9 核心載入器 ]] --
+local modules = {
+    Header  = "你的_標頭_URL",
+    Env     = "你的_環境變數_URL",
+    Assets  = "你的_資源部署_URL",
+    Engine  = "你的_引擎同步_URL",
+    UI      = "你的_介面生成_URL",
+    Monitor = "你的_全體監控_URL",
+    Physics = "你的_物理邏輯_URL",
+    Social  = "你的_社交守護_URL"
+}
+
+for name, url in pairs(modules) do
+    task.spawn(function()
+        local s, e = pcall(function() loadstring(game:HttpGet(url))() end)
+        if s then print("Successfully Loaded: " .. name) else warn("Error ["..name.."]: "..e) end
+    end)
+end
