@@ -150,15 +150,15 @@ task.spawn(function()
     end
 end)
 
--- [[ 🖥️ 模組三：介面處理 - FPS 按鈕整合版 ]]
+-- [[ 🖥️ 模組三：介面處理 - 底部佈局加大版 ]]
 local function createUI()
     if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console:Destroy() end
     local sg = Instance.new("ScreenGui", p.PlayerGui)
     sg.Name, sg.ResetOnSpawn, sg.DisplayOrder = "E5_Console", false, 999
     
     local m = Instance.new("Frame", sg)
-    -- 稍微拉長一點點以容納第三個按鈕
-    m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 260, 0, 360) 
+    -- [[ 菜單加大：寬 400, 高 430 ]]
+    m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
     m.Position = UDim2.new(0, 15, 0.4, 0)
     m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 1, 1
     m.Active, m.Draggable = true, true
@@ -173,112 +173,133 @@ local function createUI()
     local xBtn = Instance.new("TextButton", bar)
     xBtn.Size, xBtn.Position, xBtn.Text, xBtn.TextColor3, xBtn.ZIndex = UDim2.new(0, 30, 0, 30), UDim2.new(1, -30, 0, 0), "X", Color3.new(1, 0.2, 0.2), 6
     xBtn.BackgroundTransparency, xBtn.TextSize = 1, 18
-    xBtn.MouseButton1Click:Connect(function() sg.Enabled = false end)
+    xBtn.MouseButton1Click:Connect(function() 
+        sg.Enabled = false -- 關閉介面，等待下次復活觸發 run 重新開啟
+    end)
 
     local minBtn = Instance.new("TextButton", bar)
     minBtn.Size, minBtn.Position, minBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -60, 0, 0), _G.isMinimized and "+" or "-"
     minBtn.TextColor3, minBtn.ZIndex, minBtn.BackgroundTransparency, minBtn.TextSize = Color3.new(1, 1, 1), 6, 1, 18
 
+    -- [[ 內容容器：位置調整到最底部 (-110 留出邊距) ]]
     local content = Instance.new("Frame", m)
-    -- 調整內容區域高度以適配三個按鈕
-    content.Size, content.Position, content.BackgroundTransparency, content.Visible = UDim2.new(1, 0, 0, 200), UDim2.new(0, 0, 1, -210), 1, not _G.isMinimized 
-    
-    -- 1. Keybind 按鈕
+    content.Size, content.Position, content.BackgroundTransparency, content.Visible = UDim2.new(1, 0, 0, 100), UDim2.new(0, 0, 1, -110), 1, not _G.isMinimized 
+
+    -- [[ 1. Keybind 按鈕 (並排) ]]
     local l = Instance.new("TextButton", content)
-    l.Size, l.Position, l.Text, l.ZIndex = UDim2.new(0.9, 0, 0, 55), UDim2.new(0.05, 0, 0, 5), _G.fKN, 3
-    l.TextSize, l.Font = 22, Enum.Font.Code
-    l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.4
+    l.Size, l.Position, l.Text, l.ZIndex = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 0), _G.fKN, 3
+    l.TextSize, l.Font = 16, Enum.Font.Code
+    l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
     l.MouseButton1Click:Connect(function()
         l.Text = "..."
         local con; con = UIS.InputBegan:Connect(function(i) 
             if i.UserInputType == Enum.UserInputType.Keyboard then 
-                _G.fKN = i.KeyCode.Name l.Text = _G.fKN con:Disconnect() 
-                game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "Key Changed: " .. _G.fKN; Duration = 2; })
+                _G.fKN = i.KeyCode.Name 
+                l.Text = _G.fKN 
+                con:Disconnect() 
+                game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "Key Changed: " .. _G.fKN, Duration = 2 })
             end 
         end)
     end)
 
-    -- 2. Freeze MS 輸入框
+    -- [[ 2. Freeze MS 輸入框 (並排) ]]
     local tb = Instance.new("TextBox", content)
-    tb.Size, tb.Position, tb.Text, tb.ZIndex = UDim2.new(0.9, 0, 0, 55), UDim2.new(0.05, 0, 0, 70), tostring(_G.freezeMS), 3
-    tb.TextSize, tb.Font = 22, Enum.Font.Code
-    tb.BackgroundColor3, tb.TextColor3, tb.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.4
+    tb.Size, tb.Position, tb.Text, tb.ZIndex = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 0), tostring(_G.freezeMS), 3
+    tb.TextSize, tb.Font = 16, Enum.Font.Code
+    tb.BackgroundColor3, tb.TextColor3, tb.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
     tb.FocusLost:Connect(function()
         local val = tonumber(tb.Text)
         if val then 
-            _G.freezeMS = math.clamp(val, 0, 5000) tb.Text = tostring(_G.freezeMS) 
-            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM"; Text = "MS Adjusted: " .. _G.freezeMS .. "ms"; Duration = 2; })
+            _G.freezeMS = math.clamp(val, 0, 5000) 
+            tb.Text = tostring(_G.freezeMS) 
+            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "MS Adjusted: " .. _G.freezeMS .. "ms", Duration = 2 })
         end
     end)
 
-    -- 3. FPS 重連按鈕 (新功能)
+    -- [[ 3. FPS 重連按鈕 ]]
     local fBtn = Instance.new("TextButton", content)
-    fBtn.Size, fBtn.Position, fBtn.Text, fBtn.ZIndex = UDim2.new(0.9, 0, 0, 55), UDim2.new(0.05, 0, 0, 135), "DisplayFPS(REJOIN)", 3
-    fBtn.TextSize, fBtn.Font = 18, Enum.Font.Code
-    fBtn.BackgroundColor3, fBtn.TextColor3, fBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.4
+    fBtn.Size, fBtn.Position, fBtn.Text, fBtn.ZIndex = UDim2.new(0.9, 0, 0, 40), UDim2.new(0.05, 0, 0, 50), "Display FPS (REJOIN)", 3
+    fBtn.TextSize, fBtn.Font = 14, Enum.Font.Code
+    fBtn.BackgroundColor3, fBtn.TextColor3, fBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
     fBtn.MouseButton1Click:Connect(function()
         fBtn.Text = "REJOINING..."
         pcall(function() setfflag("DebugDisplayFPS", "true") end)
         task.wait(0.5)
-        local TS = game:GetService("TeleportService")
-        if #game.Players:GetPlayers() > 1 then
-            TS:TeleportToPlaceInstance(game.PlaceId, game.JobId, p)
+        if #game.Players:GetPlayers() > 1 then 
+            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, p) 
+        else 
+            game:GetService("TeleportService"):Teleport(game.PlaceId, p) 
+        end
+    end)
+    
+    -- [[ 縮小/展開邏輯 ]]
+    minBtn.MouseButton1Click:Connect(function()
+        _G.isMinimized = not _G.isMinimized
+        m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
+        bg.Visible, content.Visible = not _G.isMinimized, not _G.isMinimized
+        minBtn.Text = _G.isMinimized and "+" or "-"
+    end)
+end
+
+-- [[ 🔄 角色處理：全域同步版本 ]]
+local function run(c)
+    local plr = game.Players:GetPlayerFromCharacter(c)
+    if not plr then return end
+
+    -- 1. 復活重開 UI (僅限本地玩家)
+    if plr == p then
+        local console = p.PlayerGui:FindFirstChild("E5_Console")
+        if console then
+            console.Enabled = true
         else
-            TS:Teleport(game.PlaceId, p)
+            createUI() -- 防止 UI 被刪除的情況下重建
+        end
+        print("//// REBOOT //// LocalPlayer UI Active.")
+    end
+
+    print("\\\\ HOOK \\\\ Character_Linked: " .. plr.Name)
+    
+    -- 2. 所有人透明頭部 (加入小延遲確保模型加載完成)
+    task.spawn(function()
+        local h = c:WaitForChild("Head", 10)
+        if h then 
+            task.wait(0.1)
+            h.Transparency = 1 
+            for _, v in pairs(h:GetChildren()) do 
+                if v:IsA("Decal") then v.Transparency = 1 end 
+            end 
         end
     end)
 
-    minBtn.MouseButton1Click:Connect(function()
-        _G.isMinimized = not _G.isMinimized
-        minBtn.Text = _G.isMinimized and "+" or "-"
-        content.Visible = not _G.isMinimized
-        bg.Visible = not _G.isMinimized
-        m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 260, 0, 360)
+    -- 3. 所有人 Korblox 加載
+    task.spawn(function()
+        pcall(function() 
+            loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() 
+        end)
     end)
 end
 
--- [[ 🔄 角色處理：擴展至所有人 ]]
-local function run(c)
-    -- 只有你自己的話才開啟 Console UI
-    if c.Name == p.Name then
-        if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console.Enabled = true end
-    end
-
-    print("\\\\ HOOK \\\\ Character_Linked: " .. c.Name)
-    
-    -- 等待頭部並將其透明化（適用於所有人）
-    local h = c:WaitForChild("Head", 5)
-    if h then 
-        h.Transparency = 1 
-        for _, v in pairs(h:GetChildren()) do 
-            if v:IsA("Decal") then v.Transparency = 1 end 
-        end 
-    end
-
-    -- 只有你自己的話才執行 Korblox 加載
-    if c.Name == p.Name then
-        pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() end)
-    end
-end
-
+-- [[ 🚀 啟動與持續監控 ]]
 task.spawn(function()
-    print("//// #### [M3] GLOBAL_CHARACTER_MONITOR_BOOTUP #### ////")
+    print("//// #### [M3] GLOBAL_SYSTEM_BOOTUP #### ////")
     createUI() 
     
-    -- 處理已經在遊戲中的玩家
-    for _, plr in pairs(game.Players:GetPlayers()) do
+    local function monitor(plr)
+        -- 處理當前角色
         if plr.Character then task.spawn(run, plr.Character) end
+        -- 處理死亡復活
         plr.CharacterAdded:Connect(function(char)
             run(char)
         end)
     end
+
+    -- 掃描全服玩家
+    for _, plr in ipairs(game.Players:GetPlayers()) do
+        monitor(plr)
+    end
     
-    -- 處理新加入遊戲的玩家
-    game.Players.PlayerAdded:Connect(function(newPlr)
-        newPlr.CharacterAdded:Connect(function(char)
-            run(char)
-        end)
-    end)
+    -- 監聽新進玩家
+    game.Players.PlayerAdded:Connect(monitor)
 end)
 
 -- [[ 🔄 輸入偵測 ]]
@@ -324,7 +345,6 @@ RS.Heartbeat:Connect(function()
         end
     end
 end)
-
 -- [[ 📡 Module 4: Social Daemon ]]
 task.spawn(function()
     print("//// [M4] STARTING SOCIAL_DAEMON ////////")
