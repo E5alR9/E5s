@@ -9,16 +9,16 @@
 
 local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
 
--- [[ 核心同步變量 ]]
-_G.bhop = false
-_G.freeze = false
-_G.fKN = "PageDown"
-_G.freezeMS = 300 
-_G.isMinimized = false 
+-- [[ ⚙️ 核心變數與初始化 ]]
+_G.bhop = _G.bhop or false
+_G.freeze = _G.freeze or false
+_G.fKN = _G.fKN or "PageDown"        
+_G.freezeMS = _G.freezeMS or 300     
+_G.isMinimized = _G.isMinimized or false 
 
 local DC_CODE = "XF4PTA5Pgp"
 local DC_URL = "https://discord.gg/" .. DC_CODE
-local BG_IMAGE_ID = "rbxassetid://117164248667049" 
+local BG_IMAGE_ID = "rbxassetid://117164248667049"
 
 -- [[ 🚀 標頭輸出：ANSI 3D 立體斜體 ]]
 local function showHeader()
@@ -150,14 +150,13 @@ task.spawn(function()
     end
 end)
 
--- [[ 🖥️ 模組三：介面處理 - 底部佈局加大版 ]]
+-- [[ 🖥️ 介面處理核心 - 完美整合版 ]]
 local function createUI()
     if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console:Destroy() end
     local sg = Instance.new("ScreenGui", p.PlayerGui)
     sg.Name, sg.ResetOnSpawn, sg.DisplayOrder = "E5_Console", false, 999
     
     local m = Instance.new("Frame", sg)
-    -- [[ 菜單加大：寬 400, 高 430 ]]
     m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
     m.Position = UDim2.new(0, 15, 0.4, 0)
     m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 1, 1
@@ -171,41 +170,94 @@ local function createUI()
     bar.Size, bar.BackgroundColor3, bar.ZIndex = UDim2.new(1, 0, 0, 30), Color3.new(0.05, 0.05, 0.05), 5
     
     local xBtn = Instance.new("TextButton", bar)
-    xBtn.Size, xBtn.Position, xBtn.Text, xBtn.TextColor3, xBtn.ZIndex = UDim2.new(0, 30, 0, 30), UDim2.new(1, -30, 0, 0), "X", Color3.new(1, 0.2, 0.2), 6
-    xBtn.BackgroundTransparency, xBtn.TextSize = 1, 18
-    xBtn.MouseButton1Click:Connect(function() 
-        sg.Enabled = false -- 關閉介面，等待下次復活觸發 run 重新開啟
-    end)
+    xBtn.Size, xBtn.Position, xBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -30, 0, 0), "X"
+    xBtn.TextColor3, xBtn.BackgroundTransparency, xBtn.ZIndex, xBtn.TextSize = Color3.new(1, 0.2, 0.2), 1, 6, 18
+    xBtn.MouseButton1Click:Connect(function() sg.Enabled = false end)
 
     local minBtn = Instance.new("TextButton", bar)
     minBtn.Size, minBtn.Position, minBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -60, 0, 0), _G.isMinimized and "+" or "-"
-    minBtn.TextColor3, minBtn.ZIndex, minBtn.BackgroundTransparency, minBtn.TextSize = Color3.new(1, 1, 1), 6, 1, 18
+    minBtn.TextColor3, minBtn.BackgroundTransparency, minBtn.ZIndex, minBtn.TextSize = Color3.new(1, 1, 1), 1, 6, 18
 
-    -- [[ 內容容器：位置調整到最底部 (-110 留出邊距) ]]
+    -- [[ 內容容器：固定在主框架底部 ]]
     local content = Instance.new("Frame", m)
-    content.Size, content.Position, content.BackgroundTransparency, content.Visible = UDim2.new(1, 0, 0, 100), UDim2.new(0, 0, 1, -110), 1, not _G.isMinimized 
+    content.Size, content.Position = UDim2.new(1, 0, 0, 150), UDim2.new(0, 0, 1, -160)
+    content.BackgroundTransparency, content.Visible = 1, not _G.isMinimized 
 
-    -- [[ 1. Keybind 按鈕 (並排) ]]
+    --- [[ 第一排 (Y: 0)：LAG TOOL (子視窗生成邏輯) ---
+    local lagToolBtn = Instance.new("TextButton", content)
+    lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.9, 0, 0, 40), UDim2.new(0.05, 0, 0, 0), "ACTIVATE LAG TOOL"
+    lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.new(0.2,0,0), Color3.new(1,0.5,0.5), 0.7
+    lagToolBtn.MouseButton1Click:Connect(function()
+        task.spawn(function()
+            if p.PlayerGui:FindFirstChild("SpecificLagSystem") then p.PlayerGui.SpecificLagSystem:Destroy() end
+            local freezeSystemGui = Instance.new("ScreenGui", p.PlayerGui)
+            freezeSystemGui.Name, freezeSystemGui.DisplayOrder = "SpecificLagSystem", 1000
+
+            local function applyDraggable(btn, onClick)
+                local dragging, dragStart, startPos, pressStartTime = false, nil, nil, 0
+                btn.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        dragging, dragStart, startPos, pressStartTime = true, input.Position, btn.Position, tick()
+                    end
+                end)
+                UIS.InputChanged:Connect(function(input)
+                    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                        if tick() - pressStartTime > 0.3 then
+                            local delta = input.Position - dragStart
+                            btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                        end
+                    end
+                end)
+                UIS.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        dragging = false
+                        if tick() - pressStartTime < 0.3 then onClick() end
+                    end
+                end)
+            end
+
+            local lagBtn = Instance.new("TextButton", freezeSystemGui)
+            lagBtn.Size, lagBtn.Position, lagBtn.Text = UDim2.new(0, 90, 0, 45), UDim2.new(0.96, 0, 0.45, 0), "LAG ONCE"
+            lagBtn.BackgroundColor3, lagBtn.TextColor3 = Color3.fromRGB(60, 60, 60), Color3.new(1, 1, 1)
+            lagBtn.AnchorPoint = Vector2.new(1, 0.5)
+            Instance.new("UICorner", lagBtn)
+
+            applyDraggable(lagBtn, function()
+                task.spawn(function()
+                    game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "Freeze: " .. (_G.freezeMS or 300) .. "ms", Duration = 0.5 })
+                    local freezeSec = (_G.freezeMS or 300) / 1000
+                    lagBtn.BackgroundColor3, lagBtn.Text = Color3.fromRGB(255, 0, 0), "FREEZING"
+                    local t = os.clock()
+                    while os.clock() - t < freezeSec do end 
+                    lagBtn.BackgroundColor3, lagBtn.Text = Color3.fromRGB(60, 60, 60), "LAG ONCE"
+                end)
+            end)
+            
+            local closeBtn = Instance.new("TextButton", freezeSystemGui)
+            closeBtn.Size, closeBtn.Position, closeBtn.Text = UDim2.new(0, 70, 0, 35), UDim2.new(0.96, 0, 0.52, 0), "CLOSE"
+            closeBtn.BackgroundColor3, closeBtn.TextColor3 = Color3.fromRGB(150, 0, 0), Color3.new(1, 1, 1)
+            closeBtn.AnchorPoint = Vector2.new(1, 0.5)
+            Instance.new("UICorner", closeBtn)
+            applyDraggable(closeBtn, function() freezeSystemGui:Destroy() end)
+        end)
+    end)
+
+    --- [[ 第二排 (Y: 50)：Keybind | MS (加入你要求的邏輯) ---
     local l = Instance.new("TextButton", content)
-    l.Size, l.Position, l.Text, l.ZIndex = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 0), _G.fKN, 3
-    l.TextSize, l.Font = 16, Enum.Font.Code
+    l.Size, l.Position, l.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 50), _G.fKN
     l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
     l.MouseButton1Click:Connect(function()
         l.Text = "..."
         local con; con = UIS.InputBegan:Connect(function(i) 
             if i.UserInputType == Enum.UserInputType.Keyboard then 
-                _G.fKN = i.KeyCode.Name 
-                l.Text = _G.fKN 
-                con:Disconnect() 
+                _G.fKN = i.KeyCode.Name; l.Text = _G.fKN; con:Disconnect() 
                 game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "Key Changed: " .. _G.fKN, Duration = 2 })
             end 
         end)
     end)
 
-    -- [[ 2. Freeze MS 輸入框 (並排) ]]
     local tb = Instance.new("TextBox", content)
-    tb.Size, tb.Position, tb.Text, tb.ZIndex = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 0), tostring(_G.freezeMS), 3
-    tb.TextSize, tb.Font = 16, Enum.Font.Code
+    tb.Size, tb.Position, tb.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 50), tostring(_G.freezeMS)
     tb.BackgroundColor3, tb.TextColor3, tb.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
     tb.FocusLost:Connect(function()
         local val = tonumber(tb.Text)
@@ -216,41 +268,23 @@ local function createUI()
         end
     end)
 
-    -- [[ 3. 底部並排按鈕區 ]] --
-
-    -- FPS 重連按鈕 (左側)
+    --- [[ 第三排 (Y: 100)：FPS | STEPS ---
     local fBtn = Instance.new("TextButton", content)
-    fBtn.Size, fBtn.Position, fBtn.Text, fBtn.ZIndex = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 50), "DisplayFPS(REJOIN)", 3
-    fBtn.TextSize, fBtn.Font = 14, Enum.Font.Code
+    fBtn.Size, fBtn.Position, fBtn.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 100), "DisplayFPS(RE)"
     fBtn.BackgroundColor3, fBtn.TextColor3, fBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
     fBtn.MouseButton1Click:Connect(function()
-        fBtn.Text = "REJOINING..."
         pcall(function() setfflag("DebugDisplayFPS", "true") end)
-        task.wait(0.5)
-        if #game.Players:GetPlayers() > 1 then 
-            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, p) 
-        else 
-            game:GetService("TeleportService"):Teleport(game.PlaceId, p) 
-        end
+        game:GetService("TeleportService"):Teleport(game.PlaceId, p)
     end)
 
-    -- Steps 優化重連按鈕 (右側)
     local sBtn = Instance.new("TextButton", content)
-    sBtn.Size, sBtn.Position, sBtn.Text, sBtn.ZIndex = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 50), "MissedWorld(REJOIN))", 3
-    sBtn.TextSize, sBtn.Font = 14, Enum.Font.Code
+    sBtn.Size, sBtn.Position, sBtn.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 100), "MissedSteps(RE)"
     sBtn.BackgroundColor3, sBtn.TextColor3, sBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,0), 0.7
     sBtn.MouseButton1Click:Connect(function()
-        sBtn.Text = "REJOINING..."
         pcall(function() setfflag("MaxMissedWorldStepsRemembered", "2147483467") end)
-        task.wait(0.5)
-        if #game.Players:GetPlayers() > 1 then 
-            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, p) 
-        else 
-            game:GetService("TeleportService"):Teleport(game.PlaceId, p) 
-        end
+        game:GetService("TeleportService"):Teleport(game.PlaceId, p)
     end)
-    
-    -- [[ 縮小/展開邏輯 ]]
+
     minBtn.MouseButton1Click:Connect(function()
         _G.isMinimized = not _G.isMinimized
         m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
