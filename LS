@@ -1,0 +1,85 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+
+local p = Players.LocalPlayer
+
+-- 1. 建立 UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SingleLagGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = p:WaitForChild("PlayerGui")
+
+local freezeButton = Instance.new("TextButton")
+freezeButton.Size = UDim2.new(0, 90, 0, 45)
+freezeButton.Position = UDim2.new(0.96, 0, 0.45, 0)
+freezeButton.AnchorPoint = Vector2.new(1, 0.5)
+freezeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) -- 灰色
+freezeButton.BackgroundTransparency = 0.4
+freezeButton.Text = "LAG ONCE"
+freezeButton.TextColor3 = Color3.new(1, 1, 1)
+freezeButton.Font = Enum.Font.SourceSansBold
+freezeButton.TextSize = 14
+freezeButton.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 8)
+uiCorner.Parent = freezeButton
+
+-- 2. 拖移與長按邏輯
+local dragging, dragStart, startPos = false, nil, nil
+local pressStartTime = 0
+local isLongPress = false
+local LONG_PRESS_THRESHOLD = 0.3 -- 超過 0.3 秒視為拖移
+
+freezeButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = freezeButton.Position
+        pressStartTime = tick()
+        isLongPress = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if tick() - pressStartTime > LONG_PRESS_THRESHOLD then
+            isLongPress = true
+            local delta = input.Position - dragStart
+            freezeButton.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+            freezeButton.BackgroundTransparency = 0.7
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if dragging then
+            dragging = false
+            freezeButton.BackgroundTransparency = 0.4
+            
+            -- 判定：如果是短點擊，則觸發一次性卡頓
+            if not isLongPress then
+                task.spawn(function()
+                    -- 視覺反饋
+                    freezeButton.Text = "FREEZING..."
+                    freezeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- 變紅
+                    
+                    -- 強制卡死邏輯 (0.3秒)
+                    local t = os.clock()
+                    while os.clock() - t < 0.3 do 
+                        -- 這裡會卡死客戶端執行緒
+                    end
+                    
+                    -- 恢復原狀
+                    freezeButton.Text = "LAG ONCE"
+                    freezeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                end)
+            end
+        end
+    end
+end)
