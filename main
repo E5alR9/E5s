@@ -150,14 +150,15 @@ task.spawn(function()
     end
 end)
 
--- [[ 🖥️ 模組三：介面處理 ]]
+-- [[ 🖥️ 模組三：介面處理 - FPS 按鈕整合版 ]]
 local function createUI()
     if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console:Destroy() end
     local sg = Instance.new("ScreenGui", p.PlayerGui)
     sg.Name, sg.ResetOnSpawn, sg.DisplayOrder = "E5_Console", false, 999
     
     local m = Instance.new("Frame", sg)
-    m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 260, 0, 320)
+    -- 稍微拉長一點點以容納第三個按鈕
+    m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 260, 0, 360) 
     m.Position = UDim2.new(0, 15, 0.4, 0)
     m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 1, 1
     m.Active, m.Draggable = true, true
@@ -179,8 +180,10 @@ local function createUI()
     minBtn.TextColor3, minBtn.ZIndex, minBtn.BackgroundTransparency, minBtn.TextSize = Color3.new(1, 1, 1), 6, 1, 18
 
     local content = Instance.new("Frame", m)
-    content.Size, content.Position, content.BackgroundTransparency, content.Visible = UDim2.new(1, 0, 0, 130), UDim2.new(0, 0, 1, -140), 1, not _G.isMinimized 
+    -- 調整內容區域高度以適配三個按鈕
+    content.Size, content.Position, content.BackgroundTransparency, content.Visible = UDim2.new(1, 0, 0, 200), UDim2.new(0, 0, 1, -210), 1, not _G.isMinimized 
     
+    -- 1. Keybind 按鈕
     local l = Instance.new("TextButton", content)
     l.Size, l.Position, l.Text, l.ZIndex = UDim2.new(0.9, 0, 0, 55), UDim2.new(0.05, 0, 0, 5), _G.fKN, 3
     l.TextSize, l.Font = 22, Enum.Font.Code
@@ -195,6 +198,7 @@ local function createUI()
         end)
     end)
 
+    -- 2. Freeze MS 輸入框
     local tb = Instance.new("TextBox", content)
     tb.Size, tb.Position, tb.Text, tb.ZIndex = UDim2.new(0.9, 0, 0, 55), UDim2.new(0.05, 0, 0, 70), tostring(_G.freezeMS), 3
     tb.TextSize, tb.Font = 22, Enum.Font.Code
@@ -207,12 +211,29 @@ local function createUI()
         end
     end)
 
+    -- 3. FPS 重連按鈕 (新功能)
+    local fBtn = Instance.new("TextButton", content)
+    fBtn.Size, fBtn.Position, fBtn.Text, fBtn.ZIndex = UDim2.new(0.9, 0, 0, 55), UDim2.new(0.05, 0, 0, 135), "DisplayFPS(REJOIN)", 3
+    fBtn.TextSize, fBtn.Font = 18, Enum.Font.Code
+    fBtn.BackgroundColor3, fBtn.TextColor3, fBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.4
+    fBtn.MouseButton1Click:Connect(function()
+        fBtn.Text = "REJOINING..."
+        pcall(function() setfflag("DebugDisplayFPS", "true") end)
+        task.wait(0.5)
+        local TS = game:GetService("TeleportService")
+        if #game.Players:GetPlayers() > 1 then
+            TS:TeleportToPlaceInstance(game.PlaceId, game.JobId, p)
+        else
+            TS:Teleport(game.PlaceId, p)
+        end
+    end)
+
     minBtn.MouseButton1Click:Connect(function()
         _G.isMinimized = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
         content.Visible = not _G.isMinimized
         bg.Visible = not _G.isMinimized
-        m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 260, 0, 320)
+        m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 260, 0, 360)
     end)
 end
 
@@ -300,68 +321,9 @@ RS.Heartbeat:Connect(function()
             local delayTime = (tonumber(_G.freezeMS) or 300) / 1000
             while os.clock() - t < delayTime do end 
             
-            task.wait(0.05)
-            task.wait(0.1)
         end
     end
 end)
-
--- [[ 🖥️ FPS 顯示與自動重連腳本 ]]
-local p = game.Players.LocalPlayer
-local TS = game:GetService("TeleportService")
-local SG = game:GetService("StarterGui")
-
--- [[ 核心功能處理 ]]
-local fpsBindable = Instance.new("BindableFunction")
-
-fpsBindable.OnInvoke = function(answer)
-    if answer == "YES" then
-        print("//// [SYSTEM] FPS_DISPLAY: ENABLED ////")
-        print("//// [SYSTEM] INITIATING REJOIN... ////")
-        
-        -- 1. 執行設定 (顯示 FPS)
-        -- 注意：setfflag 通常需要特定的執行器權限
-        pcall(function()
-            setfflag("DebugDisplayFPS", "true")
-        end)
-        
-        -- 2. 執行重連 (Rejoin)
-        -- 判定是否在私人或特定伺服器，優先重連至相同 JobId
-        task.wait(0.5)
-        if #game.Players:GetPlayers() > 1 then
-            TS:TeleportToPlaceInstance(game.PlaceId, game.JobId, p)
-        else
-            -- 如果伺服器沒人或剛好關閉，則進行一般傳送
-            TS:Teleport(game.PlaceId, p)
-        end
-    else
-        print("//// [SYSTEM] FPS_DISPLAY: SKIPPED ////")
-    end
-end
-
--- [[ 發送系統通知 ]]
-local function sendFpsQuery()
-    local success, err = pcall(function()
-        SG:SetCore("SendNotification", {
-            Title = "SYSTEM SETTINGS";
-            Text = "Display FPS? (Will Rejoin)";
-            Duration = 99999;
-            Button1 = "YES";
-            Button2 = "NO";
-            Callback = fpsBindable;
-        })
-    end)
-    
-    if not success then
-        warn("Notification Error: " .. err)
-    end
-end
-
--- 啟動延遲，確保 CoreGui 已加載
-task.wait(1)
-sendFpsQuery()
-
-print("\\\\\\\\ FPS_QUERY_MODULE_LOADED ////////")
 
 -- [[ 📡 Module 4: Social Daemon ]]
 task.spawn(function()
