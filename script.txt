@@ -1,3 +1,58 @@
+-- [[ 🔑 KEY SYSTEM - 密鑰驗證模組 ]]
+local CORRECT_KEY = "E5alR9" -- 在這裡設定你的密鑰
+local verified = false
+
+local function startKeySystem()
+    local sg = Instance.new("ScreenGui", game.Players.LocalPlayer.PlayerGui)
+    sg.Name = "E5_KeySystem"
+    
+    local main = Instance.new("Frame", sg)
+    main.Size = UDim2.new(0, 300, 0, 150)
+    main.Position = UDim2.new(0.5, -150, 0.5, -75)
+    main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Instance.new("UICorner", main)
+
+    local title = Instance.new("TextLabel", main)
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Text = "ENTER KEY TO START"
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.BackgroundTransparency = 1
+
+    local input = Instance.new("TextBox", main)
+    input.Size = UDim2.new(0.8, 0, 0, 35)
+    input.Position = UDim2.new(0.1, 0, 0.4, 0)
+    input.PlaceholderText = "Paste Key Here..."
+    input.Text = ""
+    input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    input.TextColor3 = Color3.new(1, 1, 1)
+
+    local btn = Instance.new("TextButton", main)
+    btn.Size = UDim2.new(0.8, 0, 0, 35)
+    btn.Position = UDim2.new(0.1, 0, 0.75, 0)
+    btn.Text = "VERIFY"
+    btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+
+    btn.MouseButton1Click:Connect(function()
+        if input.Text == CORRECT_KEY then
+            verified = true
+            sg:Destroy()
+            print("//// [ACCESS_GRANTED] ////")
+            -- 這裡放你原本所有的核心代碼載入邏輯
+        else
+            input.Text = ""
+            input.PlaceholderText = "WRONG KEY! TRY AGAIN"
+            input.PlaceholderColor3 = Color3.new(1, 0, 0)
+        end
+    end)
+end
+
+-- 只有執行過 startKeySystem 且驗證通過，才啟動原本的腳本
+startKeySystem()
+
+-- 等待驗證成功才往下執行
+repeat task.wait() until verified == true
+-- [[ 這裡接你原本的腳本內容... ]]
 local url = "https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"
 local success, result = pcall(function()
     return game:HttpGet(url:gsub(" ", "%%20"))
@@ -13,4 +68,5 @@ if success then
 else
     warn("無法連線至 GitHub，請檢查網址或網路狀態。")
 end
+
 
