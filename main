@@ -46,7 +46,7 @@ showHeader()
 -- [[ 🛠️ 模組一：資源部署 - 雙重詢問版 ]]
 task.spawn(function()
     print("//// #### [M1] DATA_DEPLOYMENT_START #### ////")
-    _G.emoteSwaps = { { current = "APose", needed = "SnowmobileCruise" } }
+    _G.emoteSwaps = { { current = "APose", needed = "Broom" } }
     
     local function dl(u) 
         task.spawn(function() 
