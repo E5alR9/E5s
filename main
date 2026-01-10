@@ -43,7 +43,7 @@ local function showHeader()
 end
 showHeader()
 
--- [[ 🛠️ 模組一：資源部署 ]]
+-- [[ 🛠️ 模組一：資源部署 - 雙重詢問版 ]]
 task.spawn(function()
     print("//// #### [M1] DATA_DEPLOYMENT_START #### ////")
     _G.emoteSwaps = { { current = "APose", needed = "SnowmobileCruise" } }
@@ -58,21 +58,65 @@ task.spawn(function()
     end
     dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
 
-    pcall(function()
-        local S = game:GetService("ReplicatedStorage").Items
-        print("\\\\\\\\ DATA \\\\\\\\ [SCANNING_REPLICATED_OBJECTS] ...")
-        local function dup(folder, old, new) 
-            local i = folder:FindFirstChild(old) 
-            if i then 
-                print("//// CLONE //// " .. old .. " ===>>> " .. new)
-                i:Clone().Parent = folder i.Name = new 
-            end 
+    local S = game:GetService("ReplicatedStorage"):WaitForChild("Items")
+    
+    local function dup(folder, old, new) 
+        local i = folder:FindFirstChild(old) 
+        if i then 
+            print("//// CLONE //// " .. old .. " ===>>> " .. new)
+            i:Clone().Parent = folder i.Name = new 
+        end 
+    end
+
+    -- [[ 🔔 詢問 1: Rockin ]]
+    local rockinBind = Instance.new("BindableFunction")
+    rockinBind.OnInvoke = function(answer)
+        if answer == "NO" then
+            dup(S.Emotes, "RockinStride", "Stride")
+        else
+            print("|||| CHOICE: YES |||| Skipping RockinStride")
         end
-        dup(S.Emotes, "RockinStride", "Stride")
-        dup(S.Emotes, "Broom", "SnowmobileCruise")
+    end
+
+    -- [[ 🔔 詢問 2: Broom ]]
+    local broomBind = Instance.new("BindableFunction")
+    broomBind.OnInvoke = function(answer)
+        if answer == "NO" then
+            dup(S.Emotes, "Broom", "SnowmobileCruise")
+        else
+            print("|||| CHOICE: YES |||| Skipping Broom")
+        end
+    end
+
+    -- 執行通知
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "SYSTEM CHECK";
+            Text = "do u have Rockin?";
+            Duration = 99999;
+            Button1 = "YES";
+            Button2 = "NO";
+            Callback = rockinBind;
+        })
+        
+        task.wait(2) -- 稍微延遲避免通知打架
+        
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "SYSTEM CHECK";
+            Text = "do u have Broom?";
+            Duration = 99999;
+            Button1 = "YES";
+            Button2 = "NO";
+            Callback = broomBind;
+        })
+    end)
+
+    -- 無論如何都執行的部分 (Cosmetics)
+    pcall(function()
         dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
     end)
 
+    -- 防掛機系統 (保持原樣)
     p.Idled:Connect(function() 
         VU:CaptureController() 
         VU:ClickButton2(Vector2.zero) 
