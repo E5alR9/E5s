@@ -14,7 +14,7 @@ local function startKeySystem()
 
     local title = Instance.new("TextLabel", main)
     title.Size = UDim2.new(1, 0, 0, 40)
-    title.Text = "ENTER KEY TO START"
+    title.Text = "ENTER KEY TO START (E5alR9)"
     title.TextColor3 = Color3.new(1, 1, 1)
     title.BackgroundTransparency = 1
 
@@ -68,5 +68,6 @@ if success then
 else
     warn("無法連線至 GitHub，請檢查網址或網路狀態。")
 end
+
 
 
