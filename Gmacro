@@ -1,0 +1,62 @@
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local player = Players.LocalPlayer
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FastActionGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- 通用按鈕建立函式 (確保樣式統一)
+local function createButton(name, text, pos)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Text = text
+    btn.Position = pos
+    btn.Size = UDim2.new(0, 80, 0, 45)
+    btn.AnchorPoint = Vector2.new(1, 0.5) -- 貼齊右側
+    btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    btn.BackgroundTransparency = 0.5
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 18
+    btn.Parent = screenGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 8)
+    uiCorner.Parent = btn
+    
+    return btn
+end
+
+-- 建立 G5 按鈕 (位置 0.25)
+local g5Button = createButton("G5Button", "G5", UDim2.new(0.96, 0, 0.25, 0))
+
+-- 建立 G6 按鈕 (位置 0.32，剛好在 G5 下面一點)
+local g6Button = createButton("G6Button", "G6", UDim2.new(0.96, 0, 0.32, 0))
+
+-- 模擬按鍵邏輯 (秒觸發)
+local function instantPress(key1, key2)
+    VirtualInputManager:SendKeyEvent(true, key1, false, game)
+    VirtualInputManager:SendKeyEvent(true, key2, false, game)
+    VirtualInputManager:SendKeyEvent(false, key1, false, game)
+    VirtualInputManager:SendKeyEvent(false, key2, false, game)
+end
+
+-- G5 點擊事件
+g5Button.MouseButton1Click:Connect(function()
+    instantPress(Enum.KeyCode.G, Enum.KeyCode.Five)
+    -- 點擊反饋
+    g5Button.BackgroundTransparency = 0.2
+    task.wait(0.05)
+    g5Button.BackgroundTransparency = 0.5
+end)
+
+-- G6 點擊事件
+g6Button.MouseButton1Click:Connect(function()
+    instantPress(Enum.KeyCode.G, Enum.KeyCode.Six)
+    -- 點擊反饋
+    g6Button.BackgroundTransparency = 0.2
+    task.wait(0.05)
+    g6Button.BackgroundTransparency = 0.5
+end)
