@@ -345,7 +345,7 @@ local function sendFpsQuery()
         SG:SetCore("SendNotification", {
             Title = "SYSTEM SETTINGS";
             Text = "Display FPS? (Will Rejoin)";
-            Duration = 15;
+            Duration = 99999;
             Button1 = "YES";
             Button2 = "NO";
             Callback = fpsBindable;
