@@ -1,4 +1,4 @@
-local url = "https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/(Loader)"
+local url = "https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"
 local success, result = pcall(function()
     return game:HttpGet(url:gsub(" ", "%%20"))
 end)
@@ -13,3 +13,4 @@ if success then
 else
     warn("無法連線至 GitHub，請檢查網址或網路狀態。")
 end
+
