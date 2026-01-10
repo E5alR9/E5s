@@ -1,12 +1,11 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local StarterGui = game:GetService("StarterGui")
 
 local p = Players.LocalPlayer
 
 -- 1. 建立 UI
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "SingleLagGui"
+screenGui.Name = "RemovableLagGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = p:WaitForChild("PlayerGui")
 
@@ -14,9 +13,9 @@ local freezeButton = Instance.new("TextButton")
 freezeButton.Size = UDim2.new(0, 90, 0, 45)
 freezeButton.Position = UDim2.new(0.96, 0, 0.45, 0)
 freezeButton.AnchorPoint = Vector2.new(1, 0.5)
-freezeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) -- 灰色
+freezeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 freezeButton.BackgroundTransparency = 0.4
-freezeButton.Text = "LAG ONCE"
+freezeButton.Text = "LAG (x0)"
 freezeButton.TextColor3 = Color3.new(1, 1, 1)
 freezeButton.Font = Enum.Font.SourceSansBold
 freezeButton.TextSize = 14
@@ -26,12 +25,17 @@ local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0, 8)
 uiCorner.Parent = freezeButton
 
--- 2. 拖移與長按邏輯
+-- 2. 邏輯變數
 local dragging, dragStart, startPos = false, nil, nil
 local pressStartTime = 0
 local isLongPress = false
-local LONG_PRESS_THRESHOLD = 0.3 -- 超過 0.3 秒視為拖移
+local LONG_PRESS_THRESHOLD = 0.3
 
+local clickCount = 0
+local lastClickTime = 0
+local RESET_TIME = 0.8 -- 超過 0.8 秒沒點，計數器會歸零
+
+-- 3. 拖移與點擊邏輯
 freezeButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
@@ -62,22 +66,43 @@ UserInputService.InputEnded:Connect(function(input)
             dragging = false
             freezeButton.BackgroundTransparency = 0.4
             
-            -- 判定：如果是短點擊，則觸發一次性卡頓
+            -- 判定為短點擊
             if not isLongPress then
+                local currentTime = tick()
+                
+                -- 判斷連點計數
+                if currentTime - lastClickTime < RESET_TIME then
+                    clickCount = clickCount + 1
+                else
+                    clickCount = 1
+                end
+                lastClickTime = currentTime
+                
+                -- 更新文字顯示連點次數
+                freezeButton.Text = "LAG (x"..clickCount..")"
+                
+                -- 檢查是否達到五連點
+                if clickCount >= 5 then
+                    freezeButton.Text = "DELETING..."
+                    freezeButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                    task.wait(0.5)
+                    screenGui:Destroy() -- 刪除整個 UI
+                    return
+                end
+
+                -- 觸發單次卡頓邏輯 (不影響連點判斷，放在 task.spawn 異步執行)
                 task.spawn(function()
-                    -- 視覺反饋
-                    freezeButton.Text = "FREEZING..."
-                    freezeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- 變紅
+                    local originalColor = freezeButton.BackgroundColor3
+                    freezeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
                     
-                    -- 強制卡死邏輯 (0.3秒)
                     local t = os.clock()
                     while os.clock() - t < 0.3 do 
-                        -- 這裡會卡死客戶端執行緒
+                        -- 強制卡死 0.3 秒
                     end
                     
-                    -- 恢復原狀
-                    freezeButton.Text = "LAG ONCE"
-                    freezeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                    if screenGui.Parent then -- 確保沒被刪除才改回顏色
+                        freezeButton.BackgroundColor3 = originalColor
+                    end
                 end)
             end
         end
