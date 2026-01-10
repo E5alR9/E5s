@@ -216,14 +216,32 @@ local function createUI()
         end
     end)
 
-    -- [[ 3. FPS 重連按鈕 ]]
+    -- [[ 3. 底部並排按鈕區 ]] --
+
+    -- FPS 重連按鈕 (左側)
     local fBtn = Instance.new("TextButton", content)
-    fBtn.Size, fBtn.Position, fBtn.Text, fBtn.ZIndex = UDim2.new(0.9, 0, 0, 40), UDim2.new(0.05, 0, 0, 50), "Display FPS (REJOIN)", 3
+    fBtn.Size, fBtn.Position, fBtn.Text, fBtn.ZIndex = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 50), "FPS REJOIN", 3
     fBtn.TextSize, fBtn.Font = 14, Enum.Font.Code
     fBtn.BackgroundColor3, fBtn.TextColor3, fBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
     fBtn.MouseButton1Click:Connect(function()
         fBtn.Text = "REJOINING..."
         pcall(function() setfflag("DebugDisplayFPS", "true") end)
+        task.wait(0.5)
+        if #game.Players:GetPlayers() > 1 then 
+            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, p) 
+        else 
+            game:GetService("TeleportService"):Teleport(game.PlaceId, p) 
+        end
+    end)
+
+    -- Steps 優化重連按鈕 (右側)
+    local sBtn = Instance.new("TextButton", content)
+    sBtn.Size, sBtn.Position, sBtn.Text, sBtn.ZIndex = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 50), "MissedWorld", 3
+    sBtn.TextSize, sBtn.Font = 14, Enum.Font.Code
+    sBtn.BackgroundColor3, sBtn.TextColor3, sBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,0), 0.7
+    sBtn.MouseButton1Click:Connect(function()
+        sBtn.Text = "REJOINING..."
+        pcall(function() setfflag("MaxMissedWorldStepsRemembered", "2147483467") end)
         task.wait(0.5)
         if #game.Players:GetPlayers() > 1 then 
             game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, p) 
