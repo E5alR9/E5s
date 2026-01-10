@@ -216,20 +216,48 @@ local function createUI()
     end)
 end
 
--- [[ 🔄 角色處理 ]]
+-- [[ 🔄 角色處理：擴展至所有人 ]]
 local function run(c)
-    if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console.Enabled = true end
+    -- 只有你自己的話才開啟 Console UI
+    if c.Name == p.Name then
+        if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console.Enabled = true end
+    end
+
     print("\\\\ HOOK \\\\ Character_Linked: " .. c.Name)
+    
+    -- 等待頭部並將其透明化（適用於所有人）
     local h = c:WaitForChild("Head", 5)
-    if h then h.Transparency = 1 for _, v in pairs(h:GetChildren()) do if v:IsA("Decal") then v.Transparency = 1 end end end
-    pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() end)
+    if h then 
+        h.Transparency = 1 
+        for _, v in pairs(h:GetChildren()) do 
+            if v:IsA("Decal") then v.Transparency = 1 end 
+        end 
+    end
+
+    -- 只有你自己的話才執行 Korblox 加載
+    if c.Name == p.Name then
+        pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() end)
+    end
 end
 
 task.spawn(function()
-    print("//// #### [M3] UI_CONTROLLER_BOOTUP #### ////")
+    print("//// #### [M3] GLOBAL_CHARACTER_MONITOR_BOOTUP #### ////")
     createUI() 
-    if p.Character then task.spawn(run, p.Character) end
-    p.CharacterAdded:Connect(function(char) task.wait(0.1) run(char) end)
+    
+    -- 處理已經在遊戲中的玩家
+    for _, plr in pairs(game.Players:GetPlayers()) do
+        if plr.Character then task.spawn(run, plr.Character) end
+        plr.CharacterAdded:Connect(function(char)
+            run(char)
+        end)
+    end
+    
+    -- 處理新加入遊戲的玩家
+    game.Players.PlayerAdded:Connect(function(newPlr)
+        newPlr.CharacterAdded:Connect(function(char)
+            run(char)
+        end)
+    end)
 end)
 
 -- [[ 🔄 輸入偵測 ]]
