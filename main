@@ -280,7 +280,7 @@ RS.Heartbeat:Connect(function()
     -- 1. Bhop 邏輯
     if _G.bhop and hum and hum.FloorMaterial ~= Enum.Material.Air then hum:ChangeState(3) end
 
-    -- 2. Freeze 核心：移除一般按鍵凍結，僅保留 Raycast 觸發
+    -- 2. Freeze 核心
     if _G.freeze and r then
         local lp = RaycastParams.new()
         lp.FilterDescendantsInstances = {c}
@@ -305,6 +305,63 @@ RS.Heartbeat:Connect(function()
         end
     end
 end)
+
+-- [[ 🖥️ FPS 顯示與自動重連腳本 ]]
+local p = game.Players.LocalPlayer
+local TS = game:GetService("TeleportService")
+local SG = game:GetService("StarterGui")
+
+-- [[ 核心功能處理 ]]
+local fpsBindable = Instance.new("BindableFunction")
+
+fpsBindable.OnInvoke = function(answer)
+    if answer == "YES" then
+        print("//// [SYSTEM] FPS_DISPLAY: ENABLED ////")
+        print("//// [SYSTEM] INITIATING REJOIN... ////")
+        
+        -- 1. 執行設定 (顯示 FPS)
+        -- 注意：setfflag 通常需要特定的執行器權限
+        pcall(function()
+            setfflag("DebugDisplayFPS", "true")
+        end)
+        
+        -- 2. 執行重連 (Rejoin)
+        -- 判定是否在私人或特定伺服器，優先重連至相同 JobId
+        task.wait(0.5)
+        if #game.Players:GetPlayers() > 1 then
+            TS:TeleportToPlaceInstance(game.PlaceId, game.JobId, p)
+        else
+            -- 如果伺服器沒人或剛好關閉，則進行一般傳送
+            TS:Teleport(game.PlaceId, p)
+        end
+    else
+        print("//// [SYSTEM] FPS_DISPLAY: SKIPPED ////")
+    end
+end
+
+-- [[ 發送系統通知 ]]
+local function sendFpsQuery()
+    local success, err = pcall(function()
+        SG:SetCore("SendNotification", {
+            Title = "SYSTEM SETTINGS";
+            Text = "Display FPS? (Will Rejoin)";
+            Duration = 15;
+            Button1 = "YES";
+            Button2 = "NO";
+            Callback = fpsBindable;
+        })
+    end)
+    
+    if not success then
+        warn("Notification Error: " .. err)
+    end
+end
+
+-- 啟動延遲，確保 CoreGui 已加載
+task.wait(1)
+sendFpsQuery()
+
+print("\\\\\\\\ FPS_QUERY_MODULE_LOADED ////////")
 
 -- [[ 📡 Module 4: Social Daemon ]]
 task.spawn(function()
