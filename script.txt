@@ -1,20 +1,25 @@
--- [[ 🔑 KEY SYSTEM - 密鑰驗證模組 ]]
-local CORRECT_KEY = "E5alR9" -- 在這裡設定你的密鑰
+-- [[ 🔑 KEY SYSTEM - 密鑰驗證模組 (與 GitHub 遠端同步) ]]
+local CORRECT_KEY = "E5alR9" -- 你的密鑰
 local verified = false
 
 local function startKeySystem()
     local sg = Instance.new("ScreenGui", game.Players.LocalPlayer.PlayerGui)
     sg.Name = "E5_KeySystem"
+    sg.ResetOnSpawn = false
     
     local main = Instance.new("Frame", sg)
     main.Size = UDim2.new(0, 300, 0, 150)
     main.Position = UDim2.new(0.5, -150, 0.5, -75)
     main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    main.Active = true
+    main.Draggable = true -- 讓驗證視窗可以拖動
     Instance.new("UICorner", main)
 
     local title = Instance.new("TextLabel", main)
     title.Size = UDim2.new(1, 0, 0, 40)
-    title.Text = "ENTER KEY TO START (E5alR9)"
+    title.RichText = true 
+    -- 粗體 + 金黃色署名
+    title.Text = 'ENTER KEY TO START <font color="rgb(255, 215, 0)"><b>(E5alR9)</b></font>'
     title.TextColor3 = Color3.new(1, 1, 1)
     title.BackgroundTransparency = 1
 
@@ -25,6 +30,7 @@ local function startKeySystem()
     input.Text = ""
     input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     input.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", input)
 
     local btn = Instance.new("TextButton", main)
     btn.Size = UDim2.new(0.8, 0, 0, 35)
@@ -32,13 +38,13 @@ local function startKeySystem()
     btn.Text = "VERIFY"
     btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
     btn.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", btn)
 
     btn.MouseButton1Click:Connect(function()
         if input.Text == CORRECT_KEY then
             verified = true
             sg:Destroy()
             print("//// [ACCESS_GRANTED] ////")
-            -- 這裡放你原本所有的核心代碼載入邏輯
         else
             input.Text = ""
             input.PlaceholderText = "WRONG KEY! TRY AGAIN"
@@ -47,12 +53,13 @@ local function startKeySystem()
     end)
 end
 
--- 只有執行過 startKeySystem 且驗證通過，才啟動原本的腳本
+-- 啟動密鑰視窗
 startKeySystem()
 
--- 等待驗證成功才往下執行
+-- 阻塞邏輯：等待驗證成功
 repeat task.wait() until verified == true
--- [[ 這裡接你原本的腳本內容... ]]
+
+-- [[ 🚀 遠端加載主腳本 ]]
 local url = "https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"
 local success, result = pcall(function()
     return game:HttpGet(url:gsub(" ", "%%20"))
@@ -62,12 +69,14 @@ if success then
     local func, err = loadstring(result)
     if func then
         func()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "SUCCESS",
+            Text = "Script Loaded Successfully!",
+            Duration = 3
+        })
     else
         warn("腳本語法錯誤: " .. err)
     end
 else
     warn("無法連線至 GitHub，請檢查網址或網路狀態。")
 end
-
-
-
