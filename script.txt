@@ -1,67 +1,62 @@
--- [[ 🔑 KEY SYSTEM - 密鑰驗證模組 (含開發者白名單) ]]
+-- [[ 🔑 KEY SYSTEM - 密鑰驗證模組 (與 GitHub 遠端同步) ]]
 local CORRECT_KEY = "E5alR9" -- 你的密鑰
 local verified = false
-local lp = game.Players.LocalPlayer
 
--- 檢查是否為開發者本人 (白名單)
-if lp.Name == "E5alR9" then
-    verified = true
-    print("//// [DEVELOPER_BYPASS] Welcome, E5alR9. ////")
-else
-    -- 如果不是本人，才定義並執行驗證視窗函式
-    local function startKeySystem()
-        local sg = Instance.new("ScreenGui", lp.PlayerGui)
-        sg.Name = "E5_KeySystem"
-        sg.ResetOnSpawn = false
-        
-        local main = Instance.new("Frame", sg)
-        main.Size = UDim2.new(0, 300, 0, 150)
-        main.Position = UDim2.new(0.5, -150, 0.5, -75)
-        main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        main.Active = true
-        main.Draggable = true 
-        Instance.new("UICorner", main)
+local function startKeySystem()
+    local sg = Instance.new("ScreenGui", game.Players.LocalPlayer.PlayerGui)
+    sg.Name = "E5_KeySystem"
+    sg.ResetOnSpawn = false
+    
+    local main = Instance.new("Frame", sg)
+    main.Size = UDim2.new(0, 300, 0, 150)
+    main.Position = UDim2.new(0.5, -150, 0.5, -75)
+    main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    main.Active = true
+    main.Draggable = true -- 讓驗證視窗可以拖動
+    Instance.new("UICorner", main)
 
-        local title = Instance.new("TextLabel", main)
-        title.Size = UDim2.new(1, 0, 0, 40)
-        title.RichText = true 
-        title.Text = 'ENTER KEY TO START <font color="rgb(255, 215, 0)"><b>(E5alR9)</b></font>'
-        title.TextColor3 = Color3.new(1, 1, 1)
-        title.BackgroundTransparency = 1
+    local title = Instance.new("TextLabel", main)
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.RichText = true 
+    -- 粗體 + 金黃色署名
+    title.Text = 'ENTER KEY TO START <font color="rgb(255, 215, 0)"><b>(E5alR9)</b></font>'
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.BackgroundTransparency = 1
 
-        local input = Instance.new("TextBox", main)
-        input.Size = UDim2.new(0.8, 0, 0, 35)
-        input.Position = UDim2.new(0.1, 0, 0.4, 0)
-        input.PlaceholderText = "Paste Key Here..."
-        input.Text = ""
-        input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        input.TextColor3 = Color3.new(1, 1, 1)
-        Instance.new("UICorner", input)
+    local input = Instance.new("TextBox", main)
+    input.Size = UDim2.new(0.8, 0, 0, 35)
+    input.Position = UDim2.new(0.1, 0, 0.4, 0)
+    input.PlaceholderText = "Paste Key Here..."
+    input.Text = ""
+    input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    input.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", input)
 
-        local btn = Instance.new("TextButton", main)
-        btn.Size = UDim2.new(0.8, 0, 0, 35)
-        btn.Position = UDim2.new(0.1, 0, 0.75, 0)
-        btn.Text = "VERIFY"
-        btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-        btn.TextColor3 = Color3.new(1, 1, 1)
-        Instance.new("UICorner", btn)
+    local btn = Instance.new("TextButton", main)
+    btn.Size = UDim2.new(0.8, 0, 0, 35)
+    btn.Position = UDim2.new(0.1, 0, 0.75, 0)
+    btn.Text = "VERIFY"
+    btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", btn)
 
-        btn.MouseButton1Click:Connect(function()
-            if input.Text == CORRECT_KEY then
-                verified = true
-                sg:Destroy()
-                print("//// [ACCESS_GRANTED] ////")
-            else
-                input.Text = ""
-                input.PlaceholderText = "WRONG KEY! TRY AGAIN"
-                input.PlaceholderColor3 = Color3.new(1, 0, 0)
-            end
-        end)
-    end
-    startKeySystem()
+    btn.MouseButton1Click:Connect(function()
+        if input.Text == CORRECT_KEY then
+            verified = true
+            sg:Destroy()
+            print("//// [ACCESS_GRANTED] ////")
+        else
+            input.Text = ""
+            input.PlaceholderText = "WRONG KEY! TRY AGAIN"
+            input.PlaceholderColor3 = Color3.new(1, 0, 0)
+        end
+    end)
 end
 
--- 阻塞邏輯：等待驗證成功 (或是白名單通過)
+-- 啟動密鑰視窗
+startKeySystem()
+
+-- 阻塞邏輯：等待驗證成功
 repeat task.wait() until verified == true
 
 -- [[ 🚀 遠端加載主腳本 ]]
@@ -69,17 +64,10 @@ local url = "https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"
 local success, result = pcall(function()
     return game:HttpGet(url:gsub(" ", "%%20"))
 end)
+
 if success then
     local func, err = loadstring(result)
-    if func then
-        func()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "SUCCESS",
-            Text = "Script Loaded Successfully!",
-            Duration = 3
-        })
-    else
-        warn("腳本語法錯誤: " .. err)
-    end
+    
 else
     warn("無法連線至 GitHub，請檢查網址或網路狀態。")
+end
