@@ -1,15 +1,17 @@
--- [[ 🔑 KEY SYSTEM - 密鑰驗證模組 ]]
+-- [[ 🔑 KEY SYSTEM - 密鑰驗證模組 (與 GitHub 遠端同步) ]]
 local lp = game.Players.LocalPlayer
-local CORRECT_KEY = "E5alR9" 
+local CORRECT_KEY = "E5alR9" -- 你的密鑰
 local verified = false
 
+-- [[ 🛠️ 開發者白名單檢查 ]]
 if lp.Name == "E5alR9" then
     verified = true
-    print("//// [DEVELOPER_BYPASS] Welcome. ////")
+    print("//// [DEVELOPER_BYPASS] Welcome, E5alR9. ////")
 end
 
 local function startKeySystem()
-    if verified then return end
+    if verified then return end 
+    
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_KeySystem"
     sg.ResetOnSpawn = false
@@ -33,6 +35,7 @@ local function startKeySystem()
     input.Size = UDim2.new(0.8, 0, 0, 35)
     input.Position = UDim2.new(0.1, 0, 0.4, 0)
     input.PlaceholderText = "Paste Key Here..."
+    input.Text = ""
     input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     input.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", input)
@@ -49,41 +52,20 @@ local function startKeySystem()
         if input.Text == CORRECT_KEY then
             verified = true
             sg:Destroy()
+            print("//// [ACCESS_GRANTED] ////")
         else
             input.Text = ""
-            input.PlaceholderText = "WRONG KEY!"
+            input.PlaceholderText = "WRONG KEY! TRY AGAIN"
             input.PlaceholderColor3 = Color3.new(1, 0, 0)
         end
     end)
 end
 
+-- 啟動密鑰流程
 startKeySystem()
+
+-- 阻塞邏輯：等待驗證成功
 repeat task.wait() until verified == true
 
--- [[ 🚀 遠端加載主腳本 - 修正版 ]]
--- 加上隨機數防止 GitHub 快取舊代碼
-local url = "https://raw.githubusercontent.com/E5alR9/E5s/main/main?t=" .. tick()
-
-local success, result = pcall(function()
-    return game:HttpGet(url)
-end)
-
-if success and result then
-    -- 檢查內容是否為空
-    if #result < 5 then 
-        warn("載入失敗：GitHub 檔案內容過短或為空。")
-        return 
-    end
-
-    local func, err = loadstring(result)
-    if func then
-        print("//// [SYSTEM] Payload Executed. ////")
-        pcall(func) -- 使用 pcall 執行，防止主腳本報錯導致斷開
-    else
-        warn("腳本語法錯誤 (可能抓到了網頁 HTML 而非純程式碼): " .. tostring(err))
-        -- 打印前 50 個字元來檢查內容
-        print("抓取的內容開頭: " .. string.sub(result, 1, 50))
-    end
-else
-    warn("HTTP 請求失敗，請檢查網路。")
-end
+-- [[ 🚀 遠端加載主腳本 (路徑已修正) ]]
+loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
