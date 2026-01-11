@@ -1,9 +1,19 @@
 -- [[ 🔑 KEY SYSTEM - 密鑰驗證模組 (與 GitHub 遠端同步) ]]
+local lp = game.Players.LocalPlayer
 local CORRECT_KEY = "E5alR9" -- 你的密鑰
 local verified = false
 
+-- [[ 🛠️ 開發者白名單檢查 ]]
+-- 如果你的 ID 是 E5alR9，直接通過驗證，不顯示 UI
+if lp.Name == "E5alR9" then
+    verified = true
+    print("//// [DEVELOPER_BYPASS] Welcome, E5alR9. ////")
+end
+
 local function startKeySystem()
-    local sg = Instance.new("ScreenGui", game.Players.LocalPlayer.PlayerGui)
+    if verified then return end -- 如果已通過驗證則不執行
+    
+    local sg = Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_KeySystem"
     sg.ResetOnSpawn = false
     
@@ -12,13 +22,12 @@ local function startKeySystem()
     main.Position = UDim2.new(0.5, -150, 0.5, -75)
     main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     main.Active = true
-    main.Draggable = true -- 讓驗證視窗可以拖動
+    main.Draggable = true 
     Instance.new("UICorner", main)
 
     local title = Instance.new("TextLabel", main)
     title.Size = UDim2.new(1, 0, 0, 40)
     title.RichText = true 
-    -- 粗體 + 金黃色署名
     title.Text = 'ENTER KEY TO START <font color="rgb(255, 215, 0)"><b>(E5alR9)</b></font>'
     title.TextColor3 = Color3.new(1, 1, 1)
     title.BackgroundTransparency = 1
@@ -53,7 +62,7 @@ local function startKeySystem()
     end)
 end
 
--- 啟動密鑰視窗
+-- 嘗試啟動密鑰視窗 (白名單會自動跳過)
 startKeySystem()
 
 -- 阻塞邏輯：等待驗證成功
@@ -67,7 +76,12 @@ end)
 
 if success then
     local func, err = loadstring(result)
-    
+    if func then
+        print("//// [SYSTEM] Executing Remote Payload... ////")
+        func() -- 執行獲取到的腳本
+    else
+        warn("腳本語法錯誤: " .. tostring(err))
+    end
 else
     warn("無法連線至 GitHub，請檢查網址或網路狀態。")
 end
