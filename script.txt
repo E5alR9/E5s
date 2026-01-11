@@ -1,71 +1,86 @@
--- [[ 🔑 KEY SYSTEM - 密鑰驗證模組 (與 GitHub 遠端同步) ]]
+-- [[ 🔑 KEY SYSTEM - 自動存檔免驗證版 ]]
 local lp = game.Players.LocalPlayer
-local CORRECT_KEY = "E5alR9" -- 你的密鑰
+local CORRECT_KEY = "E5alR9"
+local FILE_NAME = "E5_Auth.txt" -- 存檔檔名
 local verified = false
 
--- [[ 🛠️ 開發者白名單檢查 ]]
-if lp.Name == "E5alR9" then
-    verified = true
-    print("//// [DEVELOPER_BYPASS] Welcome, E5alR9. ////")
-end
-
-local function startKeySystem()
-    if verified then return end 
-    
-    local sg = Instance.new("ScreenGui", lp.PlayerGui)
-    sg.Name = "E5_KeySystem"
-    sg.ResetOnSpawn = false
-    
-    local main = Instance.new("Frame", sg)
-    main.Size = UDim2.new(0, 300, 0, 150)
-    main.Position = UDim2.new(0.5, -150, 0.5, -75)
-    main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    main.Active = true
-    main.Draggable = true 
-    Instance.new("UICorner", main)
-
-    local title = Instance.new("TextLabel", main)
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.RichText = true 
-    title.Text = 'ENTER KEY TO START <font color="rgb(255, 215, 0)"><b>(E5alR9)</b></font>'
-    title.TextColor3 = Color3.new(1, 1, 1)
-    title.BackgroundTransparency = 1
-
-    local input = Instance.new("TextBox", main)
-    input.Size = UDim2.new(0.8, 0, 0, 35)
-    input.Position = UDim2.new(0.1, 0, 0.4, 0)
-    input.PlaceholderText = "Paste Key Here..."
-    input.Text = ""
-    input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    input.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", input)
-
-    local btn = Instance.new("TextButton", main)
-    btn.Size = UDim2.new(0.8, 0, 0, 35)
-    btn.Position = UDim2.new(0.1, 0, 0.75, 0)
-    btn.Text = "VERIFY"
-    btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", btn)
-
-    btn.MouseButton1Click:Connect(function()
-        if input.Text == CORRECT_KEY then
-            verified = true
-            sg:Destroy()
-            print("//// [ACCESS_GRANTED] ////")
-        else
-            input.Text = ""
-            input.PlaceholderText = "WRONG KEY! TRY AGAIN"
-            input.PlaceholderColor3 = Color3.new(1, 0, 0)
+-- [[ 1. 檢查存檔功能 ]]
+local function checkLocalAuth()
+    if isfile and readfile and isfile(FILE_NAME) then
+        local savedData = readfile(FILE_NAME)
+        -- 如果檔案內容等於玩家 ID，則自動通過
+        if savedData == tostring(lp.UserId) then
+            print("//// [AUTO_AUTH] Welcome back, " .. lp.Name .. " ////")
+            return true
         end
-    end)
+    end
+    return false
 end
 
--- 啟動密鑰流程
-startKeySystem()
+-- [[ 2. 開發者白名單或存檔檢查 ]]
+if lp.Name == "E5alR9" or checkLocalAuth() then
+    verified = true
+else
+    local function startKeySystem()
+        if verified then return end
+        
+        local sg = Instance.new("ScreenGui", lp.PlayerGui)
+        sg.Name = "E5_KeySystem"
+        sg.ResetOnSpawn = false
+        
+        local main = Instance.new("Frame", sg)
+        main.Size = UDim2.new(0, 300, 0, 150)
+        main.Position = UDim2.new(0.5, -150, 0.5, -75)
+        main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        main.Active = true
+        main.Draggable = true 
+        Instance.new("UICorner", main)
 
--- 阻塞邏輯：等待驗證成功
+        local title = Instance.new("TextLabel", main)
+        title.Size = UDim2.new(1, 0, 0, 40)
+        title.RichText = true 
+        title.Text = 'ENTER KEY TO START <font color="rgb(255, 215, 0)"><b>(E5alR9)</b></font>'
+        title.TextColor3 = Color3.new(1, 1, 1)
+        title.BackgroundTransparency = 1
+
+        local input = Instance.new("TextBox", main)
+        input.Size = UDim2.new(0.8, 0, 0, 35)
+        input.Position = UDim2.new(0.1, 0, 0.4, 0)
+        input.PlaceholderText = "Paste Key Here..."
+        input.Text = ""
+        input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        input.TextColor3 = Color3.new(1, 1, 1)
+        Instance.new("UICorner", input)
+
+        local btn = Instance.new("TextButton", main)
+        btn.Size = UDim2.new(0.8, 0, 0, 35)
+        btn.Position = UDim2.new(0.1, 0, 0.75, 0)
+        btn.Text = "VERIFY"
+        btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        Instance.new("UICorner", btn)
+
+        btn.MouseButton1Click:Connect(function()
+            if input.Text == CORRECT_KEY then
+                -- 驗證成功，寫入存檔
+                if writefile then
+                    writefile(FILE_NAME, tostring(lp.UserId))
+                end
+                verified = true
+                sg:Destroy()
+                print("//// [ACCESS_GRANTED] ////")
+            else
+                input.Text = ""
+                input.PlaceholderText = "WRONG KEY! TRY AGAIN"
+                input.PlaceholderColor3 = Color3.new(1, 0, 0)
+            end
+        end)
+    end
+    startKeySystem()
+end
+
+-- 等待驗證成功
 repeat task.wait() until verified == true
 
--- [[ 🚀 遠端加載主腳本 (路徑已修正) ]]
+-- [[ 🚀 遠端加載主腳本 ]]
 loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
