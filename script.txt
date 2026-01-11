@@ -65,6 +65,10 @@ end
 repeat task.wait() until verified == true
 
 -- [[ 🚀 遠端加載主腳本 ]]
+local url = "https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"
+local success, result = pcall(function()
+    return game:HttpGet(url:gsub(" ", "%%20"))
+end)
 if success then
     local func, err = loadstring(result)
     if func then
@@ -79,8 +83,3 @@ if success then
     end
 else
     warn("無法連線至 GitHub，請檢查網址或網路狀態。")
-end
-local url = "https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"
-local success, result = pcall(function()
-    return game:HttpGet(url:gsub(" ", "%%20"))
-end)
