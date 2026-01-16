@@ -29,13 +29,22 @@ local switchInterval = 0.08
 local pressDuration = 0.000000001 
 local sensitivity = 0.005 
 local lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
--- 1. 先定義重置函數 (放在腳本頂部變數區)
+
+-- 1. 定義智能重置函數 (已修復手動衝突問題)
 local function forceReset()
     activeAD = false
-    -- 強制放開按鍵，防止角色一直往左或往右走
-    VIM:SendKeyEvent(false, Enum.KeyCode.A, false, game)
-    VIM:SendKeyEvent(false, Enum.KeyCode.D, false, game)
-    print("\\\\ SYSTEM \\\\ [[ SPIN_DEACTIVATED ]]")
+    
+    -- 檢查：只有當玩家「手動沒按著」A 時，才發送放開指令
+    if not UIS:IsKeyDown(Enum.KeyCode.A) then
+        VIM:SendKeyEvent(false, Enum.KeyCode.A, false, game)
+    end
+    
+    -- 檢查：只有當玩家「手動沒按著」D 時，才發送放開指令
+    if not UIS:IsKeyDown(Enum.KeyCode.D) then
+        VIM:SendKeyEvent(false, Enum.KeyCode.D, false, game)
+    end
+    
+    print("\\\\ SYSTEM \\\\ [[ SPIN_DEACTIVATED - MANUAL_PRESERVED ]]")
 end
 
 -- [[ 🚀 標頭輸出：ANSI 3D 立體斜體 ]]
@@ -422,11 +431,11 @@ task.spawn(function()
     game.Players.PlayerAdded:Connect(monitor)
 end)
 
--- [[ ⌨️ 輸入偵測核心：啟動與停止 ]]
+-- [[ ⌨️ 輸入偵測核心：啟動與停止 (智能重置版) ]]
 
--- 1. 偵測按下 (開始旋轉)
+-- 1. 偵測按下
 UIS.InputBegan:Connect(function(i, processed)
-    if processed then return end -- 如果在聊天室打字則不觸發
+    if processed then return end 
     
     if i.KeyCode == Enum.KeyCode.Space then 
         _G.bhop = true 
@@ -438,20 +447,22 @@ UIS.InputBegan:Connect(function(i, processed)
     end 
 end)
 
--- 2. 偵測放開 (停止旋轉)
+-- 2. 偵測放開 (包含智能重置檢查)
 UIS.InputEnded:Connect(function(i) 
     if i.KeyCode == Enum.KeyCode.Space then 
         _G.bhop = false 
     elseif i.KeyCode.Name == _G.fKN then 
         _G.freeze = false 
     elseif i.KeyCode == _G.toggleKey then 
-        forceReset() -- 呼叫你定義好的重置函數
+        -- 呼叫智能重置，會判斷你是否按著 AD
+        forceReset()
     end 
 end)
 
--- 3. 強制保險絲 (每秒檢查一次，防止放開按鍵卻沒偵測到的 Bug)
+-- 3. 強制保險絲 (每 0.5 秒同步狀態)
 task.spawn(function()
     while true do
+        -- 如果開關變數是開啟的，但實體按鍵沒被按下，執行智能重置
         if activeAD and not UIS:IsKeyDown(_G.toggleKey) then
             forceReset()
         end
@@ -493,10 +504,15 @@ RS.Heartbeat:Connect(function()
     end
 end)
 
--- [[ ⌨️ 核心 AD 旋轉邏輯循環 - 完美還原版 ]]
+-- [[ ⌨️ 核心 AD 旋轉邏輯循環 - 手動避讓增強版 ]]
 task.spawn(function()
     while true do
-        if activeAD then
+        -- 獲取玩家是否正在手動按下 A 或 D
+        local manualA = UIS:IsKeyDown(Enum.KeyCode.A)
+        local manualD = UIS:IsKeyDown(Enum.KeyCode.D)
+        local isMovingManually = manualA or manualD
+
+        if activeAD and not isMovingManually then
             local success, err = pcall(function()
                 -- 1. 獲取當前視角角度變化 (Y軸)
                 local _, currentY, _ = Cam.CFrame:ToOrientation()
@@ -509,11 +525,10 @@ task.spawn(function()
                     deltaY = deltaY + (math.pi * 2) 
                 end
 
-                -- 2. 觸發判定：只有當轉動幅度大於靈敏度門檻時執行
+                -- 2. 觸發判定：轉動幅度門檻
                 if math.abs(deltaY) > sensitivity then
                     local firstKey, secondKey
                     
-                    -- 還原原代碼邏輯：根據轉頭方向決定 A/D 順序
                     if deltaY < 0 then 
                         -- 畫面右轉 -> 先 D 後 A
                         firstKey, secondKey = Enum.KeyCode.D, Enum.KeyCode.A
@@ -522,40 +537,47 @@ task.spawn(function()
                         firstKey, secondKey = Enum.KeyCode.A, Enum.KeyCode.D
                     end
                     
-                    -- 重要：先更新角度紀錄再執行等待，確保下一幀邏輯準確
                     lastCameraAngle = currentY 
 
-                    -- 第一階段按鍵 (firstKey)
-                    VIM:SendKeyEvent(true, firstKey, false, game)
-                    task.wait(pressDuration) -- 極短按壓
-                    VIM:SendKeyEvent(false, firstKey, false, game)
+                    -- 執行第一階段 (增加手動檢查)
+                    if not UIS:IsKeyDown(firstKey) then
+                        VIM:SendKeyEvent(true, firstKey, false, game)
+                        task.wait(pressDuration)
+                        VIM:SendKeyEvent(false, firstKey, false, game)
+                    end
 
-                    -- 第一次間隔等待
                     task.wait(switchInterval)
                     
-                    -- 二次檢查：防止在等待期間已鬆開按鍵
-                    if not activeAD then return end
+                    -- 二次檢查：防止等待期間鬆開開關或開始手動移動
+                    if not activeAD or UIS:IsKeyDown(Enum.KeyCode.A) or UIS:IsKeyDown(Enum.KeyCode.D) then 
+                        return 
+                    end
 
-                    -- 第二階段按鍵 (secondKey)
-                    VIM:SendKeyEvent(true, secondKey, false, game)
-                    task.wait(pressDuration)
-                    VIM:SendKeyEvent(false, secondKey, false, game)
+                    -- 執行第二階段
+                    if not UIS:IsKeyDown(secondKey) then
+                        VIM:SendKeyEvent(true, secondKey, false, game)
+                        task.wait(pressDuration)
+                        VIM:SendKeyEvent(false, secondKey, false, game)
+                    end
                     
-                    -- 第二次間隔等待 (確保節奏穩定)
                     task.wait(switchInterval)
                 else
-                    -- 畫面沒動：僅同步角度，並進入極短暫休眠防止 CPU 佔用過高
                     lastCameraAngle = currentY
                     task.wait(0.01) 
                 end
             end)
             if not success then task.wait(0.1) end
         else
-            -- 未啟動狀態：持續高頻同步視角角度，確保啟動瞬間 deltaY 計算正確
-            lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
+            -- 如果正在手動移動，腳本放開所有模擬按鍵並同步角度
+            if isMovingManually then
+                -- 這裡不使用 forceReset 以免連你手動按的都被放開
+                -- 僅更新角度紀錄，確保手動停止後旋轉能平滑接上
+                lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
+            else
+                lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
+            end
             task.wait(0.05)
         end
-        -- 移除額外的 task.wait() 讓邏輯在 activeAD 時能以最高速循環
     end
 end)
 
