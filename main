@@ -7,18 +7,36 @@
 -- [[ ║  ███████╗███████║██║  ██║███████╗██║  ██║ █████╔╝  ║ ]] --
 -- [[ ╚════════════════════════════════════════════════════╝ ]] --
 
-local p, UIS, RS, VU = game.Players.LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("VirtualUser")
-
 -- [[ ⚙️ 核心變數與初始化 ]]
-_G.bhop = _G.bhop or false
-_G.freeze = _G.freeze or false
-_G.fKN = _G.fKN or "PageDown"        
-_G.freezeMS = _G.freezeMS or 300     
+_G.fKN = _G.fKN or "PageDown"           
+_G.freezeMS = _G.freezeMS or 300      
 _G.isMinimized = _G.isMinimized or false 
+_G.toggleKey = _G.toggleKey or Enum.KeyCode.T
+_G.bhop = false
+_G.freeze = false
 
-local DC_CODE = "XF4PTA5Pgp"
-local DC_URL = "https://discord.gg/" .. DC_CODE
+local p = game:GetService("Players").LocalPlayer
+local UIS = game:GetService("UserInputService")
+local VIM = game:GetService("VirtualInputManager")
+local RS = game:GetService("RunService")
+local VU = game:GetService("VirtualUser")
+local Cam = workspace.CurrentCamera
 local BG_IMAGE_ID = "rbxassetid://117164248667049"
+
+-- [[ ⌨️ AD (Spin) 邏輯變數 - 必須放在 Input 前定義 ]]
+local activeAD = false
+local switchInterval = 0.08 
+local pressDuration = 0.000000001 
+local sensitivity = 0.005 
+local lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
+-- 1. 先定義重置函數 (放在腳本頂部變數區)
+local function forceReset()
+    activeAD = false
+    -- 強制放開按鍵，防止角色一直往左或往右走
+    VIM:SendKeyEvent(false, Enum.KeyCode.A, false, game)
+    VIM:SendKeyEvent(false, Enum.KeyCode.D, false, game)
+    print("\\\\ SYSTEM \\\\ [[ SPIN_DEACTIVATED ]]")
+end
 
 -- [[ 🚀 標頭輸出：ANSI 3D 立體斜體 ]]
 local function showHeader()
@@ -178,97 +196,113 @@ local function createUI()
     minBtn.Size, minBtn.Position, minBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -60, 0, 0), _G.isMinimized and "+" or "-"
     minBtn.TextColor3, minBtn.BackgroundTransparency, minBtn.ZIndex, minBtn.TextSize = Color3.new(1, 1, 1), 1, 6, 18
 
-    -- [[ 內容容器：固定在主框架底部 ]]
     local content = Instance.new("Frame", m)
     content.Size, content.Position = UDim2.new(1, 0, 0, 150), UDim2.new(0, 0, 1, -160)
     content.BackgroundTransparency, content.Visible = 1, not _G.isMinimized 
 
-    --- [[ 第一排 (Y: 0)：LAG TOOL (子視窗生成邏輯) ---
+    --- [[ 第一排：LAG TOOL (60%) | SPIN KEY (28%) ---
     local lagToolBtn = Instance.new("TextButton", content)
-    lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.9, 0, 0, 40), UDim2.new(0.05, 0, 0, 0), "ACTIVATE LAG TOOL"
+    lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.6, 0, 0, 40), UDim2.new(0.05, 0, 0, 0), "ACTIVATE LAG TOOL"
     lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.new(0.2,0,0), Color3.new(1,0.5,0.5), 0.7
     lagToolBtn.MouseButton1Click:Connect(function()
-        task.spawn(function()
-            if p.PlayerGui:FindFirstChild("SpecificLagSystem") then p.PlayerGui.SpecificLagSystem:Destroy() end
-            local freezeSystemGui = Instance.new("ScreenGui", p.PlayerGui)
-            freezeSystemGui.Name, freezeSystemGui.DisplayOrder = "SpecificLagSystem", 1000
+        -- 這裡放你原本的 SpecificLagSystem 生成邏輯
+        if p.PlayerGui:FindFirstChild("SpecificLagSystem") then p.PlayerGui.SpecificLagSystem:Destroy() end
+        local freezeSystemGui = Instance.new("ScreenGui", p.PlayerGui)
+        freezeSystemGui.Name, freezeSystemGui.DisplayOrder = "SpecificLagSystem", 1000
 
-            local function applyDraggable(btn, onClick)
-                local dragging, dragStart, startPos, pressStartTime = false, nil, nil, 0
-                btn.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        dragging, dragStart, startPos, pressStartTime = true, input.Position, btn.Position, tick()
-                    end
-                end)
-                UIS.InputChanged:Connect(function(input)
-                    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                        if tick() - pressStartTime > 0.3 then
-                            local delta = input.Position - dragStart
-                            btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-                        end
-                    end
-                end)
-                UIS.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        dragging = false
-                        if tick() - pressStartTime < 0.3 then onClick() end
-                    end
-                end)
-            end
-
-            local lagBtn = Instance.new("TextButton", freezeSystemGui)
-            lagBtn.Size, lagBtn.Position, lagBtn.Text = UDim2.new(0, 90, 0, 45), UDim2.new(0.96, 0, 0.45, 0), "LAG ONCE"
-            lagBtn.BackgroundColor3, lagBtn.TextColor3 = Color3.fromRGB(60, 60, 60), Color3.new(1, 1, 1)
-            lagBtn.AnchorPoint = Vector2.new(1, 0.5)
-            Instance.new("UICorner", lagBtn)
-
-            applyDraggable(lagBtn, function()
-                task.spawn(function()
-                    game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "Freeze: " .. (_G.freezeMS or 300) .. "ms", Duration = 0.5 })
-                    local freezeSec = (_G.freezeMS or 300) / 1000
-                    lagBtn.BackgroundColor3, lagBtn.Text = Color3.fromRGB(255, 0, 0), "FREEZING"
-                    local t = os.clock()
-                    while os.clock() - t < freezeSec do end 
-                    lagBtn.BackgroundColor3, lagBtn.Text = Color3.fromRGB(60, 60, 60), "LAG ONCE"
-                end)
+        local function applyDraggable(btn, onClick)
+            local dragging, dragStart, startPos, pressStartTime = false, nil, nil, 0
+            btn.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging, dragStart, startPos, pressStartTime = true, input.Position, btn.Position, tick()
+                end
             end)
-            
-            local closeBtn = Instance.new("TextButton", freezeSystemGui)
-            closeBtn.Size, closeBtn.Position, closeBtn.Text = UDim2.new(0, 70, 0, 35), UDim2.new(0.96, 0, 0.52, 0), "CLOSE"
-            closeBtn.BackgroundColor3, closeBtn.TextColor3 = Color3.fromRGB(150, 0, 0), Color3.new(1, 1, 1)
-            closeBtn.AnchorPoint = Vector2.new(1, 0.5)
-            Instance.new("UICorner", closeBtn)
-            applyDraggable(closeBtn, function() freezeSystemGui:Destroy() end)
+            UIS.InputChanged:Connect(function(input)
+                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    if tick() - pressStartTime > 0.3 then
+                        local delta = input.Position - dragStart
+                        btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                    end
+                end
+            end)
+            UIS.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = false
+                    if tick() - pressStartTime < 0.3 then onClick() end
+                end
+            end)
+        end
+
+        local lagBtn = Instance.new("TextButton", freezeSystemGui)
+        lagBtn.Size, lagBtn.Position, lagBtn.Text = UDim2.new(0, 90, 0, 45), UDim2.new(0.96, 0, 0.45, 0), "LAG ONCE"
+        lagBtn.BackgroundColor3, lagBtn.TextColor3 = Color3.fromRGB(60, 60, 60), Color3.new(1, 1, 1)
+        lagBtn.AnchorPoint = Vector2.new(1, 0.5)
+        Instance.new("UICorner", lagBtn)
+        applyDraggable(lagBtn, function()
+            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "Freeze: " .. (_G.freezeMS or 300) .. "ms", Duration = 0.5 })
+            local freezeSec = (_G.freezeMS or 300) / 1000
+            lagBtn.BackgroundColor3, lagBtn.Text = Color3.fromRGB(255, 0, 0), "FREEZING"
+            local t = os.clock()
+            while os.clock() - t < freezeSec do end 
+            lagBtn.BackgroundColor3, lagBtn.Text = Color3.fromRGB(60, 60, 60), "LAG ONCE"
         end)
+        
+        local closeBtn = Instance.new("TextButton", freezeSystemGui)
+        closeBtn.Size, closeBtn.Position, closeBtn.Text = UDim2.new(0, 70, 0, 35), UDim2.new(0.96, 0, 0.52, 0), "CLOSE"
+        closeBtn.BackgroundColor3, closeBtn.TextColor3 = Color3.fromRGB(150, 0, 0), Color3.new(1, 1, 1)
+        closeBtn.AnchorPoint = Vector2.new(1, 0.5)
+        Instance.new("UICorner", closeBtn)
+        applyDraggable(closeBtn, function() freezeSystemGui:Destroy() end)
     end)
 
-    --- [[ 第二排 (Y: 50)：Keybind | MS (加入你要求的邏輯) ---
-    local l = Instance.new("TextButton", content)
-    l.Size, l.Position, l.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 50), _G.fKN
-    l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
-    l.MouseButton1Click:Connect(function()
-        l.Text = "..."
+    local spinBindBtn = Instance.new("TextButton", content)
+    spinBindBtn.Size, spinBindBtn.Position = UDim2.new(0.28, 0, 0, 40), UDim2.new(0.67, 0, 0, 0)
+    spinBindBtn.Text = "SPIN:" .. _G.toggleKey.Name
+    spinBindBtn.BackgroundColor3, spinBindBtn.TextColor3, spinBindBtn.BackgroundTransparency = Color3.new(0.1, 0.1, 0.3), Color3.new(1, 1, 1), 0.7
+    spinBindBtn.MouseButton1Click:Connect(function()
+        spinBindBtn.Text = "..."
         local con; con = UIS.InputBegan:Connect(function(i) 
             if i.UserInputType == Enum.UserInputType.Keyboard then 
-                _G.fKN = i.KeyCode.Name; l.Text = _G.fKN; con:Disconnect() 
-                game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "Key Changed: " .. _G.fKN, Duration = 2 })
+                _G.toggleKey = i.KeyCode; spinBindBtn.Text = "SPIN:" .. i.KeyCode.Name; con:Disconnect() 
+                game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "Spin Key Changed: " .. _G.toggleKey.Name, Duration = 2 })
             end 
         end)
     end)
 
-    local tb = Instance.new("TextBox", content)
-    tb.Size, tb.Position, tb.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 50), tostring(_G.freezeMS)
-    tb.BackgroundColor3, tb.TextColor3, tb.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
-    tb.FocusLost:Connect(function()
-        local val = tonumber(tb.Text)
-        if val then 
-            _G.freezeMS = math.clamp(val, 0, 5000) 
-            tb.Text = tostring(_G.freezeMS) 
-            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "MS Adjusted: " .. _G.freezeMS .. "ms", Duration = 2 })
-        end
+    --- [[ 第二排：Keybind | MS (已修復通知邏輯) ---
+local l = Instance.new("TextButton", content)
+l.Size, l.Position, l.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 50), _G.fKN
+l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
+l.MouseButton1Click:Connect(function()
+    l.Text = "..."
+    local con; con = UIS.InputBegan:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.Keyboard then 
+            _G.fKN = i.KeyCode.Name; l.Text = _G.fKN; con:Disconnect() 
+            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "SYSTEM", Text = "Key Changed: " .. _G.fKN, Duration = 2 })
+        end 
     end)
+end)
 
-    --- [[ 第三排 (Y: 100)：FPS | STEPS ---
+local tb = Instance.new("TextBox", content)
+tb.Size, tb.Position, tb.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 50), tostring(_G.freezeMS)
+tb.BackgroundColor3, tb.TextColor3, tb.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
+tb.FocusLost:Connect(function(enterPressed)
+    local val = tonumber(tb.Text)
+    if val then 
+        _G.freezeMS = math.clamp(val, 0, 5000) 
+        tb.Text = tostring(_G.freezeMS) 
+        -- 修正點：重新加入消失的系統通知
+        game:GetService("StarterGui"):SetCore("SendNotification", { 
+            Title = "SYSTEM", 
+            Text = "MS Adjusted: " .. tostring(_G.freezeMS) .. "ms", 
+            Duration = 2 
+        })
+    else
+        tb.Text = tostring(_G.freezeMS) -- 如果輸入不是數字，重置回原本數值
+    end
+end)
+
+    --- [[ 第三排：FPS | STEPS ---
     local fBtn = Instance.new("TextButton", content)
     fBtn.Size, fBtn.Position, fBtn.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 100), "DisplayFPS(RE)"
     fBtn.BackgroundColor3, fBtn.TextColor3, fBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
@@ -293,25 +327,66 @@ local function createUI()
     end)
 end
 
+createUI()
+
 -- [[ 🔄 角色處理：全域同步版本 ]]
 local function run(c)
-    local plr = game.Players:GetPlayerFromCharacter(c)
-    if not plr then return end
+    local charPlayer = game.Players:GetPlayerFromCharacter(c)
+    local lp = game.Players.LocalPlayer
+    if not charPlayer then return end
 
-    -- 1. 復活重開 UI (僅限本地玩家)
-    if plr == p then
-        local console = p.PlayerGui:FindFirstChild("E5_Console")
-        if console then
-            console.Enabled = true
-        else
-            createUI() -- 防止 UI 被刪除的情況下重建
-        end
-        print("//// REBOOT //// LocalPlayer UI Active.")
+    -- ==========================================
+    -- 1. 針對本地玩家 (你自己) 的 Korblox 檢測
+    -- ==========================================
+    if charPlayer == lp then
+        -- UI 重啟
+        local console = lp.PlayerGui:FindFirstChild("E5_Console")
+        if console then console.Enabled = true else createUI() end
+
+        task.spawn(function()
+            local KORBLOX_BUNDLE_ID = 1924515
+            local isReal = false
+
+            -- [方法 A] 從 Roblox 官網讀取你「現在穿什麼」 (不受腳本延遲影響)
+            local success, appearance = pcall(function()
+                return game.Players:GetCharacterAppearanceInfoAsync(lp.UserId)
+            end)
+
+            if success and appearance and appearance.assets then
+                for _, asset in ipairs(appearance.assets) do
+                    -- 檢查是否有 Korblox 相關的 Asset ID
+                    if asset.id == 134082440 or asset.id == 1924515 or tostring(asset.name):find("Korblox") then
+                        isReal = true
+                        break
+                    end
+                end
+            end
+
+            -- [方法 B] 雙重檢查：如果方法 A 失敗，直接掃描角色模型中的 CharacterMesh
+            if not isReal then
+                for _, obj in ipairs(c:GetDescendants()) do
+                    if obj:IsA("CharacterMesh") and (obj.MeshId == 902942093 or obj.MeshId == 902942096) then
+                        isReal = true
+                        break
+                    end
+                end
+            end
+
+            -- [最終結果判斷]
+            if not isReal then
+                print("//// [CHECK]  loading fake Korblox ////")
+                pcall(function()
+                    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))()
+                end)
+            else
+                print("//// [CHECK] real Korblox ////")
+            end
+        end)
     end
 
-    print("\\\\ HOOK \\\\ Character_Linked: " .. plr.Name)
-    
-    -- 2. 所有人透明頭部 (加入小延遲確保模型加載完成)
+    -- ==========================================
+    -- 2. 所有人無頭處理 (保持不變)
+    -- ==========================================
     task.spawn(function()
         local h = c:WaitForChild("Head", 10)
         if h then 
@@ -321,13 +396,6 @@ local function run(c)
                 if v:IsA("Decal") then v.Transparency = 1 end 
             end 
         end
-    end)
-
-    -- 3. 所有人 Korblox 加載
-    task.spawn(function()
-        pcall(function() 
-            loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))() 
-        end)
     end)
 end
 
@@ -354,35 +422,63 @@ task.spawn(function()
     game.Players.PlayerAdded:Connect(monitor)
 end)
 
--- [[ 🔄 輸入偵測 ]]
-UIS.InputBegan:Connect(function(i, g) 
-    if g then return end 
-    if i.KeyCode == Enum.KeyCode.Space then _G.bhop = true 
-    elseif i.KeyCode.Name == _G.fKN then _G.freeze = true print("\\\\ INPUT \\\\ [[ FREEZE_ENGAGED ]]") end 
-end)
-UIS.InputEnded:Connect(function(i) 
-    if i.KeyCode == Enum.KeyCode.Space then _G.bhop = false 
-    elseif i.KeyCode.Name == _G.fKN then _G.freeze = false end 
+-- [[ ⌨️ 輸入偵測核心：啟動與停止 ]]
+
+-- 1. 偵測按下 (開始旋轉)
+UIS.InputBegan:Connect(function(i, processed)
+    if processed then return end -- 如果在聊天室打字則不觸發
+    
+    if i.KeyCode == Enum.KeyCode.Space then 
+        _G.bhop = true 
+    elseif i.KeyCode.Name == _G.fKN then 
+        _G.freeze = true 
+    elseif i.KeyCode == _G.toggleKey then 
+        activeAD = true
+        print("\\\\ SYSTEM \\\\ [[ SPIN_ACTIVATED ]]")
+    end 
 end)
 
--- [[ 🔄 物理與心跳邏輯核心區 ]]
+-- 2. 偵測放開 (停止旋轉)
+UIS.InputEnded:Connect(function(i) 
+    if i.KeyCode == Enum.KeyCode.Space then 
+        _G.bhop = false 
+    elseif i.KeyCode.Name == _G.fKN then 
+        _G.freeze = false 
+    elseif i.KeyCode == _G.toggleKey then 
+        forceReset() -- 呼叫你定義好的重置函數
+    end 
+end)
+
+-- 3. 強制保險絲 (每秒檢查一次，防止放開按鍵卻沒偵測到的 Bug)
+task.spawn(function()
+    while true do
+        if activeAD and not UIS:IsKeyDown(_G.toggleKey) then
+            forceReset()
+        end
+        task.wait(0.5)
+    end
+end)
+
+-- 2. 物理循環：處理 Bhop 與 Freeze
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local r = c and c:FindFirstChild("HumanoidRootPart")
     local hum = c and c:FindFirstChildOfClass("Humanoid")
 
-    -- 1. Bhop 邏輯
-    if _G.bhop and hum and hum.FloorMaterial ~= Enum.Material.Air then hum:ChangeState(3) end
+    -- [[ Bhop 邏輯 ]]
+    if _G.bhop and hum and hum.FloorMaterial ~= Enum.Material.Air then 
+        hum:ChangeState(3) 
+    end
 
-    -- 2. Freeze 核心
+    -- [[ Freeze 核心 (射線觸發版) ]]
     if _G.freeze and r then
         local lp = RaycastParams.new()
         lp.FilterDescendantsInstances = {c}
         
-        -- [[ 核心判定：只有 Raycast 掃到東西才跳通知 + 卡住 ]]
+        -- 判定：腳下 20 單位或前方 15 單位有物體時觸發
         if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
             
-            -- 跳出動態數字通知
+            -- 跳出 UI 通知
             game:GetService("StarterGui"):SetCore("SendNotification", { 
                 Title = "SYSTEM"; 
                 Text = "Freeze: " .. tostring(_G.freezeMS) .. "ms"; 
@@ -393,10 +489,76 @@ RS.Heartbeat:Connect(function()
             local t = os.clock() 
             local delayTime = (tonumber(_G.freezeMS) or 300) / 1000
             while os.clock() - t < delayTime do end 
-            
         end
     end
 end)
+
+-- [[ ⌨️ 核心 AD 旋轉邏輯循環 - 完美還原版 ]]
+task.spawn(function()
+    while true do
+        if activeAD then
+            local success, err = pcall(function()
+                -- 1. 獲取當前視角角度變化 (Y軸)
+                local _, currentY, _ = Cam.CFrame:ToOrientation()
+                local deltaY = currentY - lastCameraAngle
+                
+                -- 修正弧度跨越 180/-180 度的跳轉問題
+                if deltaY > math.pi then 
+                    deltaY = deltaY - (math.pi * 2)
+                elseif deltaY < -math.pi then 
+                    deltaY = deltaY + (math.pi * 2) 
+                end
+
+                -- 2. 觸發判定：只有當轉動幅度大於靈敏度門檻時執行
+                if math.abs(deltaY) > sensitivity then
+                    local firstKey, secondKey
+                    
+                    -- 還原原代碼邏輯：根據轉頭方向決定 A/D 順序
+                    if deltaY < 0 then 
+                        -- 畫面右轉 -> 先 D 後 A
+                        firstKey, secondKey = Enum.KeyCode.D, Enum.KeyCode.A
+                    else 
+                        -- 畫面左轉 -> 先 A 後 D
+                        firstKey, secondKey = Enum.KeyCode.A, Enum.KeyCode.D
+                    end
+                    
+                    -- 重要：先更新角度紀錄再執行等待，確保下一幀邏輯準確
+                    lastCameraAngle = currentY 
+
+                    -- 第一階段按鍵 (firstKey)
+                    VIM:SendKeyEvent(true, firstKey, false, game)
+                    task.wait(pressDuration) -- 極短按壓
+                    VIM:SendKeyEvent(false, firstKey, false, game)
+
+                    -- 第一次間隔等待
+                    task.wait(switchInterval)
+                    
+                    -- 二次檢查：防止在等待期間已鬆開按鍵
+                    if not activeAD then return end
+
+                    -- 第二階段按鍵 (secondKey)
+                    VIM:SendKeyEvent(true, secondKey, false, game)
+                    task.wait(pressDuration)
+                    VIM:SendKeyEvent(false, secondKey, false, game)
+                    
+                    -- 第二次間隔等待 (確保節奏穩定)
+                    task.wait(switchInterval)
+                else
+                    -- 畫面沒動：僅同步角度，並進入極短暫休眠防止 CPU 佔用過高
+                    lastCameraAngle = currentY
+                    task.wait(0.01) 
+                end
+            end)
+            if not success then task.wait(0.1) end
+        else
+            -- 未啟動狀態：持續高頻同步視角角度，確保啟動瞬間 deltaY 計算正確
+            lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
+            task.wait(0.05)
+        end
+        -- 移除額外的 task.wait() 讓邏輯在 activeAD 時能以最高速循環
+    end
+end)
+
 -- [[ 📡 Module 4: Social Daemon ]]
 task.spawn(function()
     print("//// [M4] STARTING SOCIAL_DAEMON ////////")
