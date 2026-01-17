@@ -202,81 +202,72 @@ local function createLagToolWindow()
     lagSg.Name = "LagTool_Floating"
     lagSg.DisplayOrder = 2000 
     
-    -- 通用的拖曳處理函數
+    -- 高精確拖曳邏輯 (防止移動時觸發點擊)
     local function makeDraggable(gui)
         local dragging, dragInput, dragStart, startPos
-        local moved = false -- 記錄是否有移動過
-
+        local moved = false
         gui.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 dragging = true
                 dragStart = input.Position
                 startPos = gui.Position
-                moved = false -- 重置移動狀態
-                
+                moved = false
                 input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
+                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
                 end)
             end
         end)
-
         gui.InputChanged:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                 dragInput = input
             end
         end)
-
         UIS.InputChanged:Connect(function(input)
             if input == dragInput and dragging then
                 local delta = input.Position - dragStart
-                if delta.Magnitude > 5 then -- 如果移動超過 5 像素，判定為拖曳
-                    moved = true
-                end
+                if delta.Magnitude > 5 then moved = true end
                 gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
-        
-        -- 回傳判斷函數
         return function() return moved end
     end
 
-    -- 1. LAG 按鈕
+    -- 1. LAG 按鈕 (尺寸縮小為 60x30)
     local lagBtn = Instance.new("TextButton", lagSg)
-    lagBtn.Size = UDim2.new(0, 100, 0, 50)
-    lagBtn.Position = UDim2.new(0.5, -110, 0.8, 0)
+    lagBtn.Size = UDim2.new(0, 60, 0, 30)
+    lagBtn.Position = UDim2.new(0.5, -65, 0.85, 0)
     lagBtn.BackgroundColor3 = Color3.new(0.4, 0, 0)
     lagBtn.Text = "LAG"
     lagBtn.TextColor3 = Color3.new(1, 1, 1)
-    lagBtn.TextSize = 20
+    lagBtn.TextSize = 14
+    lagBtn.BorderSizePixel = 1
     
     local isLagMoved = makeDraggable(lagBtn)
 
-    -- 2. CLOSE 按鈕
+    -- 2. CLOSE 按鈕 (尺寸縮小為 60x30)
     local closeBtn = Instance.new("TextButton", lagSg)
-    closeBtn.Size = UDim2.new(0, 100, 0, 50)
-    closeBtn.Position = UDim2.new(0.5, 10, 0.8, 0)
+    closeBtn.Size = UDim2.new(0, 60, 0, 30)
+    closeBtn.Position = UDim2.new(0.5, 5, 0.85, 0)
     closeBtn.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
     closeBtn.Text = "CLOSE"
     closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.TextSize = 20
+    closeBtn.TextSize = 14
+    closeBtn.BorderSizePixel = 1
     
     local isCloseMoved = makeDraggable(closeBtn)
 
-    -- [[ 邏輯綁定 - 加入移動判定 ]]
-    
+    -- 邏輯綁定
     lagBtn.MouseButton1Click:Connect(function()
-        if isLagMoved() then return end -- 如果剛才是在拖曳，就不執行點擊邏輯
+        if isLagMoved() then return end
         local currentMS = tonumber(_G.freezeMS) or 300
-        notify("LAGGING", currentMS .. "ms", 0.5)
+        notify("LAG", currentMS .. "ms", 0.5)
         task.wait(0.01)
         local t = os.clock()
         while os.clock() - t < (currentMS / 1000) do end
     end)
 
     closeBtn.MouseButton1Click:Connect(function() 
-        if isCloseMoved() then return end -- 如果剛才是在拖曳，不執行關閉
+        if isCloseMoved() then return end
         lagSg:Destroy() 
     end)
 end
