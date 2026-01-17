@@ -192,7 +192,7 @@ task.spawn(function()
     end
 end)
 
--- [[ 🛠️ 功能一：Lag Tool 專屬視窗 (長按 3 秒拖曳版) ]]
+-- [[ 🛠️ 功能一：Lag Tool 專屬視窗 (長按 2 秒拖曳版) ]]
 local function createLagToolWindow()
     if p.PlayerGui:FindFirstChild("LagTool_Floating") then 
         p.PlayerGui.LagTool_Floating:Destroy() 
@@ -202,12 +202,12 @@ local function createLagToolWindow()
     lagSg.Name = "LagTool_Floating"
     lagSg.DisplayOrder = 2000 
     
-    -- 核心：長按 3 秒解鎖拖曳
+    -- 核心：長按 2 秒解鎖拖曳
     local function makeDraggable(gui)
         local dragging, dragInput, dragStart, startPos
         local moved = false
         local canMove = false
-        local holdTime = 3 
+        local holdTime = 2 
 
         gui.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
