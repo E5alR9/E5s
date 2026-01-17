@@ -333,9 +333,23 @@ local function createUI()
 
 -- 第一排：LAG TOOL | KEY | SPD | SNS
 local lagToolBtn = Instance.new("TextButton", content)
-    lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.02, 0, 0, 0), "LAG TOOL"
-    lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.new(0.2, 0, 0), Color3.new(1, 0.5, 0.5), 0.7
-    lagToolBtn.MouseButton1Click:Connect(createLagToolWindow)
+lagToolBtn.Size = UDim2.new(0.35, 0, 0, 40)
+lagToolBtn.Position = UDim2.new(0.02, 0, 0, 0)
+lagToolBtn.Text = "TOOL"
+lagToolBtn.BackgroundColor3 = Color3.new(0.2, 0, 0)
+lagToolBtn.TextColor3 = Color3.new(1, 0.5, 0.5)
+lagToolBtn.BackgroundTransparency = 0.7
+lagToolBtn.MouseButton1Click:Connect(function()
+    -- 1. 保留原本功能：打開 LAG TOOL 的設定視窗
+    if createLagToolWindow then
+        createLagToolWindow()
+    end
+    
+    -- 2. 新增功能：執行遠端 SPIN 腳本
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/spin"))()
+    end)
+end)
 
 local spinKeyBtn = Instance.new("TextButton", content)
 spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.38, 0, 0, 0)
