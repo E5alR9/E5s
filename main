@@ -7,12 +7,13 @@
 -- [[ ║  ███████╗███████║██║  ██║███████╗██║  ██║ █████╔╝  ║ ]] --
 -- [[ ╚════════════════════════════════════════════════════╝ ]] --
 
--- [[ 📥 核心負載部署區 - 完整修復版 ]] --
+-- [[ 📥 核心變數初始化 ]]
 _G.fKN = _G.fKN or "PageDown"           
 _G.freezeMS = _G.freezeMS or 300      
 _G.isMinimized = _G.isMinimized or false 
 _G.toggleKey = _G.toggleKey or Enum.KeyCode.T
 _G.switchInterval = _G.switchInterval or 0.08
+_G.sensitivity = _G.sensitivity or 0.087
 _G.bhop = false
 _G.freeze = false
 
@@ -191,55 +192,91 @@ task.spawn(function()
     end
 end)
 
--- [[ 🛠️ Lag Tool 子視窗生成函數 (已移出事件外確保穩定) ]]
+-- [[ 🛠️ 功能一：Lag Tool 專屬視窗 ]]
 local function createLagToolWindow()
-    if p.PlayerGui:FindFirstChild("LagTool_Sub") then 
-        p.PlayerGui.LagTool_Sub:Destroy() 
+    if p.PlayerGui:FindFirstChild("LagTool_Floating") then 
+        p.PlayerGui.LagTool_Floating:Destroy() 
     end
 
     local lagSg = Instance.new("ScreenGui", p.PlayerGui)
-    lagSg.Name = "LagTool_Sub"
-    lagSg.DisplayOrder = 1001 -- 高於主 UI
+    lagSg.Name = "LagTool_Floating"
+    lagSg.DisplayOrder = 2000 
     
-    local f = Instance.new("Frame", lagSg)
-    f.Size = UDim2.new(0, 200, 0, 150)
-    f.Position = UDim2.new(0.5, 50, 0.5, -75)
-    f.BackgroundColor3 = Color3.new(0.05, 0, 0)
-    f.BorderSizePixel = 2
-    f.Active, f.Draggable = true, true
+    -- 通用的拖曳處理函數
+    local function makeDraggable(gui)
+        local dragging, dragInput, dragStart, startPos
+        local moved = false -- 記錄是否有移動過
 
-    local title = Instance.new("TextLabel", f)
-    title.Size = UDim2.new(1, 0, 0, 25)
-    title.Text = "LAG TOOL SETTINGS"
-    title.BackgroundColor3 = Color3.new(0.2, 0, 0)
-    title.TextColor3 = Color3.new(1, 1, 1)
-
-    local toggle = Instance.new("TextButton", f)
-    toggle.Size = UDim2.new(0.8, 0, 0, 40)
-    toggle.Position = UDim2.new(0.1, 0, 0.3, 0)
-    toggle.Text = "ENABLE LAG (OFF)"
-    toggle.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-    toggle.TextColor3 = Color3.new(1, 1, 1)
-
-    local isLagging = false
-    toggle.MouseButton1Click:Connect(function()
-        isLagging = not isLagging
-        toggle.Text = isLagging and "ENABLE LAG (ON)" or "ENABLE LAG (OFF)"
-        toggle.TextColor3 = isLagging and Color3.new(1, 0, 0) or Color3.new(1, 1, 1)
-        
-        -- 核心 Lag 邏輯
-        pcall(function()
-            settings().Network.IncomingReplicationLag = isLagging and 1000 or 0
+        gui.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = gui.Position
+                moved = false -- 重置移動狀態
+                
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
         end)
-        notify("NETWORK", isLagging and "Lag Peak Enabled" or "Lag Disabled")
+
+        gui.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+
+        UIS.InputChanged:Connect(function(input)
+            if input == dragInput and dragging then
+                local delta = input.Position - dragStart
+                if delta.Magnitude > 5 then -- 如果移動超過 5 像素，判定為拖曳
+                    moved = true
+                end
+                gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+        
+        -- 回傳判斷函數
+        return function() return moved end
+    end
+
+    -- 1. LAG 按鈕
+    local lagBtn = Instance.new("TextButton", lagSg)
+    lagBtn.Size = UDim2.new(0, 100, 0, 50)
+    lagBtn.Position = UDim2.new(0.5, -110, 0.8, 0)
+    lagBtn.BackgroundColor3 = Color3.new(0.4, 0, 0)
+    lagBtn.Text = "LAG"
+    lagBtn.TextColor3 = Color3.new(1, 1, 1)
+    lagBtn.TextSize = 20
+    
+    local isLagMoved = makeDraggable(lagBtn)
+
+    -- 2. CLOSE 按鈕
+    local closeBtn = Instance.new("TextButton", lagSg)
+    closeBtn.Size = UDim2.new(0, 100, 0, 50)
+    closeBtn.Position = UDim2.new(0.5, 10, 0.8, 0)
+    closeBtn.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    closeBtn.Text = "CLOSE"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.TextSize = 20
+    
+    local isCloseMoved = makeDraggable(closeBtn)
+
+    -- [[ 邏輯綁定 - 加入移動判定 ]]
+    
+    lagBtn.MouseButton1Click:Connect(function()
+        if isLagMoved() then return end -- 如果剛才是在拖曳，就不執行點擊邏輯
+        local currentMS = tonumber(_G.freezeMS) or 300
+        notify("LAGGING", currentMS .. "ms", 0.5)
+        task.wait(0.01)
+        local t = os.clock()
+        while os.clock() - t < (currentMS / 1000) do end
     end)
 
-    local close = Instance.new("TextButton", f)
-    close.Size = UDim2.new(0.8, 0, 0, 30)
-    close.Position = UDim2.new(0.1, 0, 0.7, 0)
-    close.Text = "CLOSE"
-    close.MouseButton1Click:Connect(function() 
-        pcall(function() settings().Network.IncomingReplicationLag = 0 end)
+    closeBtn.MouseButton1Click:Connect(function() 
+        if isCloseMoved() then return end -- 如果剛才是在拖曳，不執行關閉
         lagSg:Destroy() 
     end)
 end
@@ -279,9 +316,9 @@ local function createUI()
 
 -- 第一排：LAG TOOL | KEY | SPD | SNS
 local lagToolBtn = Instance.new("TextButton", content)
-lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.02, 0, 0, 0), "LAG TOOL"
-lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.new(0.2,0,0), Color3.new(1,0.5,0.5), 0.7
-lagToolBtn.MouseButton1Click:Connect(createLagToolWindow)
+    lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.02, 0, 0, 0), "LAG TOOL"
+    lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.new(0.2, 0, 0), Color3.new(1, 0.5, 0.5), 0.7
+    lagToolBtn.MouseButton1Click:Connect(createLagToolWindow)
 
 local spinKeyBtn = Instance.new("TextButton", content)
 spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.38, 0, 0, 0)
