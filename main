@@ -41,7 +41,7 @@ end
 local activeAD = false
 _G.switchInterval = _G.switchInterval or 0.08
 local pressDuration = 0.000000001 
-local sensitivity = 0.087
+_G.sensitivity = _G.sensitivity or 0.087
 local lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
 
 -- 1. 定義智能重置函數 (已修復手動衝突問題)
@@ -277,35 +277,47 @@ local function createUI()
     content.Position = UDim2.new(0, 0, 1, -160)
     content.BackgroundTransparency, content.Visible = 1, not _G.isMinimized 
 
-    -- 第一排：LAG TOOL | KEY | SPD
-    local lagToolBtn = Instance.new("TextButton", content)
-    lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.5, 0, 0, 40), UDim2.new(0.02, 0, 0, 0), "ACTIVATE LAG TOOL"
-    lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.new(0.2,0,0), Color3.new(1,0.5,0.5), 0.7
-    lagToolBtn.MouseButton1Click:Connect(createLagToolWindow)
+-- 第一排：LAG TOOL | KEY | SPD | SNS
+local lagToolBtn = Instance.new("TextButton", content)
+lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.02, 0, 0, 0), "LAG TOOL"
+lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.new(0.2,0,0), Color3.new(1,0.5,0.5), 0.7
+lagToolBtn.MouseButton1Click:Connect(createLagToolWindow)
 
-    local spinKeyBtn = Instance.new("TextButton", content)
-    spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.22, 0, 0, 40), UDim2.new(0.53, 0, 0, 0)
-    spinKeyBtn.Text = "KEY:".._G.toggleKey.Name
-    spinKeyBtn.BackgroundColor3, spinKeyBtn.TextColor3, spinKeyBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
-    spinKeyBtn.MouseButton1Click:Connect(function()
-        spinKeyBtn.Text = "..."
-        local con; con = UIS.InputBegan:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.Keyboard then
-                _G.toggleKey = i.KeyCode
-                spinKeyBtn.Text = "KEY:".._G.toggleKey.Name
-                notify("KEYBIND", "Spin Key: ".._G.toggleKey.Name)
-                con:Disconnect()
-            end
-        end)
+local spinKeyBtn = Instance.new("TextButton", content)
+spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.38, 0, 0, 0)
+spinKeyBtn.Text = "K:".._G.toggleKey.Name
+spinKeyBtn.BackgroundColor3, spinKeyBtn.TextColor3, spinKeyBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
+spinKeyBtn.MouseButton1Click:Connect(function()
+    spinKeyBtn.Text = "..."
+    local con; con = UIS.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Keyboard then
+            _G.toggleKey = i.KeyCode
+            spinKeyBtn.Text = "K:".._G.toggleKey.Name
+            notify("KEYBIND", "Spin Key: ".._G.toggleKey.Name)
+            con:Disconnect()
+        end
     end)
+end)
 
-    local spdBox = Instance.new("TextBox", content)
-    spdBox.Size, spdBox.Position, spdBox.Text = UDim2.new(0.2, 0, 0, 40), UDim2.new(0.77, 0, 0, 0), tostring(_G.switchInterval)
-    spdBox.BackgroundColor3, spdBox.TextColor3, spdBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
-    spdBox.FocusLost:Connect(function()
-        _G.switchInterval = tonumber(spdBox.Text) or 0.08
-        notify("SPD", "Interval: ".._G.switchInterval)
-    end)
+local spdBox = Instance.new("TextBox", content)
+spdBox.Size, spdBox.Position, spdBox.Text = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.58, 0, 0, 0), tostring(_G.switchInterval)
+spdBox.BackgroundColor3, spdBox.TextColor3, spdBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
+spdBox.FocusLost:Connect(function()
+    _G.switchInterval = tonumber(spdBox.Text) or 0.08
+    notify("SPD", "Interval: ".._G.switchInterval)
+end)
+
+-- 這裡是重點：讓 UI 能修改 _G.sensitivity
+local sensBox = Instance.new("TextBox", content)
+sensBox.Size, sensBox.Position, sensBox.Text = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.78, 0, 0, 0), tostring(_G.sensitivity)
+sensBox.BackgroundColor3, sensBox.TextColor3, sensBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
+sensBox.FocusLost:Connect(function()
+    local val = tonumber(sensBox.Text)
+    if val then 
+        _G.sensitivity = val
+        notify("SENS", "Sensitivity: ".._G.sensitivity)
+    end
+end)
 
     -- 第二排：PGDN (fKN) | MS
     local l = Instance.new("TextButton", content)
@@ -538,7 +550,7 @@ task.spawn(function()
                 if deltaY > math.pi then deltaY = deltaY - (math.pi * 2)
                 elseif deltaY < -math.pi then deltaY = deltaY + (math.pi * 2) end
 
-                if math.abs(deltaY) > sensitivity then
+                if math.abs(deltaY) > (_G.sensitivity or 0.087) then
                     local firstKey = (deltaY < 0) and Enum.KeyCode.D or Enum.KeyCode.A
                     local secondKey = (deltaY < 0) and Enum.KeyCode.A or Enum.KeyCode.D
                     
