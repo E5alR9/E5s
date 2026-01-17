@@ -252,7 +252,7 @@ local function createUI()
     
     local m = Instance.new("Frame", sg)
     m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
-    m.Position = UDim2.new(0, 15, 0.4, 0)
+    m.Position = UDim2.new(0, 210, 0, -40)
     m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 1, 1
     m.Active, m.Draggable = true, true
 
