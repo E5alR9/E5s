@@ -41,7 +41,7 @@ end
 local activeAD = false
 _G.switchInterval = _G.switchInterval or 0.08
 local pressDuration = 0.000000001 
-local sensitivity = 0.005
+local sensitivity = 0.087
 local lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
 
 -- 1. 定義智能重置函數 (已修復手動衝突問題)
