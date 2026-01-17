@@ -192,7 +192,7 @@ task.spawn(function()
     end
 end)
 
--- [[ 🛠️ 功能一：Lag Tool 專屬視窗 ]]
+-- [[ 🛠️ 功能一：Lag Tool 專屬視窗 (長按 3 秒拖曳版) ]]
 local function createLagToolWindow()
     if p.PlayerGui:FindFirstChild("LagTool_Floating") then 
         p.PlayerGui.LagTool_Floating:Destroy() 
@@ -202,37 +202,63 @@ local function createLagToolWindow()
     lagSg.Name = "LagTool_Floating"
     lagSg.DisplayOrder = 2000 
     
-    -- 高精確拖曳邏輯 (防止移動時觸發點擊)
+    -- 核心：長按 3 秒解鎖拖曳
     local function makeDraggable(gui)
         local dragging, dragInput, dragStart, startPos
         local moved = false
+        local canMove = false
+        local holdTime = 3 
+
         gui.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 dragging = true
+                moved = false
+                canMove = false
+                
+                task.spawn(function()
+                    local start = os.clock()
+                    while dragging do
+                        if os.clock() - start >= holdTime then
+                            canMove = true
+                            gui.BorderColor3 = Color3.new(0, 1, 0) -- 變綠色代表可以開始拖了
+                            break
+                        end
+                        task.wait(0.1)
+                    end
+                end)
+
                 dragStart = input.Position
                 startPos = gui.Position
-                moved = false
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                
+                local connection; connection = input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then 
+                        dragging = false 
+                        canMove = false
+                        gui.BorderColor3 = Color3.new(0, 0, 0) 
+                        connection:Disconnect()
+                    end
                 end)
             end
         end)
+
         gui.InputChanged:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                 dragInput = input
             end
         end)
+
         UIS.InputChanged:Connect(function(input)
-            if input == dragInput and dragging then
+            if input == dragInput and dragging and canMove then
                 local delta = input.Position - dragStart
-                if delta.Magnitude > 5 then moved = true end
+                if delta.Magnitude > 2 then moved = true end
                 gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
+        
         return function() return moved end
     end
 
-    -- 1. LAG 按鈕 (尺寸縮小為 60x30)
+    -- 1. LAG 按鈕
     local lagBtn = Instance.new("TextButton", lagSg)
     lagBtn.Size = UDim2.new(0, 80, 0, 40)
     lagBtn.Position = UDim2.new(0.5, -65, 0.85, 0)
@@ -240,19 +266,19 @@ local function createLagToolWindow()
     lagBtn.Text = "LAG"
     lagBtn.TextColor3 = Color3.new(1, 1, 1)
     lagBtn.TextSize = 14
-    lagBtn.BorderSizePixel = 1
+    lagBtn.BorderSizePixel = 2 -- 增加邊框寬度，讓變色更明顯
     
     local isLagMoved = makeDraggable(lagBtn)
 
-    -- 2. CLOSE 按鈕 (尺寸縮小為 60x30)
+    -- 2. CLOSE 按鈕
     local closeBtn = Instance.new("TextButton", lagSg)
     closeBtn.Size = UDim2.new(0, 60, 0, 30)
-    closeBtn.Position = UDim2.new(0.5, 5, 0.85, 0)
+    closeBtn.Position = UDim2.new(0.5, 25, 0.85, 0)
     closeBtn.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
     closeBtn.Text = "CLOSE"
     closeBtn.TextColor3 = Color3.new(1, 1, 1)
     closeBtn.TextSize = 14
-    closeBtn.BorderSizePixel = 1
+    closeBtn.BorderSizePixel = 2
     
     local isCloseMoved = makeDraggable(closeBtn)
 
