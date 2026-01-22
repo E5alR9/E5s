@@ -1,0 +1,56 @@
+local Players = game:GetService("Players")
+
+-- [[ 根據原版數據與圖片色彩微調 ]]
+local K_MESH_ID = 101851696
+local K_OVERLAY_ID = 101851254
+-- 圖片中的顏色帶有明顯的青藍色調 (Teal/Dark Cyan)
+local K_COLOR = Color3.fromRGB(38, 65, 68) 
+
+local function applyTargetColor(char)
+    if not char then return end
+
+    -- 1. 使用 CharacterMesh 達到最原版的渲染
+    local rLegMesh = char:FindFirstChild("KorbloxMesh") or Instance.new("CharacterMesh")
+    rLegMesh.Name = "KorbloxMesh"
+    rLegMesh.BodyPart = Enum.BodyPart.RightLeg
+    rLegMesh.MeshId = K_MESH_ID
+    rLegMesh.BaseTextureId = 0
+    rLegMesh.OverlayTextureId = K_OVERLAY_ID
+    rLegMesh.Parent = char
+
+    -- 2. 微調右腿零件的材質與顏色
+    local rLeg = char:WaitForChild("Right Leg", 5)
+    if rLeg then
+        -- 移除任何會干擾顏色的 SpecialMesh
+        for _, v in ipairs(rLeg:GetChildren()) do
+            if v:IsA("SpecialMesh") then v:Destroy() end
+        end
+
+        rLeg.Color = K_COLOR
+        rLeg.Transparency = 0
+        -- 使用 Neon 或 Glass 在某些光影下能產生圖片中的那種反光感
+        rLeg.Material = Enum.Material.Plastic 
+        
+        -- 強力鎖定，防止被遊戲改回皮膚色
+        task.spawn(function()
+            while char and char.Parent do
+                if rLeg.Color ~= K_COLOR then rLeg.Color = K_COLOR end
+                task.wait(1)
+            end
+        end)
+    end
+end
+
+-- 全服套用
+local function start()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character then task.spawn(applyTargetColor, p.Character) end
+        p.CharacterAdded:Connect(function(c)
+            task.wait(0.5)
+            applyTargetColor(c)
+        end)
+    end
+end
+
+start()
+Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(applyTargetColor) end)
