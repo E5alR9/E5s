@@ -443,65 +443,34 @@ local function run(c)
     local lp = game.Players.LocalPlayer
     if not charPlayer then return end
 
-    -- ==========================================
-    -- 1. 針對本地玩家 (你自己) 的 Korblox 檢測
-    -- ==========================================
+    -- 1. 如果是本地玩家，僅重啟 UI 控制台
     if charPlayer == lp then
-        -- UI 重啟
         local console = lp.PlayerGui:FindFirstChild("E5_Console")
-        if console then console.Enabled = true else createUI() end
-
-        task.spawn(function()
-            local KORBLOX_BUNDLE_ID = 1924515
-            local isReal = false
-
-            -- [方法 A] 從 Roblox 官網讀取你「現在穿什麼」 (不受腳本延遲影響)
-            local success, appearance = pcall(function()
-                return game.Players:GetCharacterAppearanceInfoAsync(lp.UserId)
-            end)
-
-            if success and appearance and appearance.assets then
-                for _, asset in ipairs(appearance.assets) do
-                    -- 檢查是否有 Korblox 相關的 Asset ID
-                    if asset.id == 134082440 or asset.id == 1924515 or tostring(asset.name):find("Korblox") then
-                        isReal = true
-                        break
-                    end
-                end
-            end
-
-            -- [方法 B] 雙重檢查：如果方法 A 失敗，直接掃描角色模型中的 CharacterMesh
-            if not isReal then
-                for _, obj in ipairs(c:GetDescendants()) do
-                    if obj:IsA("CharacterMesh") and (obj.MeshId == 902942093 or obj.MeshId == 902942096) then
-                        isReal = true
-                        break
-                    end
-                end
-            end
-
-            -- [最終結果判斷]
-            if not isReal then
-                print("//// [CHECK]  loading fake Korblox ////")
-                pcall(function()
-                    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Korblox-All-61127"))()
-                end)
-            else
-                print("//// [CHECK] real Korblox ////")
-            end
-        end)
+        if console then 
+            console.Enabled = true 
+        else 
+            -- 這裡假設你外部有定義 createUI 函式
+            if createUI then createUI() end 
+        end
     end
 
-    -- ==========================================
-    -- 2. 所有人無頭處理 (保持不變)
-    -- ==========================================
+    -- 2. 所有人無頭處理與外觀加載
     task.spawn(function()
         local h = c:WaitForChild("Head", 10)
         if h then 
-            task.wait(0.1)
+            task.wait() -- 短暫等待確保引擎加載完成
             h.Transparency = 1 
-            for _, v in pairs(h:GetChildren()) do 
-                if v:IsA("Decal") then v.Transparency = 1 end 
+            
+            -- 執行遠端外觀腳本 (建議加上 pcall 以防報錯)
+            pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/bestkorblox"))()
+            end)
+
+            -- 隱藏所有臉部貼圖
+            for _, v in ipairs(h:GetChildren()) do 
+                if v:IsA("Decal") or v:IsA("Texture") then 
+                    v.Transparency = 1 
+                end 
             end 
         end
     end)
