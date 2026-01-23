@@ -1,17 +1,51 @@
--- 獲取 ZombieStride 物件
-local emote = game:GetService("ReplicatedStorage").Items.Emotes:FindFirstChild("ZombieStride")
+local Emotes = game:GetService("ReplicatedStorage").Items.Emotes
+local emote = Emotes:FindFirstChild("ZombieStride") or Emotes:FindFirstChild("SwagWalk")
 
 if emote then
-    -- 1. 刪除指定的子物件 EmoteModuleClassic
-    local module = emote:FindFirstChild("EmoteModuleClassic")
-    if module then
-        module:Destroy()
-    end
-    
-    -- 2. 將名稱修改為 "SwagWalk"
+    -- 1. 基礎清理與更名
+    local oldModule = emote:FindFirstChild("EmoteModuleClassic")
+    if oldModule then oldModule:Destroy() end
     emote.Name = "SwagWalk"
-    
-    print(" SwagWalk")
+
+    -- 2. 確保外面有一個 AnimationClassic 作為「播放容器」
+    local container = emote:FindFirstChild("AnimationClassic")
+    if not container then
+        container = Instance.new("Animation")
+        container.Name = "AnimationClassic"
+        container.Parent = emote
+    end
+
+    -- 3. 建立循環邏輯
+    local options = emote:FindFirstChild("PossibleOptionsClassic")
+    if options then
+        local anims = {}
+        -- 抓取 A, B, C 裡的動畫 ID
+        for _, folderName in ipairs({"A", "B", "C"}) do
+            local folder = options:FindFirstChild(folderName)
+            if folder then
+                local a = folder:FindFirstChildOfClass("Animation")
+                if a then table.insert(anims, a.AnimationId) end
+            end
+        end
+
+        -- 4. 啟動後台任務進行輪流替換
+        task.spawn(function()
+            local index = 1
+            print("ABC 輪播已啟動")
+            while true do
+                if #anims > 0 then
+                    -- 替換 ID
+                    container.AnimationId = anims[index]
+                    
+                    -- 切換到下一個 (1 -> 2 -> 3 -> 1)
+                    index = index % #anims + 1
+                end
+                -- 設定每 2 秒換一次動作，你可以根據動畫長度調整這個數字
+                task.wait(2) 
+            end
+        end)
+    end
+    print("✅ SwagWalk 已更名並啟動 ABC 輪流替換機制")
 else
-    warn("game.ReplicatedStorage.Items.Emotes.ZombieStride")
+    warn("找不到 ZombieStride 或 SwagWalk")
 end
