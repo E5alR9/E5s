@@ -1,0 +1,35 @@
+local Emotes = game:GetService("ReplicatedStorage").Items.Emotes
+local emote = Emotes:FindFirstChild("ZombieStride")
+
+if emote then
+    -- 1. 物理路徑修正：獲取 B 資料夾下的 ZombieAnim
+    local possibleOptions = emote:FindFirstChild("PossibleOptionsClassic")
+    if possibleOptions and possibleOptions:FindFirstChild("B") then
+        local newAnimSource = possibleOptions.B:FindFirstChild("ZombieAnim")
+        
+        if newAnimSource then
+            -- 2. 刪除原本舊的 AnimationClassic
+            local oldAnim = emote:FindFirstChild("AnimationClassic")
+            if oldAnim then oldAnim:Destroy() end
+            
+            -- 3. 複製 B 裡的動畫並改名為 AnimationClassic (欺騙腳本)
+            local newAnim = newAnimSource:Clone()
+            newAnim.Name = "AnimationClassic"
+            newAnim.Parent = emote
+            print("✅ 已成功將 B.ZombieAnim 替換為 AnimationClassic")
+        end
+    end
+
+    -- 4. 刪除原有的 EmoteModuleClassic (依你要求)
+    local module = emote:FindFirstChild("EmoteModuleClassic")
+    if module then
+        module:Destroy()
+        print("✅ 已刪除舊模組")
+    end
+
+    -- 5. 最後更名為 SwagWalk
+    emote.Name = "SwagWalk"
+    print("✅ 資料夾已更名為 SwagWalk")
+else
+    warn("找不到 ZombieStride 資料夾")
+end
