@@ -1,0 +1,17 @@
+-- 獲取 ZombieStride 物件
+local emote = game:GetService("ReplicatedStorage").Items.Emotes:FindFirstChild("ZombieStride")
+
+if emote then
+    -- 1. 刪除指定的子物件 EmoteModuleClassic
+    local module = emote:FindFirstChild("EmoteModuleClassic")
+    if module then
+        module:Destroy()
+    end
+    
+    -- 2. 將名稱修改為 "SwagWalk"
+    emote.Name = "SwagWalk"
+    
+    print(" SwagWalk")
+else
+    warn("game.ReplicatedStorage.Items.Emotes.ZombieStride")
+end
