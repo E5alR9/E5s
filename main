@@ -437,65 +437,63 @@ end
 -- [[ 啟動執行流程 ]]
 createUI()
 
--- [[ 🔄 角色處理：全域同步版本 ]]
+-- [[ 🔄 角色處理：確保重生後無頭與斷腳持續生效 ]]
 local function run(c)
-    local charPlayer = game.Players:GetPlayerFromCharacter(c)
-    local lp = game.Players.LocalPlayer
-    if not charPlayer then return end
-
-    -- 1. 如果是本地玩家，僅重啟 UI 控制台
+    if not c then return end
+    
+    -- 1. 處理 UI 控制台 (如果是自己)
+    local charPlayer = Players:GetPlayerFromCharacter(c)
     if charPlayer == lp then
-        local console = lp.PlayerGui:FindFirstChild("E5_Console")
-        if console then 
-            console.Enabled = true 
-        else 
-            -- 這裡假設你外部有定義 createUI 函式
-            if createUI then createUI() end 
-        end
+        task.spawn(function()
+            local gui = lp:WaitForChild("PlayerGui", 10)
+            local console = gui:WaitForChild("E5_Console", 5)
+            if console then console.Enabled = true end
+        end)
     end
 
-    -- 2. 所有人無頭處理與外觀加載
+    -- 2. 所有人無頭與斷腳 (Korblox) 處理
     task.spawn(function()
         local h = c:WaitForChild("Head", 10)
         if h then 
-            task.wait() -- 短暫等待確保引擎加載完成
+            task.wait(0.1) -- 確保角色實體加載完全
             h.Transparency = 1 
-            
-            -- 執行遠端外觀腳本 (建議加上 pcall 以防報錯)
+            -- 執行斷腳腳本
             pcall(function()
                 loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/bestkorblox"))()
             end)
-
-            -- 隱藏所有臉部貼圖
+            -- 透明化臉部
             for _, v in ipairs(h:GetChildren()) do 
-                if v:IsA("Decal") or v:IsA("Texture") then 
-                    v.Transparency = 1 
-                end 
+                if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = 1 end 
             end 
         end
     end)
 end
 
--- [[ 🚀 啟動與持續監控 ]]
+-- [[ 🚀 角色監控系統 (確保重生不消失) ]]
+local function monitor(plr)
+    -- 處理重生
+    plr.CharacterAdded:Connect(function(char)
+        run(char)
+    end)
+    -- 處理當前已經存在的角色
+    if plr.Character then 
+        task.spawn(run, plr.Character) 
+    end
+end
+
+-- 啟動流程
 task.spawn(function()
     print("//// #### [M3] GLOBAL_SYSTEM_BOOTUP #### ////")
-    createUI() 
     
-    local function monitor(plr)
-        -- 處理當前角色
-        if plr.Character then task.spawn(run, plr.Character) end
-        -- 處理死亡復活
-        plr.CharacterAdded:Connect(function(char)
-            run(char)
-        end)
-    end
-
-    -- 掃描全服玩家
+    -- 1. 初始化 UI
+    if createUI then createUI() end 
+    
+    -- 2. 啟動全服玩家監控 (包含自己)
     for _, plr in ipairs(game.Players:GetPlayers()) do
         monitor(plr)
     end
     
-    -- 監聽新進玩家
+    -- 3. 監聽後續加入的玩家
     game.Players.PlayerAdded:Connect(monitor)
 end)
 
