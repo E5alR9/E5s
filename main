@@ -196,120 +196,125 @@ task.spawn(function()
     end
 end)
 
--- [[ 🛠️ 功能一：Lag Tool 專屬視窗 (長按 2 秒拖曳版) ]]
-local function createLagToolWindow()
-    -- 檢查是否已存在，避免重複執行
-    if p.PlayerGui:FindFirstChild("LagTool_Floating") then 
-        p.PlayerGui.LagTool_Floating:Destroy() 
+-- [[ 🛠️ 功能：FREEZE Tool (含系統通知 + 拖曳 + 縮放) ]]
+local function createFreezeToolWindow()
+    if p.PlayerGui:FindFirstChild("FreezeTool_Floating") then 
+        p.PlayerGui.FreezeTool_Floating:Destroy() 
     end
 
-    local lagSg = Instance.new("ScreenGui")
-    lagSg.Name = "LagTool_Floating"
-    lagSg.DisplayOrder = 2000 
-    -- 【核心修正】：設為 false 確保重生不消失
-    lagSg.ResetOnSpawn = false 
-    lagSg.Parent = p.PlayerGui
+    local freezeSg = Instance.new("ScreenGui")
+    freezeSg.Name = "FreezeTool_Floating"
+    freezeSg.DisplayOrder = 2000 
+    freezeSg.ResetOnSpawn = false -- 確保重生後按鈕還在
+    freezeSg.Parent = p.PlayerGui
     
-    -- 核心：長按 2 秒解鎖拖曳
-    local function makeDraggable(gui)
-        local dragging, dragInput, dragStart, startPos
-        local moved = false
-        local canMove = false
-        local holdTime = 2 
+    local COLOR_NORMAL = Color3.fromRGB(70, 90, 110)
+    local COLOR_DRAG = Color3.fromRGB(100, 200, 150)
+    local COLOR_CLOSE = Color3.fromRGB(50, 60, 70)
+
+    -- 內建高級變換邏輯 (拖曳與縮放)
+    local function makeAdvancedTransform(gui)
+        local dragging, dragStart, startPos = false, nil, nil
+        local canMove, moved = false, false
+        local holdTime = 2
+        local touchPoints = {}
+        local startSize = gui.Size
+        local startDistance = 0
 
         gui.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                moved = false
-                canMove = false
-                
+                dragging, moved, canMove = true, false, false
+                if input.UserInputType == Enum.UserInputType.Touch then touchPoints[input.Identifier] = input.Position end
                 task.spawn(function()
-                    local start = os.clock()
+                    local s = os.clock()
                     while dragging do
-                        if os.clock() - start >= holdTime then
+                        if os.clock() - s >= holdTime then
                             canMove = true
-                            gui.BorderColor3 = Color3.new(0, 1, 0) -- 變綠色代表可以開始拖了
+                            gui.BorderColor3 = COLOR_DRAG
                             break
                         end
                         task.wait(0.1)
                     end
                 end)
-
-                dragStart = input.Position
-                startPos = gui.Position
-                
-                local connection; connection = input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then 
-                        dragging = false 
-                        canMove = false
-                        gui.BorderColor3 = Color3.new(0, 0, 0) 
-                        connection:Disconnect()
-                    end
-                end)
+                dragStart, startPos, startSize = input.Position, gui.Position, gui.Size
             end
         end)
 
-        gui.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                dragInput = input
-            end
-        end)
-
-
-        -- 注意：這裡需要確認 UIS 變數已定義 (game:GetService("UserInputService"))
-        game:GetService("UserInputService").InputChanged:Connect(function(input)
-            if input == dragInput and dragging and canMove then
+        UIS.InputChanged:Connect(function(input)
+            if dragging and canMove and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 local delta = input.Position - dragStart
-                if delta.Magnitude > 2 then moved = true end
+                if delta.Magnitude > 5 then moved = true end
                 gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
+            if input.UserInputType == Enum.UserInputType.Touch then
+                touchPoints[input.Identifier] = input.Position
+                local pts = {}
+                for _, pos in pairs(touchPoints) do table.insert(pts, pos) end
+                if #pts == 2 then
+                    moved = true
+                    local dist = (pts[1] - pts[2]).Magnitude
+                    if startDistance == 0 then
+                        startDistance, startSize = dist, gui.Size
+                    else
+                        local ratio = dist / startDistance
+                        gui.Size = UDim2.new(0, math.clamp(startSize.X.Offset * ratio, 40, 300), 0, math.clamp(startSize.Y.Offset * ratio, 20, 150))
+                    end
+                end
+            end
         end)
-        
+
+        UIS.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging, canMove, startDistance = false, false, 0
+                gui.BorderColor3 = Color3.new(0, 0, 0)
+                if input.UserInputType == Enum.UserInputType.Touch then touchPoints[input.Identifier] = nil end
+            end
+        end)
         return function() return moved end
     end
 
-    -- 1. LAG 按鈕
-    local lagBtn = Instance.new("TextButton", lagSg)
-    lagBtn.Size = UDim2.new(0, 80, 0, 40)
-    lagBtn.Position = UDim2.new(0.5, -65, 0.85, 0)
-    lagBtn.BackgroundColor3 = Color3.new(0.4, 0, 0)
-    lagBtn.Text = "LAG"
-    lagBtn.TextColor3 = Color3.new(1, 1, 1)
-    lagBtn.TextSize = 14
-    lagBtn.BorderSizePixel = 2 
-    
-    local isLagMoved = makeDraggable(lagBtn)
+    -- FREEZE 主按鈕
+    local fBtn = Instance.new("TextButton", freezeSg)
+    fBtn.Size, fBtn.Position, fBtn.BackgroundColor3 = UDim2.new(0, 100, 0, 50), UDim2.new(0.5, -110, 0.8, 0), COLOR_NORMAL
+    fBtn.Text, fBtn.TextColor3, fBtn.Font, fBtn.TextSize = "FREEZE", Color3.new(1, 1, 1), Enum.Font.GothamBold, 16
+    Instance.new("UICorner", fBtn)
+    local isMovedF = makeAdvancedTransform(fBtn)
 
-    -- 2. CLOSE 按鈕
-    local closeBtn = Instance.new("TextButton", lagSg)
-    closeBtn.Size = UDim2.new(0, 60, 0, 30)
-    closeBtn.Position = UDim2.new(0.5, 25, 0.85, 0)
-    closeBtn.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
-    closeBtn.Text = "CLOSE"
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.TextSize = 14
-    closeBtn.BorderSizePixel = 2
-    
-    local isCloseMoved = makeDraggable(closeBtn)
+    -- CLOSE 關閉按鈕
+    local cBtn = Instance.new("TextButton", freezeSg)
+    cBtn.Size, cBtn.Position, cBtn.BackgroundColor3 = UDim2.new(0, 80, 0, 40), UDim2.new(0.5, 10, 0.8, 0), COLOR_CLOSE
+    cBtn.Text, cBtn.TextColor3 = "CLOSE", Color3.new(0.8, 0.8, 0.8)
+    Instance.new("UICorner", cBtn)
+    local isMovedC = makeAdvancedTransform(cBtn)
 
-    -- 邏輯綁定
-    lagBtn.MouseButton1Click:Connect(function()
-        if isLagMoved() then return end
-        local currentMS = tonumber(_G.freezeMS) or 300
-        -- 確保 notify 函式存在，若不存在請移除此行
-        if pcall(function() return notify end) then
-            notify("LAG", currentMS .. "ms", 0.5)
-        end
-        task.wait(0.01)
+    -- 核心點擊事件：觸發延遲 + 系統通知
+    fBtn.MouseButton1Click:Connect(function()
+        if isMovedF() then return end -- 如果正在移動則不觸發功能
+        
+        -- [[ 🔔 觸發系統通知 ]]
+        game:GetService("StarterGui"):SetCore("SendNotification", { 
+            Title = "SYSTEM"; 
+            Text = "Freeze: " .. tostring(_G.freezeMS) .. "ms"; 
+            Duration = 0.5;
+            Icon = "rbxassetid://6023426926"
+        })
+
+        -- 視覺反饋
+        fBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        
+        -- 物理阻斷 (依據設定毫秒)
         local t = os.clock()
-        while os.clock() - t < (currentMS / 1000) do end
+        local delayTime = (tonumber(_G.freezeMS) or 300) / 1000
+        while os.clock() - t < delayTime do end
+        
+        fBtn.BackgroundColor3 = COLOR_NORMAL
     end)
 
-    closeBtn.MouseButton1Click:Connect(function() 
-        if isCloseMoved() then return end
-        lagSg:Destroy() -- 依照你的要求，點擊 CLOSE 依然會永久刪除
+    cBtn.MouseButton1Click:Connect(function() 
+        if not isMovedC() then freezeSg:Destroy() end 
     end)
 end
+
 
 -- [[ 🖥️ 介面處理核心 - 完全整合版 ]]
 local function createUI()
@@ -346,23 +351,14 @@ local function createUI()
 
 -- 第一排：LAG TOOL | KEY | SPD | SNS
 local lagToolBtn = Instance.new("TextButton", content)
-lagToolBtn.Size = UDim2.new(0.35, 0, 0, 40)
-lagToolBtn.Position = UDim2.new(0.02, 0, 0, 0)
-lagToolBtn.Text = "TOOL"
-lagToolBtn.BackgroundColor3 = Color3.new(0.2, 0, 0)
-lagToolBtn.TextColor3 = Color3.new(1, 0.5, 0.5)
-lagToolBtn.BackgroundTransparency = 0.7
-lagToolBtn.MouseButton1Click:Connect(function()
-    -- 1. 保留原本功能：打開 LAG TOOL 的設定視窗
-    if createLagToolWindow then
-        createLagToolWindow()
-    end
-    
-    -- 2. 新增功能：執行遠端 SPIN 腳本
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/spin"))()
+    lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.02, 0, 0, 0), "TOOL"
+    lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.fromRGB(70, 90, 110), Color3.new(1, 1, 1), 0.5
+    Instance.new("UICorner", lagToolBtn)
+    lagToolBtn.MouseButton1Click:Connect(function()
+        createFreezeToolWindow()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/spin"))() end)
+        notify("TOOL", "Freeze Window & Spin Loaded!")
     end)
-end)
 
 local spinKeyBtn = Instance.new("TextButton", content)
 spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.38, 0, 0, 0)
