@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - PERSISTENT UI FIX ]]
+-- [[ 🔑 E5 COMMANDER - GLOBAL & PRIVATE MESSAGE SYSTEM ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -21,15 +21,14 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 📢 公告系統 (已設為不隨復活重置) ]]
-local function showAnnouncement(msg)
+-- [[ 📢 公告顯示函數 (支援自訂顏色) ]]
+local function showNotice(msg, isPrivate)
     if msg == "" or msg == nil then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Notice"
-    sg.ResetOnSpawn = false -- ✨ 關鍵：復活不消失
+    sg.ResetOnSpawn = false
     
-    local label = sg:FindFirstChild("Msg") or Instance.new("TextLabel", sg)
-    label.Name = "Msg"
+    local label = Instance.new("TextLabel", sg)
     label.Size = UDim2.new(0, 420, 0, 50)
     label.Position = UDim2.new(0.5, -210, 0.1, 0)
     label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -37,21 +36,30 @@ local function showAnnouncement(msg)
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.TextSize = 18 
     label.Font = Enum.Font.GothamBold
-    label.Text = msg 
+    label.Text = (isPrivate and "[PRIVATE] " or "") .. msg 
     label.TextWrapped = true
     label.TextXAlignment = Enum.TextXAlignment.Center
     
-    local stroke = label:FindFirstChild("Stroke") or Instance.new("UIStroke", label)
-    stroke.Color = Color3.fromHex("A475D7")
+    local stroke = Instance.new("UIStroke", label)
+    stroke.Color = isPrivate and Color3.fromRGB(255, 200, 0) or Color3.fromHex("A475D7") -- ✨ 私訊用金黃色，全局用紫色
     stroke.Thickness = 2
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     
     Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
+    
+    -- 動態向下移動已有的公告
+    for _, v in pairs(sg:GetChildren()) do
+        if v:IsA("TextLabel") and v ~= label then
+            v.Position = v.Position + UDim2.new(0, 0, 0, 60)
+        end
+    end
+    
     task.delay(10, function() if label then label:Destroy() end end)
 end
 
--- [[ 3. Core Sync & Admin Panel ]]
+-- [[ 3. Core Sync ]]
 local function startCloudSync()
+    -- 1秒打卡
     task.spawn(function()
         while true do
             pcall(function()
@@ -59,40 +67,54 @@ local function startCloudSync()
                     ["displayName"] = lp.DisplayName, ["username"] = lp.Name,
                     ["lastSeen"] = os.time(), ["joinTime"] = startTime,
                     ["status"] = (lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.Health > 0) and "ALIVE" or "DEAD",
-                    ["jobId"] = game.JobId
+                    ["jobId"] = game.JobId,
+                    ["userId"] = lp.UserId -- 方便管理員複製ID
                 })
             end)
             task.wait(1)
         end
     end)
 
-    local lastMsg = ""
+    -- 監聽公告 (全局 & 私訊)
+    local lastGlobalMsg = ""
+    local lastPrivateMsg = ""
     task.spawn(function()
         while true do
             pcall(function()
-                local res = httpRequest("GET", CLOUD_URL .. "announcement.json")
-                if res and res.Body then
-                    local data = HttpService:JSONDecode(res.Body)
-                    if data and data.msg and data.msg ~= "" and data.msg ~= lastMsg then
-                        lastMsg = data.msg
-                        showAnnouncement(data.msg)
-                    elseif not data or data.msg == "" then
-                        lastMsg = ""
+                -- 檢查全局
+                local resG = httpRequest("GET", CLOUD_URL .. "announcement.json")
+                if resG and resG.Body then
+                    local data = HttpService:JSONDecode(resG.Body)
+                    if data and data.msg and data.msg ~= "" and data.msg ~= lastGlobalMsg then
+                        lastGlobalMsg = data.msg
+                        showNotice(data.msg, false)
+                    end
+                end
+                
+                -- 檢查私訊 (針對特定 UserId)
+                local resP = httpRequest("GET", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
+                if resP and resP.Body then
+                    local data = HttpService:JSONDecode(resP.Body)
+                    if data and data.msg and data.msg ~= "" and data.msg ~= lastPrivateMsg then
+                        lastPrivateMsg = data.msg
+                        showNotice(data.msg, true)
+                        -- 讀取後清除雲端私訊，避免重複彈出
+                        httpRequest("DELETE", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
                     end
                 end
             end)
-            task.wait(5)
+            task.wait(3) -- 巡檢私訊稍微快一點
         end
     end)
 
     if not isDeveloper then return end
 
-    -- [[ 🛰️ 管理面板 (已修正復活消失問題) ]]
+    -- [[ 🛰️ 管理員面板 ]]
     local sg = lp.PlayerGui:FindFirstChild("E5_Admin_Panel") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Panel"
     sg.Enabled = false
-    sg.ResetOnSpawn = false -- ✨ 關鍵：復活不消失
-    sg:ClearAllChildren() -- 確保重複執行時不堆疊
+    sg.ResetOnSpawn = false
+    sg:ClearAllChildren()
 
     local frame = Instance.new("Frame", sg)
     frame.Size = UDim2.new(0, 420, 0, 650)
@@ -105,39 +127,50 @@ local function startCloudSync()
     s.Thickness = 2
 
     local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, 0, 0, 60)
+    title.Size = UDim2.new(1, 0, 0, 50)
     title.Text = "🛰️ E5 COMMAND CENTER"
-    title.TextSize = 24
+    title.TextSize = 22
     title.TextColor3 = Color3.fromHex("A475D7")
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
     title.TextXAlignment = Enum.TextXAlignment.Center
 
     local list = Instance.new("ScrollingFrame", frame)
-    list.Size = UDim2.new(0.9, 0, 0.72, 0)
+    list.Size = UDim2.new(0.9, 0, 0.7, 0)
     list.Position = UDim2.new(0.05, 0, 0.1, 0)
     list.BackgroundTransparency = 1
-    Instance.new("UIListLayout", list).Padding = UDim.new(0, 15)
+    Instance.new("UIListLayout", list).Padding = UDim.new(0, 10)
 
     local input = Instance.new("TextBox", frame)
-    input.Size = UDim2.new(0.9, 0, 0, 50)
+    input.Size = UDim2.new(0.9, 0, 0, 60)
     input.Position = UDim2.new(0.05, 0, 0.88, 0)
-    input.PlaceholderText = "Type Announcement..."
-    input.TextSize = 20
+    input.PlaceholderText = "Global msg OR [UserId:msg]"
+    input.TextSize = 18
     input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     input.TextColor3 = Color3.new(1, 1, 1)
     input.TextXAlignment = Enum.TextXAlignment.Center
+    input.TextWrapped = true
     Instance.new("UICorner", input)
 
     input.FocusLost:Connect(function(enter)
         if enter and input.Text ~= "" then
-            local msg = input.Text
-            httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = msg})
+            local text = input.Text
+            if string.find(text, ":") then
+                -- 私訊模式 (格式 ID:內容)
+                local split = string.split(text, ":")
+                local targetId = string.gsub(split[1], " ", "")
+                local msg = split[2]
+                httpRequest("PUT", CLOUD_URL .. "private/" .. targetId .. ".json", {["msg"] = msg})
+            else
+                -- 全局模式
+                httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = text})
+                task.delay(15, function() httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = ""}) end)
+            end
             input.Text = ""
-            task.delay(15, function() httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = ""}) end)
         end
     end)
 
+    -- 列表刷新
     task.spawn(function()
         while true do
             if sg.Enabled then
@@ -151,7 +184,8 @@ local function startCloudSync()
                             local item = Instance.new("TextLabel", list)
                             item.Size = UDim2.new(1, -10, 0, 140)
                             item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(40, 80, 40) or Color3.fromRGB(25, 25, 25)
-                            item.Text = string.format("👤 %s\n(@%s)\nStatus: %s\nOnline: %d min", info.displayName or "User", info.username or "User", info.status or "Unknown", math.floor((os.time()-(info.joinTime or os.time()))/60))
+                            -- 顯示 ID 方便管理員私訊
+                            item.Text = string.format("👤 %s\nID: %s\nStatus: %s\nOnline: %d min", info.displayName or "User", info.userId or "N/A", info.status or "Unknown", math.floor((os.time()-(info.joinTime or os.time()))/60))
                             item.TextColor3 = Color3.new(1, 1, 1)
                             item.TextSize = 22
                             item.Font = Enum.Font.GothamBold
@@ -162,11 +196,10 @@ local function startCloudSync()
                     end
                 end)
             end
-            task.wait(0.5)
+            task.wait(1)
         end
     end)
 
-    -- ✨ 確保按鍵綁定始終有效
     if _G.E5Connection then _G.E5Connection:Disconnect() end
     _G.E5Connection = UIS.InputBegan:Connect(function(i, gpe)
         if not gpe and i.KeyCode == Enum.KeyCode.Tab then
@@ -178,16 +211,16 @@ end
 
 local function init()
     startCloudSync()
-    print("🎯 [E5_SYSTEM] UI Persistent Mode Active")
+    print("🎯 [E5_SYSTEM] Private Messaging Active")
     pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
 end
 
--- [[ 🔐 Auth System ]]
+-- [[ 🔐 Auth ]]
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     init()
 else
     local authGui = Instance.new("ScreenGui", lp.PlayerGui)
-    authGui.ResetOnSpawn = false -- ✨ 驗證介面也不會因為死亡消失
+    authGui.ResetOnSpawn = false
     local main = Instance.new("Frame", authGui)
     main.Size = UDim2.new(0, 320, 0, 180)
     main.Position = UDim2.new(0.5, -160, 0.5, -90)
