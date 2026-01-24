@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - FULL NAME & PRIVATE MSG SYSTEM (ENHANCED) ]]
+-- [[ 🔑 E5 COMMANDER - FULL INTEGRATED SYSTEM ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -10,12 +10,7 @@ local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 local startTime = os.time()
 
--- 兼容性剪貼簿函數 (保留功能)
-local function copyToClipboard(txt)
-    local func = setclipboard or setrbxclipboard or (syn and syn.write_clipboard)
-    pcall(function() if func then func(tostring(txt)) end end)
-end
-
+-- [[ 🌐 工具函數 ]]
 local function httpRequest(method, url, body)
     local req = syn and syn.request or http_request or request or (http and http.request)
     if req then
@@ -27,7 +22,7 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 📢 Notice System ]]
+-- [[ 📢 Notice 系統 - 純文字 + 背景框 ]]
 local function showNotice(msg, isPrivate)
     if msg == "" or msg == nil then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
@@ -42,9 +37,8 @@ local function showNotice(msg, isPrivate)
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.TextSize = 18 
     label.Font = Enum.Font.GothamBold
-    label.Text = (isPrivate and "🔒 [PRIVATE] " or "📢 ") .. msg 
+    label.Text = tostring(msg) -- 💡 純文字，無圖標
     label.TextWrapped = true
-    label.TextXAlignment = Enum.TextXAlignment.Center
     
     local stroke = Instance.new("UIStroke", label)
     stroke.Color = isPrivate and Color3.fromRGB(255, 200, 0) or Color3.fromHex("A475D7")
@@ -53,6 +47,7 @@ local function showNotice(msg, isPrivate)
     
     Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
     
+    -- 公告自動下移
     for _, v in pairs(sg:GetChildren()) do
         if v:IsA("TextLabel") and v ~= label then
             v.Position = v.Position + UDim2.new(0, 0, 0, 60)
@@ -61,7 +56,113 @@ local function showNotice(msg, isPrivate)
     task.delay(10, function() if label then label:Destroy() end end)
 end
 
--- [[ 3. Core Sync ]]
+-- [[ 🛰️ Admin Panel 管理面板 ]]
+local function buildAdminPanel()
+    local sg = lp.PlayerGui:FindFirstChild("E5_Admin_Panel") or Instance.new("ScreenGui", lp.PlayerGui)
+    sg.Name = "E5_Admin_Panel"
+    sg.Enabled = false
+    sg.ResetOnSpawn = false
+    sg:ClearAllChildren()
+
+    -- 面板底框
+    local frame = Instance.new("Frame", sg)
+    frame.Size = UDim2.new(0, 420, 0, 650)
+    frame.Position = UDim2.new(1, -430, 0.5, -325)
+    frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    frame.BackgroundTransparency = 0.3
+    Instance.new("UICorner", frame)
+    local frameStroke = Instance.new("UIStroke", frame)
+    frameStroke.Color = Color3.fromHex("A475D7")
+    frameStroke.Thickness = 2
+
+    -- 玩家列表滾動區域
+    local list = Instance.new("ScrollingFrame", frame)
+    list.Size = UDim2.new(0.9, 0, 0.78, 0)
+    list.Position = UDim2.new(0.05, 0, 0.05, 0)
+    list.BackgroundTransparency = 1
+    list.CanvasSize = UDim2.new(0, 0, 0, 0)
+    list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    list.ScrollBarThickness = 2
+    list.ScrollBarImageColor3 = Color3.fromHex("A475D7")
+    local layout = Instance.new("UIListLayout", list)
+    layout.Padding = UDim.new(0, 10)
+
+    -- 指令輸入框
+    local input = Instance.new("TextBox", frame)
+    input.Size = UDim2.new(0.9, 0, 0, 60)
+    input.Position = UDim2.new(0.05, 0, 0.88, 0)
+    input.PlaceholderText = "[ID:訊息] 或 [直接輸入公告]"
+    input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    input.TextColor3 = Color3.new(1, 1, 1)
+    input.TextSize = 18
+    Instance.new("UICorner", input)
+
+    input.FocusLost:Connect(function(enter)
+        if enter and input.Text ~= "" then
+            local text = input.Text
+            if string.find(text, ":") then
+                local split = string.split(text, ":")
+                local targetId = string.gsub(split[1], " ", "")
+                httpRequest("PUT", CLOUD_URL .. "private/" .. targetId .. ".json", {["msg"] = split[2]})
+            else
+                httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = text})
+                task.delay(15, function() httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = ""}) end)
+            end
+            input.Text = ""
+        end
+    end)
+
+    -- 定時更新列表
+    task.spawn(function()
+        while true do
+            if sg.Enabled then
+                pcall(function()
+                    local res = httpRequest("GET", CLOUD_URL .. "users.json")
+                    if not res or not res.Body then return end
+                    local data = HttpService:JSONDecode(res.Body)
+                    for _, v in pairs(list:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+                    for id, info in pairs(data) do
+                        if os.time() - (info.lastSeen or 0) <= 20 then
+                            local item = Instance.new("TextButton", list)
+                            item.Size = UDim2.new(1, 0, 0, 100)
+                            -- 💡 色塊按鈕設計
+                            item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
+                            item.BackgroundTransparency = 0.2
+                            item.BorderSizePixel = 0
+                            Instance.new("UICorner", item).CornerRadius = UDim.new(0, 4)
+
+                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s", 
+                                info.displayName or "Unknown", 
+                                info.username or "User", 
+                                info.userId or "N/A", 
+                                info.status or "Unknown")
+                            item.TextColor3 = Color3.new(1, 1, 1)
+                            item.TextSize = 18
+                            item.Font = Enum.Font.GothamBold
+                            item.TextWrapped = true
+
+                            item.MouseButton1Click:Connect(function()
+                                if setclipboard then setclipboard(tostring(info.userId)) end
+                            end)
+                        end
+                    end
+                end)
+            end
+            task.wait(2)
+        end
+    end)
+
+    -- Tab 鍵切換
+    if _G.E5Connection then _G.E5Connection:Disconnect() end
+    _G.E5Connection = UIS.InputBegan:Connect(function(i, gpe)
+        if not gpe and i.KeyCode == Enum.KeyCode.Tab then
+            sg.Enabled = not sg.Enabled
+            UIS.MouseBehavior = sg.Enabled and Enum.MouseBehavior.Default or Enum.MouseBehavior.LockCenter
+        end
+    end)
+end
+
+-- [[ ☁️ 雲端同步系統 ]]
 local function startCloudSync()
     task.spawn(function()
         while true do
@@ -85,6 +186,7 @@ local function startCloudSync()
         local lastPrivateMsg = ""
         while true do
             pcall(function()
+                -- 獲取公共公告
                 local resG = httpRequest("GET", CLOUD_URL .. "announcement.json")
                 if resG and resG.Body then
                     local data = HttpService:JSONDecode(resG.Body)
@@ -94,6 +196,7 @@ local function startCloudSync()
                     end
                 end
                 
+                -- 獲取個人私訊
                 local resP = httpRequest("GET", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
                 if resP and resP.Body then
                     local data = HttpService:JSONDecode(resP.Body)
@@ -107,128 +210,16 @@ local function startCloudSync()
             task.wait(3)
         end
     end)
-
-    if not isDeveloper then return end
-
-    -- [[ 🛰️ Admin Panel ]]
-    local sg = lp.PlayerGui:FindFirstChild("E5_Admin_Panel") or Instance.new("ScreenGui", lp.PlayerGui)
-    sg.Name = "E5_Admin_Panel"
-    sg.Enabled = false
-    sg.ResetOnSpawn = false
-    sg:ClearAllChildren()
-
-    local frame = Instance.new("Frame", sg)
-    frame.Size = UDim2.new(0, 420, 0, 650)
-    frame.Position = UDim2.new(1, -430, 0.5, -325)
-    frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    frame.BackgroundTransparency = 0.2
-    Instance.new("UICorner", frame)
-    Instance.new("UIStroke", frame).Color = Color3.fromHex("A475D7")
-
-    local list = Instance.new("ScrollingFrame", frame)
-    list.Size = UDim2.new(0.9, 0, 0.72, 0)
-    list.Position = UDim2.new(0.05, 0, 0.1, 0)
-    list.BackgroundTransparency = 1
-    -- ✨ 修正滾動條與自動畫布大小
-    list.CanvasSize = UDim2.new(0, 0, 0, 0)
-    list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    list.ScrollBarThickness = 4
-    Instance.new("UIListLayout", list).Padding = UDim.new(0, 15)
-
-    local input = Instance.new("TextBox", frame)
-    input.Size = UDim2.new(0.9, 0, 0, 60)
-    input.Position = UDim2.new(0.05, 0, 0.88, 0)
-    input.PlaceholderText = "Global msg OR [ID:msg]"
-    input.TextSize = 18
-    input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextXAlignment = Enum.TextXAlignment.Center
-    input.TextWrapped = true
-    Instance.new("UICorner", input)
-
-    input.FocusLost:Connect(function(enter)
-        if enter and input.Text ~= "" then
-            local text = input.Text
-            if string.find(text, ":") then
-                local split = string.split(text, ":")
-                local targetId = string.gsub(split[1], " ", "")
-                local msgContent = text:sub(#split[1] + 2) -- 修正截取邏輯
-                httpRequest("PUT", CLOUD_URL .. "private/" .. targetId .. ".json", {["msg"] = msgContent})
-            else
-                httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = text})
-                task.delay(15, function() httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = ""}) end)
-            end
-            input.Text = ""
-        end
-    end)
-
-    task.spawn(function()
-        while true do
-            if sg.Enabled then
-                pcall(function()
-                    local res = httpRequest("GET", CLOUD_URL .. "users.json")
-                    if not res or not res.Body then return end
-                    local data = HttpService:JSONDecode(res.Body)
-                    for _, v in pairs(list:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-                    for id, info in pairs(data) do
-                        if os.time() - (info.lastSeen or 0) <= 15 then
-                            -- ✨ 將 TextLabel 改為 TextButton 以支援點擊
-                            local item = Instance.new("TextButton", list)
-                            item.Size = UDim2.new(1, -10, 0, 150)
-                            item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(40, 80, 40) or Color3.fromRGB(25, 25, 25)
-                            item.BackgroundTransparency = 0.3
-                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s", 
-                                info.displayName or "Unknown", 
-                                info.username or "User", 
-                                info.userId or "N/A", 
-                                info.status or "Unknown")
-                            item.TextColor3 = Color3.new(1, 1, 1)
-                            item.TextSize = 22
-                            item.Font = Enum.Font.GothamBold
-                            item.TextXAlignment = Enum.TextXAlignment.Center
-                            item.TextWrapped = true
-                            item.AutoButtonColor = true -- 點擊反饋
-                            
-                            local s = Instance.new("UIStroke", item)
-                            s.Color = Color3.fromHex("A475D7")
-                            s.Thickness = 1
-                            Instance.new("UICorner", item)
-
-                            -- ✨ 點擊功能：複製、填入並閃爍反饋
-                            item.MouseButton1Click:Connect(function()
-                                copyToClipboard(info.userId)
-                                input.Text = tostring(info.userId) .. ":"
-                                input:CaptureFocus()
-                                
-                                -- 閃爍效果 (維持你的紫白配色)
-                                s.Thickness = 4
-                                s.Color = Color3.new(1, 1, 1)
-                                task.wait(0.15)
-                                s.Thickness = 1
-                                s.Color = Color3.fromHex("A475D7")
-                            end)
-                        end
-                    end
-                end)
-            end
-            task.wait(2)
-        end
-    end)
-
-    if _G.E5Connection then _G.E5Connection:Disconnect() end
-    _G.E5Connection = UIS.InputBegan:Connect(function(i, gpe)
-        if not gpe and i.KeyCode == Enum.KeyCode.Tab then
-            sg.Enabled = not sg.Enabled
-            UIS.MouseBehavior = sg.Enabled and Enum.MouseBehavior.Default or Enum.MouseBehavior.LockCenter
-        end
-    end)
 end
 
+-- [[ 🚀 初始化 ]]
 local function init()
     startCloudSync()
+    if isDeveloper then buildAdminPanel() end
     pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
 end
 
+-- [[ 🔐 驗證系統 ]]
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     init()
 else
@@ -241,6 +232,7 @@ else
     main.BackgroundTransparency = 0.5
     Instance.new("UICorner", main)
     Instance.new("UIStroke", main).Color = Color3.fromHex("A475D7")
+    
     local btn = Instance.new("TextButton", main)
     btn.Size = UDim2.new(0, 200, 0, 40)
     btn.Position = UDim2.new(0.5, -100, 0.7, 0)
@@ -249,6 +241,7 @@ else
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.GothamBold
     Instance.new("UICorner", btn)
+    
     local input = Instance.new("TextBox", main)
     input.Size = UDim2.new(0, 250, 0, 40)
     input.Position = UDim2.new(0.5, -125, 0.35, 0)
@@ -256,6 +249,7 @@ else
     input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     input.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", input)
+    
     btn.MouseButton1Click:Connect(function()
         if input.Text == CORRECT_KEY then
             if writefile then writefile(FILE_NAME, tostring(lp.UserId)) end
