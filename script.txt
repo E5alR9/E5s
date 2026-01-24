@@ -1,4 +1,4 @@
--- [[ 🔑 E5 最終純監控版 - 專屬 Firebase 配置 ]]
+-- [[ 🔑 E5 終極整合版 - Firebase 雲端 + Key System ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -6,12 +6,12 @@ local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 local verified = false
 
--- 🔑 雲端配置
+-- 🔑 雲端與開發者配置
 local CLOUD_URL = "https://e5alr9-default-rtdb.asia-southeast1.firebasedatabase.app/users/" 
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 
--- [[ 1. 雲端工具函數 ]]
+-- [[ 1. 通訊工具函數 ]]
 local function httpRequest(method, url, body)
     local req = syn and syn.request or http_request or request or (http and http.request)
     if req then
@@ -24,56 +24,52 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 2. 雲端同步邏輯 ]]
+-- [[ 2. 雲端同步與監控 (僅限開發者) ]]
 local function startCloudSync()
-    -- 所有人：定時更新在線狀態 (Heartbeat)
+    -- 所有人：每 20 秒上傳一次心跳包
     task.spawn(function()
         while true do
             pcall(function()
                 httpRequest("PUT", CLOUD_URL .. lp.UserId .. ".json", {
                     ["name"] = lp.Name,
                     ["lastSeen"] = os.time(),
-                    ["jobId"] = game.JobId,
-                    ["placeName"] = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+                    ["jobId"] = game.JobId
                 })
             end)
-            task.wait(20) -- 20秒更新一次
+            task.wait(20)
         end
     end)
 
     if not isDeveloper then return end
 
-    -- 開發者專屬監控 UI (按住 TAB 顯示)
+    -- 開發者專屬 UI
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
-    sg.Name = "E5_Admin_Dashboard"
+    sg.Name = "E5_Live_Panel"
     sg.ResetOnSpawn = false
     sg.Enabled = false
 
     local frame = Instance.new("Frame", sg)
-    frame.Size = UDim2.new(0, 260, 0, 350)
-    frame.Position = UDim2.new(1, -270, 0.5, -175)
+    frame.Size = UDim2.new(0, 240, 0, 320)
+    frame.Position = UDim2.new(1, -250, 0.5, -160)
     frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     frame.BackgroundTransparency = 0.1
     Instance.new("UICorner", frame)
 
     local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.Text = "🛰️ E5 全域使用者監控"
+    title.Size = UDim2.new(1, 0, 0, 35)
+    title.Text = "📡 E5 實時名單"
     title.TextColor3 = Color3.fromRGB(255, 215, 0)
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
 
     local list = Instance.new("ScrollingFrame", frame)
-    list.Size = UDim2.new(0.9, 0, 0.8, 0)
+    list.Size = UDim2.new(0.9, 0, 0.82, 0)
     list.Position = UDim2.new(0.05, 0, 0.15, 0)
     list.BackgroundTransparency = 1
-    list.ScrollBarThickness = 2
     Instance.new("UIListLayout", list).Padding = UDim.new(0, 5)
 
-    -- 更新與自動清理
     local function refresh()
         for _, v in pairs(list:GetChildren()) do if v:IsA("TextLabel") then v:Destroy() end end
-        
         local res = httpRequest("GET", CLOUD_URL .. ".json")
         if not res or not res.Body then return end
         local data = HttpService:JSONDecode(res.Body)
@@ -82,42 +78,91 @@ local function startCloudSync()
         local count = 0
         for id, info in pairs(data) do
             local diff = os.time() - (info.lastSeen or 0)
-            
-            if diff <= 40 then -- 40秒內視為正在線上
+            if diff <= 40 then -- 40秒內在線
                 count = count + 1
                 local item = Instance.new("TextLabel", list)
-                item.Size = UDim2.new(1, -10, 0, 45)
+                item.Size = UDim2.new(1, -10, 0, 35)
                 item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(0, 80, 0) or Color3.fromRGB(40, 40, 40)
-                item.Text = " 👤 " .. (info.name or "Unknown") .. "\n 📍 " .. (info.jobId == game.JobId and "在本伺服器" or "在其他伺服器")
+                item.Text = " " .. (info.name or "User") .. (info.jobId == game.JobId and " [本場]" or " [他場]")
                 item.TextColor3 = Color3.new(1, 1, 1)
-                item.Font = Enum.Font.SourceSansSemibold
-                item.TextXAlignment = Enum.TextXAlignment.Left
                 item.TextSize = 12
+                item.TextXAlignment = Enum.TextXAlignment.Left
                 Instance.new("UICorner", item)
-            elseif diff > 120 then -- 超過2分鐘沒動靜，徹底刪除紀錄
+            elseif diff > 120 then -- 超過2分鐘自動刪除
                 httpRequest("DELETE", CLOUD_URL .. id .. ".json")
             end
         end
-        list.CanvasSize = UDim2.new(0, 0, 0, count * 50)
+        list.CanvasSize = UDim2.new(0, 0, 0, count * 40)
     end
 
     UIS.InputBegan:Connect(function(i, gpe) if not gpe and i.KeyCode == Enum.KeyCode.Tab then refresh() sg.Enabled = true end end)
     UIS.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.Tab then sg.Enabled = false end end)
 end
 
--- [[ 3. 啟動 ]]
+-- [[ 3. 主程序啟動 ]]
 local function init()
     startCloudSync()
+    print("🎯 [E5_SYSTEM] 鎖定最接近目標已開啟")
     pcall(function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
     end)
-    print("🚀 [E5_CLOUD] 監控系統已就緒")
 end
 
--- 登入邏輯 (略)
+-- [[ 4. 驗證與 Key System UI ]]
+-- 檢查本地存檔或開發者 ID
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     verified = true
     init()
 else
-    -- ... (原本的 Key System UI 代碼)
+    -- 顯示 Key System UI
+    local sg = Instance.new("ScreenGui", lp.PlayerGui)
+    sg.Name = "E5_KeyAuth"
+
+    local main = Instance.new("Frame", sg)
+    main.Size = UDim2.new(0, 300, 0, 160)
+    main.Position = UDim2.new(0.5, -150, 0.5, -80)
+    main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    main.BorderSizePixel = 0
+    Instance.new("UICorner", main)
+
+    local title = Instance.new("TextLabel", main)
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Text = "E5 PRIVATE AUTH"
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    title.Font = Enum.Font.GothamBold
+    Instance.new("UICorner", title)
+
+    local input = Instance.new("TextBox", main)
+    input.Size = UDim2.new(0.8, 0, 0, 35)
+    input.Position = UDim2.new(0.1, 0, 0.4, 0)
+    input.PlaceholderText = "Enter Key (E5alR9)..."
+    input.Text = ""
+    input.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    input.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", input)
+
+    local btn = Instance.new("TextButton", main)
+    btn.Size = UDim2.new(0.8, 0, 0, 35)
+    btn.Position = UDim2.new(0.1, 0, 0.75, 0)
+    btn.Text = "VERIFY"
+    btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    Instance.new("UICorner", btn)
+
+    btn.MouseButton1Click:Connect(function()
+        if input.Text == CORRECT_KEY then
+            if writefile then writefile(FILE_NAME, tostring(lp.UserId)) end
+            verified = true
+            sg:Destroy()
+            init()
+        else
+            btn.Text = "INVALID KEY"
+            btn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+            task.wait(1)
+            btn.Text = "VERIFY"
+            btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+        end
+    end)
 end
