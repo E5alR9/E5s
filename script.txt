@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - RESTORED ONLINE TIME ]]
+-- [[ 🔑 E5 COMMANDER - FIXED DISPLAY VERSION ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -10,7 +10,6 @@ local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 local startTime = os.time()
 
--- [[ 🌐 工具函數 ]]
 local function httpRequest(method, url, body)
     local req = syn and syn.request or http_request or request or (http and http.request)
     if req then
@@ -28,7 +27,6 @@ local function showNotice(msg, isPrivate)
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Notice"
     sg.ResetOnSpawn = false
-    
     local label = Instance.new("TextLabel", sg)
     label.Size = UDim2.new(0, 420, 0, 50)
     label.Position = UDim2.new(0.5, -210, 0.1, 0)
@@ -39,18 +37,13 @@ local function showNotice(msg, isPrivate)
     label.Font = Enum.Font.GothamBold
     label.Text = tostring(msg)
     label.TextWrapped = true
-    
     local stroke = Instance.new("UIStroke", label)
     stroke.Color = isPrivate and Color3.fromRGB(255, 200, 0) or Color3.fromHex("A475D7")
     stroke.Thickness = 2
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    
     Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
-    
     for _, v in pairs(sg:GetChildren()) do
-        if v:IsA("TextLabel") and v ~= label then
-            v.Position = v.Position + UDim2.new(0, 0, 0, 60)
-        end
+        if v:IsA("TextLabel") and v ~= label then v.Position = v.Position + UDim2.new(0, 0, 0, 60) end
     end
     task.delay(10, function() if label then label:Destroy() end end)
 end
@@ -78,7 +71,6 @@ local function buildAdminPanel()
     list.CanvasSize = UDim2.new(0, 0, 0, 0)
     list.AutomaticCanvasSize = Enum.AutomaticSize.Y
     list.ScrollBarThickness = 2
-    list.ScrollBarImageColor3 = Color3.fromHex("A475D7")
     Instance.new("UIListLayout", list).Padding = UDim.new(0, 10)
 
     local input = Instance.new("TextBox", frame)
@@ -115,26 +107,28 @@ local function buildAdminPanel()
                     for _, v in pairs(list:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
                     for id, info in pairs(data) do
                         if os.time() - (info.lastSeen or 0) <= 20 then
-                            -- ⏱️ 計算在線秒數
+                            -- ⏱️ 計算在線時間
                             local onlineSecs = os.time() - (info.joinTime or os.time())
                             local m = math.floor(onlineSecs / 60)
                             local s = onlineSecs % 60
                             
                             local item = Instance.new("TextButton", list)
-                            item.Size = UDim2.new(1, 0, 0, 120) -- 稍微調高一點顯示在線時間
+                            -- 🚀 增加高度到 130，確保文字不被裁切
+                            item.Size = UDim2.new(1, 0, 0, 130) 
                             item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
                             item.BackgroundTransparency = 0.2
                             item.BorderSizePixel = 0
                             Instance.new("UICorner", item).CornerRadius = UDim.new(0, 4)
 
-                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %dm %ds", 
+                            -- 📝 重新排列文字佈局
+                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\n%s | Online: %dm %ds", 
                                 info.displayName or "Unknown", 
                                 info.username or "User", 
                                 info.userId or "N/A", 
-                                info.status or "Unknown",
+                                info.status or "ALIVE",
                                 m, s)
                             item.TextColor3 = Color3.new(1, 1, 1)
-                            item.TextSize = 17
+                            item.TextSize = 18
                             item.Font = Enum.Font.GothamBold
                             item.TextWrapped = true
 
@@ -158,19 +152,16 @@ local function buildAdminPanel()
     end)
 end
 
--- [[ ☁️ 雲端同步與初始化 (維持原樣) ]]
+-- [[ 🚀 初始化與同步 (維持原樣) ]]
 local function startCloudSync()
     task.spawn(function()
         while true do
             pcall(function()
                 httpRequest("PUT", CLOUD_URL .. "users/" .. lp.UserId .. ".json", {
-                    ["displayName"] = lp.DisplayName, 
-                    ["username"] = lp.Name,
-                    ["lastSeen"] = os.time(), 
-                    ["joinTime"] = startTime,
+                    ["displayName"] = lp.DisplayName, ["username"] = lp.Name,
+                    ["lastSeen"] = os.time(), ["joinTime"] = startTime,
                     ["status"] = (lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.Health > 0) and "ALIVE" or "DEAD",
-                    ["jobId"] = game.JobId,
-                    ["userId"] = lp.UserId
+                    ["jobId"] = game.JobId, ["userId"] = lp.UserId
                 })
             end)
             task.wait(1)
@@ -184,16 +175,14 @@ local function startCloudSync()
                 if resG and resG.Body then
                     local data = HttpService:JSONDecode(resG.Body)
                     if data and data.msg and data.msg ~= "" and data.msg ~= lastGlobalMsg then
-                        lastGlobalMsg = data.msg
-                        showNotice(data.msg, false)
+                        lastGlobalMsg = data.msg; showNotice(data.msg, false)
                     end
                 end
                 local resP = httpRequest("GET", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
                 if resP and resP.Body then
                     local data = HttpService:JSONDecode(resP.Body)
                     if data and data.msg and data.msg ~= "" and data.msg ~= lastPrivateMsg then
-                        lastPrivateMsg = data.msg
-                        showNotice(data.msg, true)
+                        lastPrivateMsg = data.msg; showNotice(data.msg, true)
                         httpRequest("DELETE", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
                     end
                 end
@@ -209,7 +198,7 @@ local function init()
     pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
 end
 
--- 🔐 驗證邏輯
+-- [[ 🔐 Auth ]]
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     init()
 else
