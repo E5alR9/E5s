@@ -1,14 +1,15 @@
--- [[ 🔑 KEY SYSTEM - 自動存檔免驗證版 ]]
+-- [[ 🔑 E5 完整整合版 - 開發者特權碼 ]]
 local lp = game.Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
 local CORRECT_KEY = "E5alR9"
-local FILE_NAME = "E5_Auth.txt" -- 存檔檔名
+local FILE_NAME = "E5_Auth.txt"
 local verified = false
+local isDeveloper = (lp.Name == "E5alR9") -- 判斷是否為你本人
 
--- [[ 1. 檢查存檔功能 ]]
+-- [[ 1. 驗證系統邏輯 ]]
 local function checkLocalAuth()
     if isfile and readfile and isfile(FILE_NAME) then
         local savedData = readfile(FILE_NAME)
-        -- 如果檔案內容等於玩家 ID，則自動通過
         if savedData == tostring(lp.UserId) then
             print("//// [AUTO_AUTH] Welcome back, " .. lp.Name .. " ////")
             return true
@@ -17,70 +18,127 @@ local function checkLocalAuth()
     return false
 end
 
--- [[ 2. 開發者白名單或存檔檢查 ]]
-if lp.Name == "E5alR9" or checkLocalAuth() then
-    verified = true
-else
-    local function startKeySystem()
-        if verified then return end
-        
-        local sg = Instance.new("ScreenGui", lp.PlayerGui)
-        sg.Name = "E5_KeySystem"
-        sg.ResetOnSpawn = false
-        
-        local main = Instance.new("Frame", sg)
-        main.Size = UDim2.new(0, 300, 0, 150)
-        main.Position = UDim2.new(0.5, -150, 0.5, -75)
-        main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        main.Active = true
-        main.Draggable = true 
-        Instance.new("UICorner", main)
+-- [[ 2. 核心功能：開發者雷達 & 暗號系統 ]]
+local function startIdentitySystem()
+    -- 所有人（含開發者）都會打上暗號，讓開發者能感應
+    local function applyTag()
+        if lp.Character and not lp.Character:FindFirstChild("E5_Identity") then
+            local tag = Instance.new("ObjectValue")
+            tag.Name = "E5_Identity"
+            tag.Parent = lp.Character
+        end
+    end
 
-        local title = Instance.new("TextLabel", main)
-        title.Size = UDim2.new(1, 0, 0, 40)
-        title.RichText = true 
-        title.Text = 'ENTER KEY TO START <font color="rgb(255, 215, 0)"><b>(E5alR9)</b></font>'
-        title.TextColor3 = Color3.new(1, 1, 1)
-        title.BackgroundTransparency = 1
+    -- 只有你 (E5alR9) 會執行的掃描邏輯
+    task.spawn(function()
+        while task.wait(2) do
+            applyTag()
+            if isDeveloper then
+                for _, player in pairs(game.Players:GetPlayers()) do
+                    if player ~= lp and player.Character then
+                        -- 如果對方有暗號，且你還沒幫他建標籤
+                        if player.Character:FindFirstChild("E5_Identity") and not player.Character:FindFirstChild("E5_DevMarker") then
+                            local bgui = Instance.new("BillboardGui", player.Character)
+                            bgui.Name = "E5_DevMarker"
+                            bgui.Size = UDim2.new(0, 150, 0, 30)
+                            bgui.Adornee = player.Character:FindFirstChild("Head")
+                            bgui.AlwaysOnTop = true
+                            bgui.Enabled = false -- 預設隱藏，按 TAB 才顯示
 
-        local input = Instance.new("TextBox", main)
-        input.Size = UDim2.new(0.8, 0, 0, 35)
-        input.Position = UDim2.new(0.1, 0, 0.4, 0)
-        input.PlaceholderText = "Paste Key Here..."
-        input.Text = ""
-        input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        input.TextColor3 = Color3.new(1, 1, 1)
-        Instance.new("UICorner", input)
-
-        local btn = Instance.new("TextButton", main)
-        btn.Size = UDim2.new(0.8, 0, 0, 35)
-        btn.Position = UDim2.new(0.1, 0, 0.75, 0)
-        btn.Text = "VERIFY"
-        btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-        btn.TextColor3 = Color3.new(1, 1, 1)
-        Instance.new("UICorner", btn)
-
-        btn.MouseButton1Click:Connect(function()
-            if input.Text == CORRECT_KEY then
-                -- 驗證成功，寫入存檔
-                if writefile then
-                    writefile(FILE_NAME, tostring(lp.UserId))
+                            local label = Instance.new("TextLabel", bgui)
+                            label.Size = UDim2.new(1, 0, 1, 0)
+                            label.BackgroundTransparency = 1
+                            label.Text = "⭐ E5 USER: " .. player.Name
+                            label.TextColor3 = Color3.fromRGB(255, 215, 0)
+                            label.Font = Enum.Font.GothamBold
+                            label.TextSize = 14
+                            label.TextStrokeTransparency = 0
+                        end
+                    end
                 end
-                verified = true
-                sg:Destroy()
-                print("//// [ACCESS_GRANTED] ////")
-            else
-                input.Text = ""
-                input.PlaceholderText = "WRONG KEY! TRY AGAIN"
-                input.PlaceholderColor3 = Color3.new(1, 0, 0)
+            end
+        end
+    end)
+
+    -- 按住 TAB 顯示/隱藏
+    if isDeveloper then
+        UIS.InputBegan:Connect(function(input)
+            if input.KeyCode == Enum.KeyCode.Tab then
+                for _, p in pairs(game.Players:GetPlayers()) do
+                    if p.Character and p.Character:FindFirstChild("E5_DevMarker") then
+                        p.Character.E5_DevMarker.Enabled = true
+                    end
+                end
+            end
+        end)
+        UIS.InputEnded:Connect(function(input)
+            if input.KeyCode == Enum.KeyCode.Tab then
+                for _, p in pairs(game.Players:GetPlayers()) do
+                    if p.Character and p.Character:FindFirstChild("E5_DevMarker") then
+                        p.Character.E5_DevMarker.Enabled = false
+                    end
+                end
             end
         end)
     end
-    startKeySystem()
 end
 
--- 等待驗證成功
+-- [[ 3. 執行 Key System UI ]]
+if isDeveloper or checkLocalAuth() then
+    verified = true
+else
+    local sg = Instance.new("ScreenGui", lp.PlayerGui)
+    sg.Name = "E5_KeySystem"
+    
+    local main = Instance.new("Frame", sg)
+    main.Size = UDim2.new(0, 300, 0, 150)
+    main.Position = UDim2.new(0.5, -150, 0.5, -75)
+    main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Instance.new("UICorner", main)
+
+    local title = Instance.new("TextLabel", main)
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Text = 'ENTER KEY <font color="rgb(255, 215, 0)">(E5alR9)</font>'
+    title.RichText = true
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.BackgroundTransparency = 1
+
+    local input = Instance.new("TextBox", main)
+    input.Size = UDim2.new(0.8, 0, 0, 35)
+    input.Position = UDim2.new(0.1, 0, 0.4, 0)
+    input.PlaceholderText = "Paste Key..."
+    input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    input.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", input)
+
+    local btn = Instance.new("TextButton", main)
+    btn.Size = UDim2.new(0.8, 0, 0, 35)
+    btn.Position = UDim2.new(0.1, 0, 0.75, 0)
+    btn.Text = "VERIFY"
+    btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", btn)
+
+    btn.MouseButton1Click:Connect(function()
+        if input.Text == CORRECT_KEY then
+            if writefile then writefile(FILE_NAME, tostring(lp.UserId)) end
+            verified = true
+            sg:Destroy()
+        else
+            input.Text = ""
+            input.PlaceholderText = "WRONG KEY!"
+        end
+    end)
+end
+
+-- 等待驗證
 repeat task.wait() until verified == true
 
--- [[ 🚀 遠端加載主腳本 ]]
+-- [[ 4. 啟動系統 ]]
+startIdentitySystem() -- 啟動識別系統
+print("//// [SYSTEM_READY] ////")
+
+-- 加載你的主腳本
 loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
+
+-- 這裡已預留你要求的「鎖定最近目標」邏輯介面（如果主腳本沒寫的話）
