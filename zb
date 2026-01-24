@@ -2,12 +2,12 @@ local Emotes = game:GetService("ReplicatedStorage").Items.Emotes
 local Swag = Emotes:FindFirstChild("SwagWalk") or Emotes:FindFirstChild("ZombieStride")
 
 if Swag then
-    -- 1. 物理操作：刪除模組物件 (不改代碼)
+    -- 1. 基本物理操作 (更名、刪除模組)
     local oldModule = Swag:FindFirstChild("EmoteModuleClassic")
     if oldModule then oldModule:Destroy() end
     Swag.Name = "SwagWalk"
 
-    -- 2. 物理操作：準備播放容器
+    -- 2. 準備動畫容器
     local container = Swag:FindFirstChild("AnimationClassic")
     if not container then
         container = Instance.new("Animation")
@@ -15,37 +15,40 @@ if Swag then
         container.Parent = Swag
     end
 
-    -- 3. 讀取 A, B, C 的 ID
+    -- 3. 讀取 A, B, C IDs
     local anims = {}
     local options = Swag:FindFirstChild("PossibleOptionsClassic")
     if options then
         for _, name in ipairs({"A", "B", "C"}) do
             local folder = options:FindFirstChild(name)
-            local anim = folder and folder:FindFirstChildOfClass("Animation")
+            local anim = folder and f:FindFirstChildOfClass("Animation")
             if anim then table.insert(anims, anim.AnimationId) end
         end
     end
 
-    -- 4. 使用伺服器總時間進行「屬性同步」
+    -- 4. 溫和同步邏輯 (不干擾原本修改)
     task.spawn(function()
-        local interval = 2 -- 每 2 秒換一個 ID
-        print("ABC Sync System: Active (No code modified)")
+        local interval = 2 -- 每 2 秒換一個動作
+        print("Gentle Sync Started: Aligning with server time...")
 
         while true do
             if #anims > 0 then
-                -- 使用全伺服器統一的時間基準點
+                -- 核心：根據全服時間計算當前 index
                 local serverTime = workspace.DistributedGameTime
                 local index = (math.floor(serverTime / interval) % #anims) + 1
                 
-                -- 只改屬性，不改代碼
+                -- 【關鍵修正】：只有當 ID 真的不一致時，才進行一次性修改
+                -- 這樣平時就不會一直寫入屬性，不會導致動畫卡死
                 if container.AnimationId ~= anims[index] then
                     container.AnimationId = anims[index]
+                    print("Sync: Switched to animation index " .. tostring(index))
                 end
             end
-            task.wait(0.1) -- 高頻檢查確保所有人幾乎在同一瞬間切換
+            -- 每 0.5 秒檢查一次即可，不需要太快，防止系統過熱
+            task.wait(0.5)
         end
     end)
-    print("Success: SwagWalk is synced across all clients.")
+    print("Success: SwagWalk sync is ready and gentle.")
 else
-    warn("Error: Folder not found.")
+    warn("Error: Target folder not found.")
 end
