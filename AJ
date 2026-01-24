@@ -13,8 +13,8 @@ screenGui.Parent = player:WaitForChild("PlayerGui")
 -- 2. 創建透明按鈕
 local jumpButton = Instance.new("TextButton")
 jumpButton.Name = "JumpButton"
-jumpButton.Size = UDim2.new(0, 120, 0, 120) 
-jumpButton.Position = UDim2.new(1, -150, 1, -180) 
+jumpButton.Size = UDim2.new(0,80, 0, 80) 
+jumpButton.Position = UDim2.new(1, -180, 1, -200) 
 
 -- 設定為完全透明
 jumpButton.BackgroundTransparency = 1 -- 1 代表 100% 透明
