@@ -196,7 +196,10 @@ task.spawn(function()
     end
 end)
 
--- [[ 🛠️ 功能：FREEZE Tool (長按 2 秒解鎖模式) ]]
+-- [[ 🛠️ 功能：FREEZE Tool (修正拖曳放開觸發問題) ]]
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
 local function createFreezeToolWindow()
     if p.PlayerGui:FindFirstChild("FreezeTool_Floating") then 
         p.PlayerGui.FreezeTool_Floating:Destroy() 
@@ -209,121 +212,100 @@ local function createFreezeToolWindow()
     freezeSg.Parent = p.PlayerGui
     
     local COLOR_NORMAL = Color3.fromRGB(70, 90, 110)
-    local COLOR_EDIT = Color3.fromRGB(100, 200, 150) -- 進入編輯模式時的顏色
+    local COLOR_EDIT = Color3.fromRGB(255, 255, 255)
     local COLOR_CLOSE = Color3.fromRGB(50, 60, 70)
 
+    -- [[ 核心變換函數 ]]
     local function makeAdvancedTransform(gui)
-        local dragging = false
-        local canMove = false -- 是否已解鎖拖曳
-        local moved = false
-        local dragStart, startPos = nil, nil
+        local isDragging, dragHolding, dragInput, dragStart, startPos = false, false, nil, nil, nil
         local touchPoints = {}
         local startSize = gui.Size
         local startDistance = 0
-        local holdTime = 2 -- 設定按住 2 秒
+        local HOLD_TIME = 2
 
         gui.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                moved = false
-                canMove = false
-                dragStart = input.Position
-                startPos = gui.Position
+                dragHolding = true
+                if input.UserInputType == Enum.UserInputType.Touch then touchPoints[input.Identifier] = input.Position end
                 
-                if input.UserInputType == Enum.UserInputType.Touch then 
-                    touchPoints[input.Identifier] = input.Position
-                end
-
-                -- 啟動長按計時
+                local startTime = tick()
                 task.spawn(function()
-                    local s = os.clock()
-                    while dragging do
-                        if os.clock() - s >= holdTime then
-                            canMove = true
-                            gui.BackgroundColor3 = COLOR_EDIT -- 變色提示：現在可以移動/縮放了
+                    while dragHolding do
+                        if tick() - startTime >= HOLD_TIME then
+                            isDragging = true
+                            gui.BorderColor3 = COLOR_EDIT
+                            -- 標記為正在移動，這會阻止 Click 事件執行
+                            gui.Text = "MOVING..." 
                             break
                         end
                         task.wait(0.1)
                     end
                 end)
+                dragStart, startPos = input.Position, gui.Position
             end
         end)
 
-        UIS.InputChanged:Connect(function(input)
-            if not dragging or not canMove then return end
-
-            -- 更新觸控點
-            if input.UserInputType == Enum.UserInputType.Touch then
-                touchPoints[input.Identifier] = input.Position
+        gui.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+                if input.UserInputType == Enum.UserInputType.Touch then touchPoints[input.Identifier] = input.Position end
+                
+                -- 兩指縮放
+                local pts = {}
+                for _, pos in pairs(touchPoints) do table.insert(pts, pos) end
+                if #pts == 2 then
+                    isDragging = true
+                    gui.Text = "MOVING..."
+                    local dist = (pts[1] - pts[2]).Magnitude
+                    if startDistance == 0 then
+                        startDistance, startSize = dist, gui.Size
+                    else
+                        local ratio = dist / startDistance
+                        gui.Size = UDim2.new(0, math.clamp(startSize.X.Offset * ratio, 50, 400), 0, math.clamp(startSize.Y.Offset * ratio, 25, 200))
+                    end
+                end
             end
+        end)
 
-            local pts = {}
-            for _, pos in pairs(touchPoints) do table.insert(pts, pos) end
-
-            if #pts >= 2 then
-                -- 編輯模式：兩指縮放
-                moved = true
-                local dist = (pts[1] - pts[2]).Magnitude
-                if startDistance == 0 then
-                    startDistance, startSize = dist, gui.Size
-                else
-                    local ratio = dist / startDistance
-                    gui.Size = UDim2.new(0, math.clamp(startSize.X.Offset * ratio, 50, 400), 0, math.clamp(startSize.Y.Offset * ratio, 25, 200))
-                end
-            elseif #pts == 1 then
-                -- 編輯模式：單指拖曳
-                local delta = input.Position - dragStart
-                if delta.Magnitude > 5 then 
-                    moved = true 
-                end
+        local hb = RunService.Heartbeat:Connect(function()
+            if isDragging and dragInput and dragStart then
+                local delta = dragInput.Position - dragStart
                 gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
 
-        UIS.InputEnded:Connect(function(input)
+        local ended = UIS.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                if input.UserInputType == Enum.UserInputType.Touch then 
-                    touchPoints[input.Identifier] = nil 
-                end
+                dragHolding = false
+                if input.UserInputType == Enum.UserInputType.Touch then touchPoints[input.Identifier] = nil end
                 
-                local count = 0
-                for _ in pairs(touchPoints) do count = count + 1 end
-                if count == 0 then
-                    dragging = false
-                    canMove = false
+                -- 延遲一下再改回文字，確保 MouseButton1Click 先判定
+                task.delay(0.1, function()
+                    isDragging = false
+                    dragStart = nil
                     startDistance = 0
-                    gui.BackgroundColor3 = (gui.Name == "FREEZE" and COLOR_NORMAL or COLOR_CLOSE)
-                end
+                    gui.BorderColor3 = Color3.new(0,0,0)
+                    gui.Text = (gui.Name == "FREEZE" and "FREEZE" or "CLOSE")
+                end)
             end
         end)
-        
-        return function() return moved or canMove end
+
+        gui.Destroying:Connect(function() hb:Disconnect() ended:Disconnect() end)
     end
 
-    -- FREEZE 按鈕
+    -- [FREEZE 按鈕]
     local fBtn = Instance.new("TextButton", freezeSg)
     fBtn.Name = "FREEZE"
     fBtn.Size, fBtn.Position, fBtn.BackgroundColor3 = UDim2.new(0, 100, 0, 50), UDim2.new(0.5, -110, 0.8, 0), COLOR_NORMAL
     fBtn.Text, fBtn.TextColor3, fBtn.Font, fBtn.TextSize = "FREEZE", Color3.new(1, 1, 1), Enum.Font.GothamBold, 16
-    fBtn.ZIndex = 2001
+    fBtn.BorderSizePixel = 2
     Instance.new("UICorner", fBtn)
-    local isTransformedF = makeAdvancedTransform(fBtn)
+    makeAdvancedTransform(fBtn)
 
-    -- CLOSE 按鈕
-    local cBtn = Instance.new("TextButton", freezeSg)
-    cBtn.Name = "CLOSE"
-    cBtn.Size, cBtn.Position, cBtn.BackgroundColor3 = UDim2.new(0, 80, 0, 40), UDim2.new(0.5, 10, 0.8, 0), COLOR_CLOSE
-    cBtn.Text, cBtn.TextColor3 = "CLOSE", Color3.new(0.8, 0.8, 0.8)
-    cBtn.ZIndex = 2001
-    Instance.new("UICorner", cBtn)
-    local isTransformedC = makeAdvancedTransform(cBtn)
-
-    -- 核心：點擊功能
     fBtn.MouseButton1Click:Connect(function()
-        -- 如果處於「編輯模式」或「正在移動」，就不執行功能
-        if isTransformedF() then return end 
+        -- 如果文字還是 MOVING...，代表剛剛是在拖曳，直接 Return
+        if fBtn.Text == "MOVING..." then return end
         
-        -- 通知
         game:GetService("StarterGui"):SetCore("SendNotification", { 
             Title = "SYSTEM"; 
             Text = "Freeze: " .. tostring(_G.freezeMS or 300) .. "ms"; 
@@ -337,8 +319,19 @@ local function createFreezeToolWindow()
         fBtn.BackgroundColor3 = COLOR_NORMAL
     end)
 
-    cBtn.MouseButton1Click:Connect(function() 
-        if not isTransformedC() then freezeSg:Destroy() end 
+    -- [CLOSE 按鈕]
+    local cBtn = Instance.new("TextButton", freezeSg)
+    cBtn.Name = "CLOSE"
+    cBtn.Size, cBtn.Position, cBtn.BackgroundColor3 = UDim2.new(0, 80, 0, 40), UDim2.new(0.5, 10, 0.8, 0), COLOR_CLOSE
+    cBtn.Text, cBtn.TextColor3, cBtn.Font = "CLOSE", Color3.new(0.8, 0.8, 0.8), Enum.Font.Gotham
+    cBtn.BorderSizePixel = 2
+    Instance.new("UICorner", cBtn)
+    makeAdvancedTransform(cBtn)
+
+    cBtn.MouseButton1Click:Connect(function()
+        -- 核心修正：如果是拖曳放開，文字會是 MOVING...，這時不觸發銷毀
+        if cBtn.Text == "MOVING..." then return end
+        freezeSg:Destroy()
     end)
 end
 
