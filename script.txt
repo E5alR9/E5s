@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER FINAL - FULL AUTH & AUTO-CLEAN ]]
+-- [[ 🔑 E5 COMMANDER FINAL - BUG FIXED ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -41,7 +41,7 @@ local function showAnnouncement(msg)
     label.Font = Enum.Font.GothamBold
     label.Text = msg 
     label.TextWrapped = true
-    label.TextAlignment = Enum.TextAlignment.Center
+    label.TextXAlignment = Enum.TextXAlignment.Center -- ✨ FIXED
     
     local stroke = label:FindFirstChild("Stroke") or Instance.new("UIStroke", label)
     stroke.Name = "Stroke"
@@ -114,7 +114,7 @@ local function startCloudSync()
     title.TextColor3 = Color3.fromHex("A475D7")
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
-    title.TextAlignment = Enum.TextAlignment.Center
+    title.TextXAlignment = Enum.TextXAlignment.Center -- ✨ FIXED
 
     local list = Instance.new("ScrollingFrame", frame)
     list.Size = UDim2.new(0.9, 0, 0.65, 0)
@@ -129,7 +129,7 @@ local function startCloudSync()
     input.Text = ""
     input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextAlignment = Enum.TextAlignment.Center
+    input.TextXAlignment = Enum.TextXAlignment.Center -- ✨ FIXED
     Instance.new("UICorner", input)
 
     input.FocusLost:Connect(function(enter)
@@ -201,7 +201,7 @@ else
     title.TextColor3 = Color3.fromHex("A475D7")
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
-    title.TextAlignment = Enum.TextAlignment.Center
+    title.TextXAlignment = Enum.TextXAlignment.Center -- ✨ FIXED
 
     local input = Instance.new("TextBox", main)
     input.Size = UDim2.new(0.8, 0, 0, 35)
@@ -210,7 +210,7 @@ else
     input.Text = ""
     input.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextAlignment = Enum.TextAlignment.Center
+    input.TextXAlignment = Enum.TextXAlignment.Center -- ✨ FIXED
     Instance.new("UICorner", input)
     
     local btn = Instance.new("TextButton", main)
