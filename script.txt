@@ -1,4 +1,4 @@
--- [[ 🔑 E5 雲端即時監控 - 下線自動清理版 ]]
+-- [[ 🔑 E5 最終純監控版 - 專屬 Firebase 配置 ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -6,15 +6,13 @@ local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 local verified = false
 
--- 🔑 你的 Firebase 網址
+-- 🔑 雲端配置
 local CLOUD_URL = "https://e5alr9-default-rtdb.asia-southeast1.firebasedatabase.app/users/" 
-
--- 🔑 開發者身分
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 
 -- [[ 1. 雲端工具函數 ]]
-local function request(method, url, body)
+local function httpRequest(method, url, body)
     local req = syn and syn.request or http_request or request or (http and http.request)
     if req then
         return req({
@@ -26,122 +24,100 @@ local function request(method, url, body)
     end
 end
 
--- 上傳在線狀態
-local function heartbeat()
-    pcall(function()
-        request("PUT", CLOUD_URL .. lp.UserId .. ".json", {
-            ["name"] = lp.Name,
-            ["lastSeen"] = os.time(), -- 記錄目前時間
-            ["jobId"] = game.JobId
-        })
-    end)
-end
-
--- 刪除過期資料 (清理下線太久的人)
-local function cleanOldData(data)
-    for id, info in pairs(data) do
-        if os.time() - (info.lastSeen or 0) > 60 then -- 超過 60 秒沒動靜就刪除
-            pcall(function()
-                request("DELETE", CLOUD_URL .. id .. ".json")
-            end)
-        end
-    end
-end
-
--- [[ 2. 監控 UI ]]
-local function startMonitor()
-    -- 所有人：持續發送心跳包 (每 15 秒)
+-- [[ 2. 雲端同步邏輯 ]]
+local function startCloudSync()
+    -- 所有人：定時更新在線狀態 (Heartbeat)
     task.spawn(function()
         while true do
-            heartbeat()
-            task.wait(15)
+            pcall(function()
+                httpRequest("PUT", CLOUD_URL .. lp.UserId .. ".json", {
+                    ["name"] = lp.Name,
+                    ["lastSeen"] = os.time(),
+                    ["jobId"] = game.JobId,
+                    ["placeName"] = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+                })
+            end)
+            task.wait(20) -- 20秒更新一次
         end
     end)
 
     if not isDeveloper then return end
 
+    -- 開發者專屬監控 UI (按住 TAB 顯示)
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
-    sg.Name = "E5_Live_Monitor"
-    sg.Enabled = false
+    sg.Name = "E5_Admin_Dashboard"
     sg.ResetOnSpawn = false
+    sg.Enabled = false
 
     local frame = Instance.new("Frame", sg)
-    frame.Size = UDim2.new(0, 240, 0, 320)
-    frame.Position = UDim2.new(1, -250, 0.5, -160)
-    frame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    frame.Size = UDim2.new(0, 260, 0, 350)
+    frame.Position = UDim2.new(1, -270, 0.5, -175)
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     frame.BackgroundTransparency = 0.1
     Instance.new("UICorner", frame)
 
     local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, 0, 0, 35)
-    title.Text = "📡 E5 實時在線名單"
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Text = "🛰️ E5 全域使用者監控"
     title.TextColor3 = Color3.fromRGB(255, 215, 0)
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
 
     local list = Instance.new("ScrollingFrame", frame)
-    list.Size = UDim2.new(0.9, 0, 0.82, 0)
+    list.Size = UDim2.new(0.9, 0, 0.8, 0)
     list.Position = UDim2.new(0.05, 0, 0.15, 0)
     list.BackgroundTransparency = 1
+    list.ScrollBarThickness = 2
     Instance.new("UIListLayout", list).Padding = UDim.new(0, 5)
 
+    -- 更新與自動清理
     local function refresh()
-        -- 清空舊 UI
         for _, v in pairs(list:GetChildren()) do if v:IsA("TextLabel") then v:Destroy() end end
         
-        -- 從雲端抓資料
-        local res = request("GET", CLOUD_URL .. ".json")
+        local res = httpRequest("GET", CLOUD_URL .. ".json")
         if not res or not res.Body then return end
         local data = HttpService:JSONDecode(res.Body)
         if not data then return end
 
-        -- 先清理過時資料
-        cleanOldData(data)
-
         local count = 0
         for id, info in pairs(data) do
-            -- 只顯示「30 秒內」有更新的人，這就是真正的「即時在線」
-            if os.time() - (info.lastSeen or 0) <= 30 then
+            local diff = os.time() - (info.lastSeen or 0)
+            
+            if diff <= 40 then -- 40秒內視為正在線上
                 count = count + 1
                 local item = Instance.new("TextLabel", list)
-                item.Size = UDim2.new(1, -10, 0, 35)
-                item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(40, 40, 40)
-                item.Text = " 👤 " .. (info.name or "User") .. (info.jobId == game.JobId and " [在此伺服器]" or " [其他伺服器]")
+                item.Size = UDim2.new(1, -10, 0, 45)
+                item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(0, 80, 0) or Color3.fromRGB(40, 40, 40)
+                item.Text = " 👤 " .. (info.name or "Unknown") .. "\n 📍 " .. (info.jobId == game.JobId and "在本伺服器" or "在其他伺服器")
                 item.TextColor3 = Color3.new(1, 1, 1)
                 item.Font = Enum.Font.SourceSansSemibold
                 item.TextXAlignment = Enum.TextXAlignment.Left
                 item.TextSize = 12
                 Instance.new("UICorner", item)
+            elseif diff > 120 then -- 超過2分鐘沒動靜，徹底刪除紀錄
+                httpRequest("DELETE", CLOUD_URL .. id .. ".json")
             end
         end
-        list.CanvasSize = UDim2.new(0, 0, 0, count * 40)
+        list.CanvasSize = UDim2.new(0, 0, 0, count * 50)
     end
 
-    UIS.InputBegan:Connect(function(i, gpe)
-        if not gpe and i.KeyCode == Enum.KeyCode.Tab then
-            refresh()
-            sg.Enabled = true
-        end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if i.KeyCode == Enum.KeyCode.Tab then sg.Enabled = false end
-    end)
+    UIS.InputBegan:Connect(function(i, gpe) if not gpe and i.KeyCode == Enum.KeyCode.Tab then refresh() sg.Enabled = true end end)
+    UIS.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.Tab then sg.Enabled = false end end)
 end
 
 -- [[ 3. 啟動 ]]
 local function init()
-    startMonitor()
-    -- 🎯 鎖定指令
-    print("//// [E5_SYSTEM] 已鎖定最近目標 ////")
+    startCloudSync()
     pcall(function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
     end)
+    print("🚀 [E5_CLOUD] 監控系統已就緒")
 end
 
+-- 登入邏輯 (略)
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     verified = true
     init()
 else
-    -- (這部分接你的 Key System UI...)
-    -- 驗證成功後執行 init()
+    -- ... (原本的 Key System UI 代碼)
 end
