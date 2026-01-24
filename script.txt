@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - FIXED DISPLAY VERSION ]]
+-- [[ 🔑 E5 COMMANDER - DATA SAVER & UI FIX ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -10,6 +10,7 @@ local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 local startTime = os.time()
 
+-- [[ 🌐 HTTP 工具 ]]
 local function httpRequest(method, url, body)
     local req = syn and syn.request or http_request or request or (http and http.request)
     if req then
@@ -23,7 +24,7 @@ end
 
 -- [[ 📢 Notice 系統 ]]
 local function showNotice(msg, isPrivate)
-    if msg == "" or msg == nil then return end
+    if not msg or msg == "" then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Notice"
     sg.ResetOnSpawn = false
@@ -40,7 +41,6 @@ local function showNotice(msg, isPrivate)
     local stroke = Instance.new("UIStroke", label)
     stroke.Color = isPrivate and Color3.fromRGB(255, 200, 0) or Color3.fromHex("A475D7")
     stroke.Thickness = 2
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
     for _, v in pairs(sg:GetChildren()) do
         if v:IsA("TextLabel") and v ~= label then v.Position = v.Position + UDim2.new(0, 0, 0, 60) end
@@ -87,8 +87,7 @@ local function buildAdminPanel()
             local text = input.Text
             if string.find(text, ":") then
                 local split = string.split(text, ":")
-                local targetId = string.gsub(split[1], " ", "")
-                httpRequest("PUT", CLOUD_URL .. "private/" .. targetId .. ".json", {["msg"] = split[2]})
+                httpRequest("PUT", CLOUD_URL .. "private/" .. string.gsub(split[1], " ", "") .. ".json", {["msg"] = split[2]})
             else
                 httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = text})
                 task.delay(15, function() httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = ""}) end)
@@ -107,28 +106,25 @@ local function buildAdminPanel()
                     for _, v in pairs(list:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
                     for id, info in pairs(data) do
                         if os.time() - (info.lastSeen or 0) <= 20 then
-                            -- ⏱️ 計算在線時間
-                            local onlineSecs = os.time() - (info.joinTime or os.time())
-                            local m = math.floor(onlineSecs / 60)
-                            local s = onlineSecs % 60
-                            
                             local item = Instance.new("TextButton", list)
-                            -- 🚀 增加高度到 130，確保文字不被裁切
-                            item.Size = UDim2.new(1, 0, 0, 130) 
+                            -- 🚀 高度增加到 140，確保三行文字+時間都能顯示
+                            item.Size = UDim2.new(1, 0, 0, 140) 
                             item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
                             item.BackgroundTransparency = 0.2
-                            item.BorderSizePixel = 0
-                            Instance.new("UICorner", item).CornerRadius = UDim.new(0, 4)
+                            Instance.new("UICorner", item).CornerRadius = UDim.new(0, 6)
 
-                            -- 📝 重新排列文字佈局
-                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\n%s | Online: %dm %ds", 
-                                info.displayName or "Unknown", 
-                                info.username or "User", 
+                            local onlineSecs = os.time() - (info.joinTime or os.time())
+                            local m, s = math.floor(onlineSecs / 60), onlineSecs % 60
+                            
+                            -- 📝 精簡文字排版
+                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nTime: %dm %ds", 
+                                info.displayName or "N/A", 
+                                info.username or "N/A", 
                                 info.userId or "N/A", 
                                 info.status or "ALIVE",
                                 m, s)
                             item.TextColor3 = Color3.new(1, 1, 1)
-                            item.TextSize = 18
+                            item.TextSize = 17
                             item.Font = Enum.Font.GothamBold
                             item.TextWrapped = true
 
@@ -139,20 +135,12 @@ local function buildAdminPanel()
                     end
                 end)
             end
-            task.wait(2)
-        end
-    end)
-
-    if _G.E5Connection then _G.E5Connection:Disconnect() end
-    _G.E5Connection = UIS.InputBegan:Connect(function(i, gpe)
-        if not gpe and i.KeyCode == Enum.KeyCode.Tab then
-            sg.Enabled = not sg.Enabled
-            UIS.MouseBehavior = sg.Enabled and Enum.MouseBehavior.Default or Enum.MouseBehavior.LockCenter
+            task.wait(5) -- 📉 降低頻率至 5 秒更新一次，節省 Firebase 流量
         end
     end)
 end
 
--- [[ 🚀 初始化與同步 (維持原樣) ]]
+-- [[ 🚀 啟動邏輯 ]]
 local function startCloudSync()
     task.spawn(function()
         while true do
@@ -164,30 +152,30 @@ local function startCloudSync()
                     ["jobId"] = game.JobId, ["userId"] = lp.UserId
                 })
             end)
-            task.wait(1)
+            task.wait(1.5) -- 同步間隔稍微拉長一點點
         end
     end)
     task.spawn(function()
-        local lastGlobalMsg, lastPrivateMsg = "", ""
+        local lastG, lastP = "", ""
         while true do
             pcall(function()
                 local resG = httpRequest("GET", CLOUD_URL .. "announcement.json")
                 if resG and resG.Body then
                     local data = HttpService:JSONDecode(resG.Body)
-                    if data and data.msg and data.msg ~= "" and data.msg ~= lastGlobalMsg then
-                        lastGlobalMsg = data.msg; showNotice(data.msg, false)
+                    if data and data.msg and data.msg ~= "" and data.msg ~= lastG then
+                        lastG = data.msg; showNotice(data.msg, false)
                     end
                 end
                 local resP = httpRequest("GET", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
                 if resP and resP.Body then
                     local data = HttpService:JSONDecode(resP.Body)
-                    if data and data.msg and data.msg ~= "" and data.msg ~= lastPrivateMsg then
-                        lastPrivateMsg = data.msg; showNotice(data.msg, true)
+                    if data and data.msg and data.msg ~= "" and data.msg ~= lastP then
+                        lastP = data.msg; showNotice(data.msg, true)
                         httpRequest("DELETE", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
                     end
                 end
             end)
-            task.wait(3)
+            task.wait(3.5)
         end
     end)
 end
@@ -209,8 +197,8 @@ else
     main.Position = UDim2.new(0.5, -160, 0.5, -90)
     main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     main.BackgroundTransparency = 0.5
-    Instance.new("UICorner", main)
     Instance.new("UIStroke", main).Color = Color3.fromHex("A475D7")
+    Instance.new("UICorner", main)
     local btn = Instance.new("TextButton", main)
     btn.Size = UDim2.new(0, 200, 0, 40)
     btn.Position = UDim2.new(0.5, -100, 0.7, 0)
@@ -234,3 +222,10 @@ else
         end
     end)
 end
+
+-- 快捷鍵開關
+UIS.InputBegan:Connect(function(i, gpe)
+    if not gpe and i.KeyCode == Enum.KeyCode.Tab and lp.PlayerGui:FindFirstChild("E5_Admin_Panel") then
+        lp.PlayerGui.E5_Admin_Panel.Enabled = not lp.PlayerGui.E5_Admin_Panel.Enabled
+    end
+end)
