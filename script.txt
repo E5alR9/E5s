@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - BUG FIXED & ULTIMATE PERSISTENT ]]
+-- [[ 🔑 E5 COMMANDER - ULTIMATE STABLE EDITION ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -58,7 +58,7 @@ local function showNotice(msg, isPrivate)
     task.delay(10, function() if label then label:Destroy() end end)
 end
 
--- [[ 🛰️ 核心雲端邏輯 ]]
+-- [[ 🛰️ 雲端同步與監聽 ]]
 local function startCloudSync()
     task.spawn(function()
         while true do
@@ -105,7 +105,7 @@ local function startCloudSync()
 
     if not isDeveloper then return end
 
-    -- [[ 管理員介面 ]]
+    -- [[ 🛰️ 管理員介面 ]]
     local sg = lp.PlayerGui:FindFirstChild("E5_Admin_Panel") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Panel"
     sg.Enabled = false
@@ -125,7 +125,7 @@ local function startCloudSync()
     list.Position = UDim2.new(0.05, 0, 0.1, 0)
     list.BackgroundTransparency = 1
     list.CanvasSize = UDim2.new(0, 0, 0, 0)
-    -- ✨ 修正後的屬性賦值方式
+    -- ✨ 修正後的關鍵屬性
     list.AutomaticCanvasSize = Enum.AutomaticSize.Y 
     list.ScrollBarThickness = 4
     Instance.new("UIListLayout", list).Padding = UDim.new(0, 15)
@@ -134,7 +134,7 @@ local function startCloudSync()
     input.Size = UDim2.new(0.9, 0, 0, 60)
     input.Position = UDim2.new(0.05, 0, 0.88, 0)
     input.PlaceholderText = "Click Player to Lock Target..."
-    input.TextSize = 18
+    input.TextSize = 20
     input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     input.TextColor3 = Color3.new(1, 1, 1)
     input.TextWrapped = true
@@ -156,6 +156,7 @@ local function startCloudSync()
         end
     end)
 
+    -- 玩家列表按鈕
     task.spawn(function()
         while true do
             if sg.Enabled then
@@ -170,8 +171,7 @@ local function startCloudSync()
                             item.Size = UDim2.new(1, -10, 0, 150)
                             item.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
                             item.BackgroundTransparency = 0.3
-                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\n%s", 
-                                info.displayName or "Unknown", info.username or "User", info.userId or "N/A", info.status or "")
+                            item.Text = string.format("👤 %s\n(@%s)\nID: %s", info.displayName or "Unknown", info.username or "User", info.userId or "N/A")
                             item.TextColor3 = Color3.new(1, 1, 1)
                             item.TextSize = 22
                             item.Font = Enum.Font.GothamBold
@@ -182,12 +182,13 @@ local function startCloudSync()
                             s.Thickness = 2
                             Instance.new("UICorner", item)
 
+                            -- 視覺反饋
                             item.MouseButton1Down:Connect(function() 
-                                item.BackgroundColor3 = Color3.fromHex("A475D7") 
+                                item.BackgroundColor3 = Color3.fromHex("A475D7")
                                 item.BackgroundTransparency = 0.1
                             end)
                             item.MouseButton1Up:Connect(function() 
-                                item.BackgroundColor3 = Color3.fromRGB(30, 30, 30) 
+                                item.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
                                 item.BackgroundTransparency = 0.3
                             end)
 
@@ -218,17 +219,18 @@ local function startCloudSync()
     end)
 end
 
--- [[ 🔐 驗證與初始化 ]]
+-- [[ 🔐 初始化系統 ]]
 local function init()
     startCloudSync()
-    print("🎯 [E5_SYSTEM] All Systems Nominal")
+    print("🎯 [E5_SYSTEM] Connected & Ready")
     pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
 end
 
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     init()
 else
-    local authGui = Instance.new("ScreenGui", lp.PlayerGui)
+    local authGui = lp.PlayerGui:FindFirstChild("E5_Auth") or Instance.new("ScreenGui", lp.PlayerGui)
+    authGui.Name = "E5_Auth"
     authGui.ResetOnSpawn = false
     local main = Instance.new("Frame", authGui)
     main.Size = UDim2.new(0, 320, 0, 180)
