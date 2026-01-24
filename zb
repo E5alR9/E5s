@@ -2,12 +2,12 @@ local Emotes = game:GetService("ReplicatedStorage").Items.Emotes
 local emote = Emotes:FindFirstChild("ZombieStride") or Emotes:FindFirstChild("SwagWalk")
 
 if emote then
-    -- 1. 基礎清理與更名
+    -- 1. Cleanup and Rename
     local oldModule = emote:FindFirstChild("EmoteModuleClassic")
     if oldModule then oldModule:Destroy() end
     emote.Name = "SwagWalk"
 
-    -- 2. 確保外面有一個 AnimationClassic 作為「播放容器」
+    -- 2. Setup Animation Container
     local container = emote:FindFirstChild("AnimationClassic")
     if not container then
         container = Instance.new("Animation")
@@ -15,11 +15,10 @@ if emote then
         container.Parent = emote
     end
 
-    -- 3. 建立循環邏輯
+    -- 3. Extract IDs from A, B, and C
     local options = emote:FindFirstChild("PossibleOptionsClassic")
+    local anims = {}
     if options then
-        local anims = {}
-        -- 抓取 A, B, C 裡的動畫 ID
         for _, folderName in ipairs({"A", "B", "C"}) do
             local folder = options:FindFirstChild(folderName)
             if folder then
@@ -27,25 +26,30 @@ if emote then
                 if a then table.insert(anims, a.AnimationId) end
             end
         end
-
-        -- 4. 啟動後台任務進行輪流替換
-        task.spawn(function()
-            local index = 1
-            print("ABC 輪播已啟動")
-            while true do
-                if #anims > 0 then
-                    -- 替換 ID
-                    container.AnimationId = anims[index]
-                    
-                    -- 切換到下一個 (1 -> 2 -> 3 -> 1)
-                    index = index % #anims + 1
-                end
-                -- 設定每 2 秒換一次動作，你可以根據動畫長度調整這個數字
-                task.wait(2) 
-            end
-        end)
     end
-    print("✅ SwagWalk 已更名並啟動 ABC 輪流替換機制")
+
+    -- 4. Synced ABC Rotation Loop
+    task.spawn(function()
+        local interval = 2 -- Seconds for each animation
+        print("ABC Sync Loop Started")
+        
+        while true do
+            if #anims > 0 then
+                -- 使用全伺服器統一的遊戲時間來計算當前應該播放哪一個
+                -- 這確保了所有人計算出的 index 都是相同的
+                local globalTick = math.floor(workspace.DistributedGameTime / interval)
+                local index = (globalTick % #anims) + 1
+                
+                -- 只有當 ID 真正改變時才更新，避免重複刷新
+                if container.AnimationId ~= anims[index] then
+                    container.AnimationId = anims[index]
+                end
+            end
+            -- 稍微縮短檢查間隔（0.5秒），確保切換更精準
+            task.wait(0.5) 
+        end
+    end)
+    print("Success: SwagWalk updated and ABC Sync active")
 else
-    warn("找不到 ZombieStride 或 SwagWalk")
+    warn("Error: ZombieStride or SwagWalk not found")
 end
