@@ -1,102 +1,147 @@
--- [[ 🔑 E5 極致穩定偵測版 ]]
+-- [[ 🔑 E5 雲端即時監控 - 下線自動清理版 ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 local verified = false
 
--- 🔑 你的 ID
+-- 🔑 你的 Firebase 網址
+local CLOUD_URL = "https://e5alr9-default-rtdb.asia-southeast1.firebasedatabase.app/users/" 
+
+-- 🔑 開發者身分
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 
--- [[ 1. 核心功能：標註與掃描 ]]
+-- [[ 1. 雲端工具函數 ]]
+local function request(method, url, body)
+    local req = syn and syn.request or http_request or request or (http and http.request)
+    if req then
+        return req({
+            Url = url,
+            Method = method,
+            Headers = {["Content-Type"] = "application/json"},
+            Body = body and HttpService:JSONEncode(body) or nil
+        })
+    end
+end
 
--- 所有人：在自己的 PlayerGui 裡藏一個只有腳本能看到的物件
-local function tagMyself()
-    task.spawn(function()
-        while true do
-            if lp:FindFirstChild("PlayerGui") then
-                if not lp.PlayerGui:FindFirstChild("E5_Signal") then
-                    local signal = Instance.new("Folder")
-                    signal.Name = "E5_Signal" -- 這是秘密暗號
-                    signal.Parent = lp.PlayerGui
-                end
-            end
-            task.wait(3)
-        end
+-- 上傳在線狀態
+local function heartbeat()
+    pcall(function()
+        request("PUT", CLOUD_URL .. lp.UserId .. ".json", {
+            ["name"] = lp.Name,
+            ["lastSeen"] = os.time(), -- 記錄目前時間
+            ["jobId"] = game.JobId
+        })
     end)
 end
 
--- 開發者：列表 UI
-local function setupAdminList()
+-- 刪除過期資料 (清理下線太久的人)
+local function cleanOldData(data)
+    for id, info in pairs(data) do
+        if os.time() - (info.lastSeen or 0) > 60 then -- 超過 60 秒沒動靜就刪除
+            pcall(function()
+                request("DELETE", CLOUD_URL .. id .. ".json")
+            end)
+        end
+    end
+end
+
+-- [[ 2. 監控 UI ]]
+local function startMonitor()
+    -- 所有人：持續發送心跳包 (每 15 秒)
+    task.spawn(function()
+        while true do
+            heartbeat()
+            task.wait(15)
+        end
+    end)
+
     if not isDeveloper then return end
-    
+
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
-    sg.Name = "E5_Monitor"
-    sg.IgnoreGuiInset = true
-    sg.Enabled = false 
+    sg.Name = "E5_Live_Monitor"
+    sg.Enabled = false
     sg.ResetOnSpawn = false
 
     local frame = Instance.new("Frame", sg)
-    frame.Size = UDim2.new(0, 220, 0, 300)
-    frame.Position = UDim2.new(1, -230, 0.5, -150)
+    frame.Size = UDim2.new(0, 240, 0, 320)
+    frame.Position = UDim2.new(1, -250, 0.5, -160)
     frame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-    frame.BackgroundTransparency = 0.2
+    frame.BackgroundTransparency = 0.1
     Instance.new("UICorner", frame)
 
-    local list = Instance.new("ScrollingFrame", frame)
-    list.Size = UDim2.new(0.9, 0, 0.8, 0)
-    list.Position = UDim2.new(0.05, 0, 0.15, 0)
-    list.BackgroundTransparency = 1
-    list.ScrollBarThickness = 2
-    local layout = Instance.new("UIListLayout", list)
-    layout.Padding = UDim.new(0, 5)
-
     local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.Text = "📡 E5 在線使用者"
+    title.Size = UDim2.new(1, 0, 0, 35)
+    title.Text = "📡 E5 實時在線名單"
     title.TextColor3 = Color3.fromRGB(255, 215, 0)
     title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
 
-    local function update()
+    local list = Instance.new("ScrollingFrame", frame)
+    list.Size = UDim2.new(0.9, 0, 0.82, 0)
+    list.Position = UDim2.new(0.05, 0, 0.15, 0)
+    list.BackgroundTransparency = 1
+    Instance.new("UIListLayout", list).Padding = UDim.new(0, 5)
+
+    local function refresh()
+        -- 清空舊 UI
         for _, v in pairs(list:GetChildren()) do if v:IsA("TextLabel") then v:Destroy() end end
-        local found = 0
-        for _, player in pairs(game.Players:GetPlayers()) do
-            -- 核心偵測點：掃描對方的 PlayerGui 是否有暗號
-            if player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("E5_Signal") then
-                found = found + 1
+        
+        -- 從雲端抓資料
+        local res = request("GET", CLOUD_URL .. ".json")
+        if not res or not res.Body then return end
+        local data = HttpService:JSONDecode(res.Body)
+        if not data then return end
+
+        -- 先清理過時資料
+        cleanOldData(data)
+
+        local count = 0
+        for id, info in pairs(data) do
+            -- 只顯示「30 秒內」有更新的人，這就是真正的「即時在線」
+            if os.time() - (info.lastSeen or 0) <= 30 then
+                count = count + 1
                 local item = Instance.new("TextLabel", list)
-                item.Size = UDim2.new(1, -10, 0, 25)
-                item.Text = " " .. player.Name .. (player == lp and " (ME)" or "")
-                item.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                item.Size = UDim2.new(1, -10, 0, 35)
+                item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(40, 40, 40)
+                item.Text = " 👤 " .. (info.name or "User") .. (info.jobId == game.JobId and " [在此伺服器]" or " [其他伺服器]")
                 item.TextColor3 = Color3.new(1, 1, 1)
+                item.Font = Enum.Font.SourceSansSemibold
+                item.TextXAlignment = Enum.TextXAlignment.Left
+                item.TextSize = 12
                 Instance.new("UICorner", item)
             end
         end
+        list.CanvasSize = UDim2.new(0, 0, 0, count * 40)
     end
 
-    UIS.InputBegan:Connect(function(i) if i.KeyCode == Enum.KeyCode.Tab then update() sg.Enabled = true end end)
-    UIS.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.Tab then sg.Enabled = false end end)
-    
-    warn("✅ 監控系統已就緒，按住 TAB 查看")
+    UIS.InputBegan:Connect(function(i, gpe)
+        if not gpe and i.KeyCode == Enum.KeyCode.Tab then
+            refresh()
+            sg.Enabled = true
+        end
+    end)
+    UIS.InputEnded:Connect(function(i)
+        if i.KeyCode == Enum.KeyCode.Tab then sg.Enabled = false end
+    end)
 end
 
--- [[ 2. 驗證與啟動 ]]
-local function start()
-    tagMyself()
-    setupAdminList()
+-- [[ 3. 啟動 ]]
+local function init()
+    startMonitor()
+    -- 🎯 鎖定指令
+    print("//// [E5_SYSTEM] 已鎖定最近目標 ////")
     pcall(function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
     end)
-    -- 🔒 根據要求：自動鎖定最近目標 (系統層級鎖定)
-    print("🎯 已鎖定最接近目標")
 end
 
--- 檢查存檔或開發者身分
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     verified = true
-    start()
+    init()
 else
-    -- 原有的 Key UI 代碼... (為了精簡此處略過 UI 創建，請直接貼上你之前的 UI 段落)
-    -- 只要在 btn.MouseButton1Click 成功後調用 start() 即可
+    -- (這部分接你的 Key System UI...)
+    -- 驗證成功後執行 init()
 end
