@@ -196,70 +196,77 @@ task.spawn(function()
     end
 end)
 
--- [[ 🛠️ 功能：FREEZE Tool)]]
-local function makeAdvancedTransform(gui)
-    gui.Active = true
-    gui.Selectable = true
+-- [[ 🛠️ 功能：修正版 FREEZE Tool (採用 Heartbeat 驅動確保流暢拖曳) ]]
+local p = game:GetService("Players").LocalPlayer
+local UIS = game:GetService("UserInputService")
+local RS = game:GetService("RunService")
+
+function createFreezeToolWindow()
+    if p.PlayerGui:FindFirstChild("FreezeTool_Floating") then 
+        p.PlayerGui.FreezeTool_Floating:Destroy() 
+    end
+
+    local freezeSg = Instance.new("ScreenGui")
+    freezeSg.Name = "FreezeTool_Floating"
+    freezeSg.DisplayOrder = 2000 
+    freezeSg.ResetOnSpawn = false 
+    freezeSg.Parent = p.PlayerGui
     
-    local dragging = false
-    local canMove = false
-    local dragStart, startPos = nil, nil
-    local touchPoints = {}
-    local startDistance = 0
-    local startSize = gui.Size
-    local HOLD_TIME = 1.5 -- 稍微縮短長按時間，對手機更友善
+    local COLOR_NORMAL = Color3.fromRGB(70, 90, 110)
+    local COLOR_DRAG = Color3.fromRGB(100, 200, 150)
+    local COLOR_CLOSE = Color3.fromRGB(50, 60, 70)
 
-    -- [按下]
-    gui.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = gui.Position
-            
-            if input.UserInputType == Enum.UserInputType.Touch then 
-                touchPoints[input.Identifier] = input.Position 
-            end
-            
-            task.spawn(function()
-                local startTime = tick()
-                while dragging do
-                    if tick() - startTime >= HOLD_TIME then
-                        canMove = true
-                        gui.BorderColor3 = Color3.fromRGB(255,255,255)
-                        gui.Text = "MOVING..."
-                        break
+    local function makeAdvancedTransform(gui)
+        local dragging = false
+        local canMove = false
+        local moved = false
+        local dragStart, startPos = nil, nil
+        local dragInput = nil
+        local holdTime = 1.5
+        local touchPoints = {}
+        local startSize = gui.Size
+        local startDistance = 0
+
+        gui.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                moved = false
+                dragStart = input.Position
+                startPos = gui.Position
+                if input.UserInputType == Enum.UserInputType.Touch then touchPoints[input.Identifier] = input.Position end
+                task.spawn(function()
+                    local startTime = tick()
+                    while dragging do
+                        if tick() - startTime >= holdTime then
+                            canMove = true
+                            gui.BorderColor3 = COLOR_DRAG
+                            gui.Text = "MOVING..."
+                            break
+                        end
+                        task.wait(0.1)
                     end
-                    task.wait(0.1)
-                end
-            end)
-        end
-    end)
-
-    -- [移動] 修正重點：改用 gui.InputChanged 確保局部觸控被捕獲
-    gui.InputChanged:Connect(function(input)
-        if not dragging then return end
-        
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            -- 紀錄觸控點（縮放用）
-            if input.UserInputType == Enum.UserInputType.Touch then
-                touchPoints[input.Identifier] = input.Position
+                end)
             end
+        end)
 
-            -- 位移邏輯
-            if canMove and dragStart then
-                local delta = input.Position - dragStart
-                gui.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + delta.X, 
-                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                )
+        gui.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+                if input.UserInputType == Enum.UserInputType.Touch then touchPoints[input.Identifier] = input.Position end
             end
+        end)
 
-            -- 兩指縮放
+        RS.Heartbeat:Connect(function()
+            if dragging and canMove and dragInput then
+                local delta = dragInput.Position - dragStart
+                if delta.Magnitude > 5 then moved = true end
+                gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
             local pts = {}
             for _, pos in pairs(touchPoints) do table.insert(pts, pos) end
             if #pts == 2 then
                 canMove = true
-                gui.Text = "MOVING..."
+                moved = true
                 local dist = (pts[1] - pts[2]).Magnitude
                 if startDistance == 0 then
                     startDistance = dist
@@ -269,24 +276,65 @@ local function makeAdvancedTransform(gui)
                     gui.Size = UDim2.new(0, math.clamp(startSize.X.Offset * ratio, 50, 400), 0, math.clamp(startSize.Y.Offset * ratio, 25, 200))
                 end
             end
-        end
-    end)
+        end)
 
-    -- [放開]
-    gui.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-            if input.UserInputType == Enum.UserInputType.Touch then 
-                touchPoints[input.Identifier] = nil 
-            end
-            
-            task.delay(0.1, function()
+        gui.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
                 canMove = false
                 startDistance = 0
                 gui.BorderColor3 = Color3.new(0,0,0)
                 gui.Text = (gui.Name == "FREEZE" and "FREEZE" or (gui.Name == "CLOSE" and "CLOSE" or gui.Text))
-            end)
-        end
+                if input.UserInputType == Enum.UserInputType.Touch then touchPoints[input.Identifier] = nil end
+            end
+        end)
+        return function() return moved end
+    end
+
+    local fBtn = Instance.new("TextButton", freezeSg)
+    fBtn.Name = "FREEZE"
+    fBtn.Size = UDim2.new(0, 100, 0, 50)
+    fBtn.Position = UDim2.new(0.5, -110, 0.8, 0)
+    fBtn.BackgroundColor3 = COLOR_NORMAL
+    fBtn.Text = "FREEZE"
+    fBtn.TextColor3 = Color3.new(1, 1, 1)
+    fBtn.Font = Enum.Font.GothamBold
+    fBtn.TextSize = 16
+    Instance.new("UICorner", fBtn)
+    local isMovedF = makeAdvancedTransform(fBtn)
+
+    local cBtn = Instance.new("TextButton", freezeSg)
+    cBtn.Name = "CLOSE"
+    cBtn.Size = UDim2.new(0, 80, 0, 40)
+    cBtn.Position = UDim2.new(0.5, 10, 0.8, 0)
+    cBtn.BackgroundColor3 = COLOR_CLOSE
+    cBtn.Text = "CLOSE"
+    cBtn.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    cBtn.Font = Enum.Font.GothamBold
+    cBtn.TextSize = 14
+    Instance.new("UICorner", cBtn)
+    local isMovedC = makeAdvancedTransform(cBtn)
+
+    fBtn.MouseButton1Click:Connect(function()
+        if isMovedF() then return end
+        
+        game:GetService("StarterGui"):SetCore("SendNotification", { 
+            Title = "SYSTEM", 
+            Text = "Freeze: " .. tostring(_G.freezeMS or 300) .. "ms", 
+            Duration = 0.5,
+            Icon = "rbxassetid://6023426926"
+        })
+
+        fBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        local t = os.clock()
+        local delayTime = (tonumber(_G.freezeMS) or 300) / 1000
+        while os.clock() - t < delayTime do end
+        fBtn.BackgroundColor3 = COLOR_NORMAL
+    end)
+
+    cBtn.MouseButton1Click:Connect(function()
+        if isMovedC() then return end
+        freezeSg:Destroy()
     end)
 end
 
