@@ -1,5 +1,5 @@
--- [[ 🔑 E5 指揮官終極完整版 - 切換式操作與全域公告 ]]
--- 操作說明：按一下 TAB 開啟面板與滑鼠，輸入公告按 Enter 送出，再按 TAB 關閉。
+-- [[ 🔑 E5 指揮官終極整合版 - A475D7 紫框透明公告 ]]
+-- 操作：TAB 切換面板/解鎖滑鼠 | 自動存檔驗證 | 0.5s 高頻刷新
 
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
@@ -7,36 +7,25 @@ local HttpService = game:GetService("HttpService")
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 
--- 🔑 雲端配置 (Firebase)
+-- 🔑 雲端配置
 local CLOUD_URL = "https://e5alr9-default-rtdb.asia-southeast1.firebasedatabase.app/" 
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 local startTime = os.time()
 
--- [[ 1. 通訊工具函數 ]]
+-- [[ 1. 工具函數 ]]
 local function httpRequest(method, url, body)
     local req = syn and syn.request or http_request or request or (http and http.request)
     if req then
         return req({
-            Url = url,
-            Method = method,
+            Url = url, Method = method,
             Headers = {["Content-Type"] = "application/json"},
             Body = body and HttpService:JSONEncode(body) or nil
         })
     end
 end
 
--- 取得生死狀態
-local function getHealthStatus(player)
-    local char = player.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        return (hum.Health > 0) and "🟢 存活" or "🔴 死亡"
-    end
-    return "⚪ 觀戰中"
-end
-
--- [[ 2. 全域公告顯示系統 ]]
+-- [[ 2. ✨ 公告顯示系統 (A475D7 邊框) ]]
 local function showAnnouncement(msg)
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Notice"
@@ -44,25 +33,34 @@ local function showAnnouncement(msg)
     
     local label = sg:FindFirstChild("Msg") or Instance.new("TextLabel", sg)
     label.Name = "Msg"
-    label.Size = UDim2.new(0, 550, 0, 70)
-    label.Position = UDim2.new(0.5, -275, 0.1, 0)
-    label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    label.BackgroundTransparency = 0.2
+    label.Size = UDim2.new(0, 420, 0, 50)
+    label.Position = UDim2.new(0.5, -210, 0.1, 0)
+    label.BackgroundTransparency = 1 -- ✨ 全透明背景
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextSize = 24
+    label.TextSize = 18 -- ✨ 字體較小精緻
     label.Font = Enum.Font.GothamBold
-    label.Text = "📢 公告: " .. msg
+    label.Text = msg 
     label.TextWrapped = true
-    Instance.new("UICorner", label)
+    
+    -- ✨ A475D7 顏色邊框
+    local stroke = label:FindFirstChild("Stroke") or Instance.new("UIStroke", label)
+    stroke.Name = "Stroke"
+    stroke.Color = Color3.fromHex("A475D7") -- ✨ 使用你指定的顏色
+    stroke.Thickness = 2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    
+    local corner = label:FindFirstChild("Corner") or Instance.new("UICorner", label)
+    corner.Name = "Corner"
+    corner.CornerRadius = UDim.new(0, 8)
     
     task.delay(10, function() 
         if label then label:Destroy() end 
     end)
 end
 
--- [[ 3. 核心監控與切換 UI 邏輯 ]]
+-- [[ 3. 核心監控與 UI 邏輯 ]]
 local function startCloudSync()
-    -- 背景：更新狀態
+    -- 背景同步玩家資料
     task.spawn(function()
         while true do
             pcall(function()
@@ -71,7 +69,7 @@ local function startCloudSync()
                     ["username"] = lp.Name,
                     ["lastSeen"] = os.time(),
                     ["joinTime"] = startTime,
-                    ["status"] = getHealthStatus(lp),
+                    ["status"] = (lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.Health > 0) and "🟢 存活" or "🔴 死亡",
                     ["jobId"] = game.JobId
                 })
             end)
@@ -79,7 +77,7 @@ local function startCloudSync()
         end
     end)
 
-    -- 監聽新公告
+    -- 監聽雲端公告
     local lastMsg = ""
     task.spawn(function()
         while true do
@@ -99,44 +97,50 @@ local function startCloudSync()
 
     if not isDeveloper then return end
 
-    -- 建立面板 (切換式)
+    -- 開發者管理面板
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Panel"
     sg.ResetOnSpawn = false
     sg.Enabled = false
 
     local frame = Instance.new("Frame", sg)
-    frame.Size = UDim2.new(0, 330, 0, 500)
-    frame.Position = UDim2.new(1, -340, 0.5, -250)
+    frame.Size = UDim2.new(0, 330, 0, 520)
+    frame.Position = UDim2.new(1, -340, 0.5, -260)
     frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     Instance.new("UICorner", frame)
+
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1, 0, 0, 45)
+    title.Text = "🛰️ E5 管理中心"
+    title.TextSize = 18
+    title.TextColor3 = Color3.fromHex("A475D7")
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
 
     local list = Instance.new("ScrollingFrame", frame)
     list.Size = UDim2.new(0.9, 0, 0.65, 0)
     list.Position = UDim2.new(0.05, 0, 0.12, 0)
     list.BackgroundTransparency = 1
+    list.ScrollBarThickness = 2
     Instance.new("UIListLayout", list).Padding = UDim.new(0, 10)
 
-    -- 公告發送框
-    local announceBox = Instance.new("TextBox", frame)
-    announceBox.Size = UDim2.new(0.9, 0, 0, 45)
-    announceBox.Position = UDim2.new(0.05, 0, 0.85, 0)
-    announceBox.PlaceholderText = "在此輸入公告並按 Enter..."
-    announceBox.Text = ""
-    announceBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    announceBox.TextColor3 = Color3.new(1, 1, 1)
-    announceBox.TextSize = 14
-    announceBox.Font = Enum.Font.Gotham
-    Instance.new("UICorner", announceBox)
+    local input = Instance.new("TextBox", frame)
+    input.Size = UDim2.new(0.9, 0, 0, 45)
+    input.Position = UDim2.new(0.05, 0, 0.85, 0)
+    input.PlaceholderText = "發送公告至所有玩家..."
+    input.Text = ""
+    input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    input.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", input)
 
-    announceBox.FocusLost:Connect(function(enter)
-        if enter and announceBox.Text ~= "" then
-            httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = announceBox.Text})
-            announceBox.Text = ""
+    input.FocusLost:Connect(function(enter)
+        if enter and input.Text ~= "" then
+            httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = input.Text})
+            input.Text = ""
         end
     end)
 
-    -- 0.5秒刷新
+    -- 實時刷新功能
     local function refresh()
         local res = httpRequest("GET", CLOUD_URL .. "users.json")
         if not res or not res.Body then return end
@@ -149,45 +153,40 @@ local function startCloudSync()
                 count = count + 1
                 local item = Instance.new("TextLabel", list)
                 item.Size = UDim2.new(1, -10, 0, 95)
-                item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(20, 75, 20) or Color3.fromRGB(40, 40, 40)
+                item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(25, 60, 25) or Color3.fromRGB(35, 35, 35)
                 item.Text = string.format(" 👤 %s(@%s)\n 狀態: %s\n 🕒 在線: %d 分", info.displayName or "User", info.username or "User", info.status or "未知", math.floor((os.time()-(info.joinTime or os.time()))/60))
                 item.TextColor3 = Color3.new(1, 1, 1)
-                item.TextSize = 15
+                item.TextSize = 14
                 item.Font = Enum.Font.GothamBold
                 item.TextXAlignment = Enum.TextXAlignment.Left
                 Instance.new("UICorner", item)
             end
         end
+        list.CanvasSize = UDim2.new(0, 0, 0, count * 105)
     end
 
     task.spawn(function()
         while true do if sg.Enabled then pcall(refresh) end task.wait(0.5) end
     end)
 
-    -- ✨ 解決打字問題：改為切換式
+    -- TAB 切換與滑鼠鎖定邏輯
     UIS.InputBegan:Connect(function(i, gpe)
         if not gpe and i.KeyCode == Enum.KeyCode.Tab then
             sg.Enabled = not sg.Enabled
-            if sg.Enabled then
-                UIS.MouseBehavior = Enum.MouseBehavior.Default -- 解鎖滑鼠打字
-            else
-                UIS.MouseBehavior = Enum.MouseBehavior.LockCenter -- 鎖回中心
-            end
+            UIS.MouseBehavior = sg.Enabled and Enum.MouseBehavior.Default or Enum.MouseBehavior.LockCenter
         end
     end)
 end
 
--- [[ 4. 驗證與啟動 ]]
+-- [[ 4. 啟動與自動存檔 ]]
 local function init()
     startCloudSync()
     -- 🔒 自動執行：鎖定最近目標
     print("🎯 [E5_SYSTEM] 啟動成功 | 鎖定模式: 最近目標")
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
-    end)
+    pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
 end
 
--- Key System
+-- 自動驗證邏輯 (存過一次就不用再打 Key)
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     init()
 else
@@ -195,20 +194,20 @@ else
     local main = Instance.new("Frame", sg)
     main.Size = UDim2.new(0, 300, 0, 160)
     main.Position = UDim2.new(0.5, -150, 0.5, -80)
-    main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     Instance.new("UICorner", main)
     local input = Instance.new("TextBox", main)
     input.Size = UDim2.new(0.8, 0, 0, 35)
     input.Position = UDim2.new(0.1, 0, 0.4, 0)
     input.PlaceholderText = "Key: E5alR9"
-    input.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    input.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     input.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", input)
     local btn = Instance.new("TextButton", main)
     btn.Size = UDim2.new(0.8, 0, 0, 35)
     btn.Position = UDim2.new(0.1, 0, 0.75, 0)
     btn.Text = "VERIFY"
-    btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    btn.BackgroundColor3 = Color3.fromHex("A475D7")
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.MouseButton1Click:Connect(function()
         if input.Text == CORRECT_KEY then
