@@ -326,8 +326,39 @@ end)
     end)
 end
 
--- [[ 啟動執行流程 ]]
-createUI()
+-- 確保 UserInputService 已經定義
+local UIS = game:GetService("UserInputService")
+local p = game:GetService("Players").LocalPlayer
+
+-- 建立一個函數來安全地啟動 UI
+local function ensureUI()
+    -- 檢查是否已經存在 UI，避免重複生成
+    if not p.PlayerGui:FindFirstChild("E5_Console") then
+        createUI()
+    end
+end
+
+-- 1. 初始執行
+ensureUI()
+
+-- 2. 監測玩家復活 (確保復活後 UI 重新顯示)
+-- 因為很多遊戲在玩家死亡時會清理 PlayerGui
+p.CharacterAdded:Connect(function()
+    task.wait(1) -- 等待角色加載完成後再生成 UI
+    ensureUI()
+end)
+
+-- 3. 加入「按鍵喚醒」功能
+-- 這樣你點了 X 關閉後，按鍵盤上的 "Insert" 鍵就能再次叫出選單
+UIS.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Enum.KeyCode.Insert then
+        ensureUI()
+        -- 如果你之前有定義 notify 函數，這裡會彈出提示
+        if notify then
+            notify("SYSTEM", "Menu Re-opened!")
+        end
+    end
+end)
 
 -- [[ 🔄 角色處理：確保重生後無頭與斷腳持續生效 ]]
 local function run(c)
