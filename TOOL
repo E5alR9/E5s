@@ -16,6 +16,15 @@ function createFreezeToolWindow()
     local COLOR_NORMAL = Color3.fromRGB(70, 90, 110)
     local COLOR_DRAG = Color3.fromRGB(100, 200, 150)
     local COLOR_CLOSE = Color3.fromRGB(50, 60, 70)
+    local COLOR_SIZE = Color3.fromRGB(90, 70, 110)
+
+    -- 尺寸循環設定 (寬, 高, 字體大小)
+    local sizeModes = {
+        {w = 80, h = 40, ts = 14}, -- 小
+        {w = 120, h = 60, ts = 18}, -- 中
+        {w = 160, h = 80, ts = 22}  -- 大
+    }
+    local currentSizeMode = 2 -- 預設中型
 
     local function makeAdvancedTransform(gui)
         local dragging = false
@@ -37,7 +46,6 @@ function createFreezeToolWindow()
                         if tick() - startTime >= holdTime then
                             canMove = true
                             gui.BorderColor3 = COLOR_DRAG
-                            gui.Text = "MOVING..."
                             break
                         end
                         task.wait(0.1)
@@ -50,14 +58,7 @@ function createFreezeToolWindow()
             if dragging and canMove and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 local delta = input.Position - dragStart
                 if delta.Magnitude > 5 then moved = true end
-                
-                -- 直接更新位置，確保流暢度
-                gui.Position = UDim2.new(
-                    startPos.X.Scale, 
-                    startPos.X.Offset + delta.X, 
-                    startPos.Y.Scale, 
-                    startPos.Y.Offset + delta.Y
-                )
+                gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
 
@@ -66,7 +67,6 @@ function createFreezeToolWindow()
                 dragging = false
                 canMove = false
                 gui.BorderColor3 = Color3.new(0, 0, 0)
-                gui.Text = (gui.Name == "FREEZE" and "FREEZE" or "CLOSE")
                 dragStart = nil
             end
         end)
@@ -74,24 +74,37 @@ function createFreezeToolWindow()
         return function() return moved end
     end
 
-    -- FREEZE 按鈕
+    -- 1. FREEZE 主按鈕
     local fBtn = Instance.new("TextButton", freezeSg)
     fBtn.Name = "FREEZE"
-    fBtn.Size = UDim2.new(0, 100, 0, 50)
+    fBtn.Size = UDim2.new(0, sizeModes[currentSizeMode].w, 0, sizeModes[currentSizeMode].h)
     fBtn.Position = UDim2.new(0.5, -110, 0.8, 0)
     fBtn.BackgroundColor3 = COLOR_NORMAL
     fBtn.Text = "FREEZE"
     fBtn.TextColor3 = Color3.new(1, 1, 1)
     fBtn.Font = Enum.Font.GothamBold
-    fBtn.TextSize = 16
+    fBtn.TextSize = sizeModes[currentSizeMode].ts
     Instance.new("UICorner", fBtn)
     local isMovedF = makeAdvancedTransform(fBtn)
 
-    -- CLOSE 按鈕
+    -- 2. SIZE 切換按鈕
+    local sBtn = Instance.new("TextButton", freezeSg)
+    sBtn.Name = "SIZE"
+    sBtn.Size = UDim2.new(0, 80, 0, 40)
+    sBtn.Position = UDim2.new(0.5, -40, 0.7, 0)
+    sBtn.BackgroundColor3 = COLOR_SIZE
+    sBtn.Text = "SIZE: M"
+    sBtn.TextColor3 = Color3.new(1, 1, 1)
+    sBtn.Font = Enum.Font.GothamBold
+    sBtn.TextSize = 14
+    Instance.new("UICorner", sBtn)
+    local isMovedS = makeAdvancedTransform(sBtn)
+
+    -- 3. CLOSE 關閉按鈕
     local cBtn = Instance.new("TextButton", freezeSg)
     cBtn.Name = "CLOSE"
     cBtn.Size = UDim2.new(0, 80, 0, 40)
-    cBtn.Position = UDim2.new(0.5, 10, 0.8, 0)
+    cBtn.Position = UDim2.new(0.5, 50, 0.8, 0)
     cBtn.BackgroundColor3 = COLOR_CLOSE
     cBtn.Text = "CLOSE"
     cBtn.TextColor3 = Color3.new(0.8, 0.8, 0.8)
@@ -100,17 +113,15 @@ function createFreezeToolWindow()
     Instance.new("UICorner", cBtn)
     local isMovedC = makeAdvancedTransform(cBtn)
 
-    -- 核心功能：點擊觸發
+    -- 功能：FREEZE 點擊
     fBtn.MouseButton1Click:Connect(function()
         if isMovedF() then return end
-        
         game:GetService("StarterGui"):SetCore("SendNotification", { 
             Title = "SYSTEM", 
             Text = "Freeze: " .. tostring(_G.freezeMS or 300) .. "ms", 
             Duration = 0.5,
             Icon = "rbxassetid://6023426926"
         })
-
         fBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         local t = os.clock()
         local delayTime = (tonumber(_G.freezeMS) or 300) / 1000
@@ -118,6 +129,22 @@ function createFreezeToolWindow()
         fBtn.BackgroundColor3 = COLOR_NORMAL
     end)
 
+    -- 功能：SIZE 循環切換
+    sBtn.MouseButton1Click:Connect(function()
+        if isMovedS() then return end
+        
+        currentSizeMode = currentSizeMode + 1
+        if currentSizeMode > #sizeModes then currentSizeMode = 1 end
+        
+        local target = sizeModes[currentSizeMode]
+        local label = (currentSizeMode == 1 and "S") or (currentSizeMode == 2 and "M") or "L"
+        
+        fBtn.Size = UDim2.new(0, target.w, 0, target.h)
+        fBtn.TextSize = target.ts
+        sBtn.Text = "SIZE: " .. label
+    end)
+
+    -- 功能：CLOSE 點擊
     cBtn.MouseButton1Click:Connect(function()
         if isMovedC() then return end
         freezeSg:Destroy()
