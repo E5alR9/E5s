@@ -1,61 +1,58 @@
--- [[ 🔑 E5 最終修正版 - 物理識別法 ]]
+-- [[ 🔑 E5 最終修復版 - UI 強制駐留 ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 local verified = false
 
--- 🔑 開發者資訊
+-- 🔑 開發者身分
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 
--- [[ 1. 驗證系統 ]]
-local function checkLocalAuth()
-    if isfile and readfile and isfile(FILE_NAME) then
-        local savedData = readfile(FILE_NAME)
-        if savedData == tostring(lp.UserId) then return true end
-    end
-    return false
+-- [[ 1. 驗證檢查 ]]
+if (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) or isDeveloper then
+    verified = true
 end
 
--- [[ 2. 核心識別邏輯 ]]
-local function startIdentitySystem()
-    -- 【所有人】驗證後在背包生成一個隱藏的「暗號」
-    -- 放在背包 (Backpack) 裡，其他玩家的腳本也能偵測到
-    task.spawn(function()
-        while true do
-            local bp = lp:FindFirstChild("Backpack")
-            if bp and not bp:FindFirstChild("E5_Token") then
-                local token = Instance.new("StringValue")
-                token.Name = "E5_Token"
-                token.Value = "Verified"
-                token.Parent = bp
-            end
-            task.wait(5)
-        end
-    end)
-
+-- [[ 2. 只有開發者會執行的 UI 建立 ]]
+local function createAdminUI()
     if not isDeveloper then return end
+    
+    -- 如果已經存在就先刪除，防止重複
+    if lp.PlayerGui:FindFirstChild("E5_Admin_Dashboard") then
+        lp.PlayerGui.E5_Admin_Dashboard:Destroy()
+    end
 
-    -- 【開發者專屬清單 UI】 (略縮，保持原有樣式)
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Dashboard"
-    sg.Enabled = false
+    sg.ResetOnSpawn = false -- 確保死掉後 UI 不會消失
+    sg.Enabled = false -- 按住 TAB 才顯示
 
     local frame = Instance.new("Frame", sg)
     frame.Size = UDim2.new(0, 220, 0, 300)
     frame.Position = UDim2.new(1, -230, 0.5, -150)
     frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    frame.BackgroundTransparency = 0.2
     Instance.new("UICorner", frame)
+
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1, 0, 0, 35)
+    title.Text = "📡 E5 在線監控"
+    title.TextColor3 = Color3.fromRGB(255, 215, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 14
 
     local listFrame = Instance.new("ScrollingFrame", frame)
     listFrame.Size = UDim2.new(0.9, 0, 0.8, 0)
     listFrame.Position = UDim2.new(0.05, 0, 0.15, 0)
     listFrame.BackgroundTransparency = 1
+    listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    listFrame.ScrollBarThickness = 2
     local layout = Instance.new("UIListLayout", listFrame)
     layout.Padding = UDim.new(0, 5)
 
-    -- 【關鍵修正：掃描背包暗號】
+    -- 更新函數
     local function updateList()
         for _, child in pairs(listFrame:GetChildren()) do
             if child:IsA("TextLabel") then child:Destroy() end
@@ -63,46 +60,56 @@ local function startIdentitySystem()
 
         local count = 0
         for _, player in pairs(game.Players:GetPlayers()) do
-            -- 檢查對方的 Backpack 是否有 E5_Token
+            -- 掃描對方的背包暗號
             local backpack = player:FindFirstChild("Backpack")
             if backpack and backpack:FindFirstChild("E5_Token") then
                 count = count + 1
                 local item = Instance.new("TextLabel", listFrame)
                 item.Size = UDim2.new(1, -10, 0, 30)
                 item.BackgroundColor3 = (player == lp) and Color3.fromRGB(80, 80, 0) or Color3.fromRGB(40, 40, 40)
-                item.Text = " " .. player.Name .. (player == lp and " (YOU)" or "")
+                item.Text = " " .. player.Name
                 item.TextColor3 = Color3.new(1, 1, 1)
                 item.TextSize = 12
                 item.Font = Enum.Font.SourceSansSemibold
                 Instance.new("UICorner", item)
             end
         end
-
-        if count == 0 then
-            -- 如果沒人，至少顯示自己在清單裡 (確保清單沒壞)
-            print("目前沒有其他使用者被偵測到")
-        end
         listFrame.CanvasSize = UDim2.new(0, 0, 0, count * 35)
     end
 
-    UIS.InputBegan:Connect(function(input, gpe)
+    -- TAB 鍵綁定
+    UIS.InputBegan:Connect(function(input)
         if input.KeyCode == Enum.KeyCode.Tab then
             updateList()
             sg.Enabled = true
         end
     end)
-    UIS.InputEnded:Connect(function(input, gpe)
+    UIS.InputEnded:Connect(function(input)
         if input.KeyCode == Enum.KeyCode.Tab then
             sg.Enabled = false
         end
     end)
+
+    warn("✅ [E5_UI] 監控清單已就緒，按住 TAB 鍵開啟")
 end
 
--- [[ 3. 登入邏輯 ]]
-if isDeveloper or checkLocalAuth() then
-    verified = true
-else
-    -- (這部分維持你原本的 Key System UI 代碼...)
+-- [[ 3. 所有人標記邏輯 ]]
+local function startTagging()
+    task.spawn(function()
+        while true do
+            local bp = lp:FindFirstChild("Backpack")
+            if bp and not bp:FindFirstChild("E5_Token") then
+                local token = Instance.new("StringValue")
+                token.Name = "E5_Token"
+                token.Parent = bp
+            end
+            task.wait(2)
+        end
+    end)
+end
+
+-- [[ 4. 執行流程 ]]
+if not verified then
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
     local main = Instance.new("Frame", sg)
     main.Size = UDim2.new(0, 300, 0, 150)
@@ -122,14 +129,21 @@ else
             if writefile then writefile(FILE_NAME, tostring(lp.UserId)) end
             verified = true
             sg:Destroy()
+            createAdminUI() -- 驗證成功後為開發者建立 UI
+            startTagging()
         end
     end)
+else
+    -- 已驗證的情況下直接啟動
+    createAdminUI()
+    startTagging()
 end
 
-repeat task.wait() until verified == true
-
--- [[ 4. 啟動 ]]
-startIdentitySystem()
-pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
+-- 確保主腳本加載
+task.spawn(function()
+    repeat task.wait() until verified
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
+    end)
+    print("🚀 [E5_MAIN] 主腳本已加載，自動鎖定最近目標中")
 end)
