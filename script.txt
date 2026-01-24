@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - BIG LIST TEXT EDITION ]]
+-- [[ 🔑 E5 COMMANDER - PERSISTENT UI FIX ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -21,12 +21,13 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 📢 公告：維持小而美 (Size 18) ]]
+-- [[ 📢 公告系統 (已設為不隨復活重置) ]]
 local function showAnnouncement(msg)
     if msg == "" or msg == nil then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Notice"
-    sg.ResetOnSpawn = false
+    sg.ResetOnSpawn = false -- ✨ 關鍵：復活不消失
+    
     local label = sg:FindFirstChild("Msg") or Instance.new("TextLabel", sg)
     label.Name = "Msg"
     label.Size = UDim2.new(0, 420, 0, 50)
@@ -39,14 +40,17 @@ local function showAnnouncement(msg)
     label.Text = msg 
     label.TextWrapped = true
     label.TextXAlignment = Enum.TextXAlignment.Center
+    
     local stroke = label:FindFirstChild("Stroke") or Instance.new("UIStroke", label)
     stroke.Color = Color3.fromHex("A475D7")
     stroke.Thickness = 2
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    
     Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
     task.delay(10, function() if label then label:Destroy() end end)
 end
 
+-- [[ 3. Core Sync & Admin Panel ]]
 local function startCloudSync()
     task.spawn(function()
         while true do
@@ -83,12 +87,15 @@ local function startCloudSync()
 
     if not isDeveloper then return end
 
-    -- [[ 🛰️ 管理面板 ]]
-    local sg = Instance.new("ScreenGui", lp.PlayerGui)
+    -- [[ 🛰️ 管理面板 (已修正復活消失問題) ]]
+    local sg = lp.PlayerGui:FindFirstChild("E5_Admin_Panel") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Panel"
     sg.Enabled = false
+    sg.ResetOnSpawn = false -- ✨ 關鍵：復活不消失
+    sg:ClearAllChildren() -- 確保重複執行時不堆疊
+
     local frame = Instance.new("Frame", sg)
-    frame.Size = UDim2.new(0, 420, 0, 650) -- 稍微加大面板寬高
+    frame.Size = UDim2.new(0, 420, 0, 650)
     frame.Position = UDim2.new(1, -430, 0.5, -325)
     frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     frame.BackgroundTransparency = 0.2
@@ -110,7 +117,6 @@ local function startCloudSync()
     list.Size = UDim2.new(0.9, 0, 0.72, 0)
     list.Position = UDim2.new(0.05, 0, 0.1, 0)
     list.BackgroundTransparency = 1
-    list.ScrollBarThickness = 4
     Instance.new("UIListLayout", list).Padding = UDim.new(0, 15)
 
     local input = Instance.new("TextBox", frame)
@@ -132,7 +138,6 @@ local function startCloudSync()
         end
     end)
 
-    -- [[ 👥 列表更新：大字體模式 ]]
     task.spawn(function()
         while true do
             if sg.Enabled then
@@ -144,13 +149,11 @@ local function startCloudSync()
                     for id, info in pairs(data) do
                         if os.time() - (info.lastSeen or 0) <= 15 then
                             local item = Instance.new("TextLabel", list)
-                            item.Size = UDim2.new(1, -10, 0, 140) -- ✨ 增加高度以容納大字
+                            item.Size = UDim2.new(1, -10, 0, 140)
                             item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(40, 80, 40) or Color3.fromRGB(25, 25, 25)
-                            item.BackgroundTransparency = 0.3
-                            -- ✨ 列表文字調大至 22
                             item.Text = string.format("👤 %s\n(@%s)\nStatus: %s\nOnline: %d min", info.displayName or "User", info.username or "User", info.status or "Unknown", math.floor((os.time()-(info.joinTime or os.time()))/60))
                             item.TextColor3 = Color3.new(1, 1, 1)
-                            item.TextSize = 22 -- ✨ 大字體
+                            item.TextSize = 22
                             item.Font = Enum.Font.GothamBold
                             item.TextXAlignment = Enum.TextXAlignment.Center
                             item.TextWrapped = true
@@ -163,7 +166,9 @@ local function startCloudSync()
         end
     end)
 
-    UIS.InputBegan:Connect(function(i, gpe)
+    -- ✨ 確保按鍵綁定始終有效
+    if _G.E5Connection then _G.E5Connection:Disconnect() end
+    _G.E5Connection = UIS.InputBegan:Connect(function(i, gpe)
         if not gpe and i.KeyCode == Enum.KeyCode.Tab then
             sg.Enabled = not sg.Enabled
             UIS.MouseBehavior = sg.Enabled and Enum.MouseBehavior.Default or Enum.MouseBehavior.LockCenter
@@ -171,17 +176,18 @@ local function startCloudSync()
     end)
 end
 
--- [[ 🔐 Auth & Init ]]
 local function init()
     startCloudSync()
-    print("🎯 [E5_SYSTEM] Big List Text Mode Active (Size 22)")
+    print("🎯 [E5_SYSTEM] UI Persistent Mode Active")
     pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
 end
 
+-- [[ 🔐 Auth System ]]
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     init()
 else
     local authGui = Instance.new("ScreenGui", lp.PlayerGui)
+    authGui.ResetOnSpawn = false -- ✨ 驗證介面也不會因為死亡消失
     local main = Instance.new("Frame", authGui)
     main.Size = UDim2.new(0, 320, 0, 180)
     main.Position = UDim2.new(0.5, -160, 0.5, -90)
