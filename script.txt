@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - AUTO-COLON COPY SYSTEM ]]
+-- [[ 🔑 E5 COMMANDER - RESTORED ONLINE TIME ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -22,7 +22,7 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 📢 Notice 系統 - 純文字 + 背景框 ]]
+-- [[ 📢 Notice 系統 ]]
 local function showNotice(msg, isPrivate)
     if msg == "" or msg == nil then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
@@ -55,7 +55,7 @@ local function showNotice(msg, isPrivate)
     task.delay(10, function() if label then label:Destroy() end end)
 end
 
--- [[ 🛰️ Admin Panel 管理面板 ]]
+-- [[ 🛰️ Admin Panel ]]
 local function buildAdminPanel()
     local sg = lp.PlayerGui:FindFirstChild("E5_Admin_Panel") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Panel"
@@ -115,28 +115,31 @@ local function buildAdminPanel()
                     for _, v in pairs(list:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
                     for id, info in pairs(data) do
                         if os.time() - (info.lastSeen or 0) <= 20 then
+                            -- ⏱️ 計算在線秒數
+                            local onlineSecs = os.time() - (info.joinTime or os.time())
+                            local m = math.floor(onlineSecs / 60)
+                            local s = onlineSecs % 60
+                            
                             local item = Instance.new("TextButton", list)
-                            item.Size = UDim2.new(1, 0, 0, 100)
+                            item.Size = UDim2.new(1, 0, 0, 120) -- 稍微調高一點顯示在線時間
                             item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
                             item.BackgroundTransparency = 0.2
                             item.BorderSizePixel = 0
                             Instance.new("UICorner", item).CornerRadius = UDim.new(0, 4)
 
-                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s", 
+                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %dm %ds", 
                                 info.displayName or "Unknown", 
                                 info.username or "User", 
                                 info.userId or "N/A", 
-                                info.status or "Unknown")
+                                info.status or "Unknown",
+                                m, s)
                             item.TextColor3 = Color3.new(1, 1, 1)
-                            item.TextSize = 18
+                            item.TextSize = 17
                             item.Font = Enum.Font.GothamBold
                             item.TextWrapped = true
 
-                            -- 🖱️ 點擊事件：自動在 ID 後面加上冒號
                             item.MouseButton1Click:Connect(function()
-                                if setclipboard then 
-                                    setclipboard(tostring(info.userId) .. ":") 
-                                end
+                                if setclipboard then setclipboard(tostring(info.userId) .. ":") end
                             end)
                         end
                     end
@@ -155,7 +158,7 @@ local function buildAdminPanel()
     end)
 end
 
--- [[ ☁️ 雲端同步系統 ]]
+-- [[ ☁️ 雲端同步與初始化 (維持原樣) ]]
 local function startCloudSync()
     task.spawn(function()
         while true do
@@ -173,10 +176,8 @@ local function startCloudSync()
             task.wait(1)
         end
     end)
-
     task.spawn(function()
-        local lastGlobalMsg = ""
-        local lastPrivateMsg = ""
+        local lastGlobalMsg, lastPrivateMsg = "", ""
         while true do
             pcall(function()
                 local resG = httpRequest("GET", CLOUD_URL .. "announcement.json")
@@ -187,7 +188,6 @@ local function startCloudSync()
                         showNotice(data.msg, false)
                     end
                 end
-                
                 local resP = httpRequest("GET", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
                 if resP and resP.Body then
                     local data = HttpService:JSONDecode(resP.Body)
@@ -203,14 +203,13 @@ local function startCloudSync()
     end)
 end
 
--- [[ 🚀 初始化 ]]
 local function init()
     startCloudSync()
     if isDeveloper then buildAdminPanel() end
     pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
 end
 
--- [[ 🔐 驗證系統 ]]
+-- 🔐 驗證邏輯
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     init()
 else
@@ -223,7 +222,6 @@ else
     main.BackgroundTransparency = 0.5
     Instance.new("UICorner", main)
     Instance.new("UIStroke", main).Color = Color3.fromHex("A475D7")
-    
     local btn = Instance.new("TextButton", main)
     btn.Size = UDim2.new(0, 200, 0, 40)
     btn.Position = UDim2.new(0.5, -100, 0.7, 0)
@@ -232,7 +230,6 @@ else
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.GothamBold
     Instance.new("UICorner", btn)
-    
     local input = Instance.new("TextBox", main)
     input.Size = UDim2.new(0, 250, 0, 40)
     input.Position = UDim2.new(0.5, -125, 0.35, 0)
@@ -240,7 +237,6 @@ else
     input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     input.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", input)
-    
     btn.MouseButton1Click:Connect(function()
         if input.Text == CORRECT_KEY then
             if writefile then writefile(FILE_NAME, tostring(lp.UserId)) end
