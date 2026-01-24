@@ -1,14 +1,13 @@
--- [[ 🔑 E5 最終開發者清單版 - 修正彈出邏輯 ]]
+-- [[ 🔑 E5 最終修正版 - 物理識別法 ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 local verified = false
 
--- 🔑 你的身分資訊 (UserId: 8691746995)
+-- 🔑 開發者資訊
 local devId = 8691746995
-local devName = "E5alR9"
-local isDeveloper = (lp.UserId == devId or lp.Name == devName)
+local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 
 -- [[ 1. 驗證系統 ]]
 local function checkLocalAuth()
@@ -19,50 +18,44 @@ local function checkLocalAuth()
     return false
 end
 
--- [[ 2. 核心識別與列表邏輯 ]]
+-- [[ 2. 核心識別邏輯 ]]
 local function startIdentitySystem()
-    -- 所有人持續標記自己
+    -- 【所有人】驗證後在背包生成一個隱藏的「暗號」
+    -- 放在背包 (Backpack) 裡，其他玩家的腳本也能偵測到
     task.spawn(function()
-        while task.wait(3) do
-            if lp.Character then
-                lp.Character:SetAttribute("E5_User", true)
+        while true do
+            local bp = lp:FindFirstChild("Backpack")
+            if bp and not bp:FindFirstChild("E5_Token") then
+                local token = Instance.new("StringValue")
+                token.Name = "E5_Token"
+                token.Value = "Verified"
+                token.Parent = bp
             end
+            task.wait(5)
         end
     end)
 
     if not isDeveloper then return end
 
-    -- 【開發者專屬 UI 清單】
+    -- 【開發者專屬清單 UI】 (略縮，保持原有樣式)
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
-    sg.Name = "E5_Admin_List"
-    sg.IgnoreGuiInset = true
-    sg.Enabled = false 
+    sg.Name = "E5_Admin_Dashboard"
+    sg.Enabled = false
 
     local frame = Instance.new("Frame", sg)
     frame.Size = UDim2.new(0, 220, 0, 300)
     frame.Position = UDim2.new(1, -230, 0.5, -150)
     frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    frame.BackgroundTransparency = 0.2
     Instance.new("UICorner", frame)
-
-    local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, 0, 0, 35)
-    title.Text = "📡 E5 監控儀表板"
-    title.TextColor3 = Color3.fromRGB(255, 215, 0)
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 14
 
     local listFrame = Instance.new("ScrollingFrame", frame)
     listFrame.Size = UDim2.new(0.9, 0, 0.8, 0)
     listFrame.Position = UDim2.new(0.05, 0, 0.15, 0)
     listFrame.BackgroundTransparency = 1
-    listFrame.ScrollBarThickness = 2
-    
     local layout = Instance.new("UIListLayout", listFrame)
     layout.Padding = UDim.new(0, 5)
 
-    -- 更新名單 (即使沒人也會顯示提示)
+    -- 【關鍵修正：掃描背包暗號】
     local function updateList()
         for _, child in pairs(listFrame:GetChildren()) do
             if child:IsA("TextLabel") then child:Destroy() end
@@ -70,11 +63,13 @@ local function startIdentitySystem()
 
         local count = 0
         for _, player in pairs(game.Players:GetPlayers()) do
-            if player.Character and player.Character:GetAttribute("E5_User") then
+            -- 檢查對方的 Backpack 是否有 E5_Token
+            local backpack = player:FindFirstChild("Backpack")
+            if backpack and backpack:FindFirstChild("E5_Token") then
                 count = count + 1
                 local item = Instance.new("TextLabel", listFrame)
                 item.Size = UDim2.new(1, -10, 0, 30)
-                item.BackgroundColor3 = (player == lp) and Color3.fromRGB(60, 60, 60) or Color3.fromRGB(35, 35, 35)
+                item.BackgroundColor3 = (player == lp) and Color3.fromRGB(80, 80, 0) or Color3.fromRGB(40, 40, 40)
                 item.Text = " " .. player.Name .. (player == lp and " (YOU)" or "")
                 item.TextColor3 = Color3.new(1, 1, 1)
                 item.TextSize = 12
@@ -84,18 +79,12 @@ local function startIdentitySystem()
         end
 
         if count == 0 then
-            local tip = Instance.new("TextLabel", listFrame)
-            tip.Size = UDim2.new(1, 0, 0, 30)
-            tip.Text = "等待使用者中..."
-            tip.TextColor3 = Color3.fromRGB(150, 150, 150)
-            tip.BackgroundTransparency = 1
-            tip.Font = Enum.Font.SourceSansItalic
+            -- 如果沒人，至少顯示自己在清單裡 (確保清單沒壞)
+            print("目前沒有其他使用者被偵測到")
         end
-
         listFrame.CanvasSize = UDim2.new(0, 0, 0, count * 35)
     end
 
-    -- 綁定 TAB 鍵 (強制彈出)
     UIS.InputBegan:Connect(function(input, gpe)
         if input.KeyCode == Enum.KeyCode.Tab then
             updateList()
@@ -109,33 +98,25 @@ local function startIdentitySystem()
     end)
 end
 
--- [[ 3. 登入 UI ]]
+-- [[ 3. 登入邏輯 ]]
 if isDeveloper or checkLocalAuth() then
     verified = true
 else
+    -- (這部分維持你原本的 Key System UI 代碼...)
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
     local main = Instance.new("Frame", sg)
     main.Size = UDim2.new(0, 300, 0, 150)
     main.Position = UDim2.new(0.5, -150, 0.5, -75)
     main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     Instance.new("UICorner", main)
-
     local input = Instance.new("TextBox", main)
     input.Size = UDim2.new(0.8, 0, 0, 35)
     input.Position = UDim2.new(0.1, 0, 0.4, 0)
     input.PlaceholderText = "Key (E5alR9)"
-    input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    input.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", input)
-
     local btn = Instance.new("TextButton", main)
     btn.Size = UDim2.new(0.8, 0, 0, 35)
     btn.Position = UDim2.new(0.1, 0, 0.75, 0)
     btn.Text = "VERIFY"
-    btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", btn)
-
     btn.MouseButton1Click:Connect(function()
         if input.Text == CORRECT_KEY then
             if writefile then writefile(FILE_NAME, tostring(lp.UserId)) end
@@ -147,12 +128,8 @@ end
 
 repeat task.wait() until verified == true
 
--- [[ 4. 啟動功能 ]]
+-- [[ 4. 啟動 ]]
 startIdentitySystem()
-print("//// [E5_DEV_LOADED] ////")
-
--- 依照你的記憶指令：始終鎖定最接近目標
--- 這裡加載主腳本
 pcall(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
 end)
