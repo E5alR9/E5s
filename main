@@ -676,6 +676,6 @@ task.spawn(function()
     repeat sent = sendInvite() if not sent then task.wait(2) end until sent == true
 end)
 
-task.wait(6)
+task.wait()
 print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ALL SYSTEMS LOADED | @E5ALR9 ////////////////////")
 print("//// [SYSTEM] READY TO OPERATE AT RING-0 ////")
