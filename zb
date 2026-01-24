@@ -2,11 +2,12 @@ local Emotes = game:GetService("ReplicatedStorage").Items.Emotes
 local Swag = Emotes:FindFirstChild("SwagWalk") or Emotes:FindFirstChild("ZombieStride")
 
 if Swag then
-    -- 1. Setup structure and rename
+    -- 1. 物理操作：刪除模組物件 (不改代碼)
     local oldModule = Swag:FindFirstChild("EmoteModuleClassic")
     if oldModule then oldModule:Destroy() end
     Swag.Name = "SwagWalk"
 
+    -- 2. 物理操作：準備播放容器
     local container = Swag:FindFirstChild("AnimationClassic")
     if not container then
         container = Instance.new("Animation")
@@ -14,7 +15,7 @@ if Swag then
         container.Parent = Swag
     end
 
-    -- 2. Collect IDs for A, B, and C
+    -- 3. 讀取 A, B, C 的 ID
     local anims = {}
     local options = Swag:FindFirstChild("PossibleOptionsClassic")
     if options then
@@ -25,27 +26,26 @@ if Swag then
         end
     end
 
-    -- 3. Universal Time-based Switching
+    -- 4. 使用伺服器總時間進行「屬性同步」
     task.spawn(function()
-        local switchInterval = 2 -- Every 2 seconds change to next animation
-        print("ABC Universal Sync: Online")
+        local interval = 2 -- 每 2 秒換一個 ID
+        print("ABC Sync System: Active (No code modified)")
 
         while true do
             if #anims > 0 then
-                -- CRITICAL: Uses absolute game time to determine the index
-                -- Everyone on the server calculates the same index at the same micro-second
-                local timeNow = workspace.DistributedGameTime
-                local index = (math.floor(timeNow / switchInterval) % #anims) + 1
+                -- 使用全伺服器統一的時間基準點
+                local serverTime = workspace.DistributedGameTime
+                local index = (math.floor(serverTime / interval) % #anims) + 1
                 
-                -- Only update if the ID is different to avoid flickering
+                -- 只改屬性，不改代碼
                 if container.AnimationId ~= anims[index] then
                     container.AnimationId = anims[index]
                 end
             end
-            task.wait(0.1) -- High-frequency check for perfect alignment
+            task.wait(0.1) -- 高頻檢查確保所有人幾乎在同一瞬間切換
         end
     end)
-    print("Success: ABC Sync is now locked to server clock.")
+    print("Success: SwagWalk is synced across all clients.")
 else
     warn("Error: Folder not found.")
 end
