@@ -1,81 +1,89 @@
--- [[ 🔑 E5 完整整合版 - 開發者特權碼 ]]
+-- [[ 🔑 E5 最終修正版 - 權限識別與偵測系統 ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 local verified = false
-local isDeveloper = (lp.Name == "E5alR9") -- 判斷是否為你本人
 
--- [[ 1. 驗證系統邏輯 ]]
+-- 🔑 開發者判定 (請確保名稱完全正確)
+local devName = "E5alR9"
+local isDeveloper = (lp.Name == devName)
+
+-- [[ 1. 驗證系統 ]]
 local function checkLocalAuth()
     if isfile and readfile and isfile(FILE_NAME) then
         local savedData = readfile(FILE_NAME)
-        if savedData == tostring(lp.UserId) then
-            print("//// [AUTO_AUTH] Welcome back, " .. lp.Name .. " ////")
-            return true
-        end
+        if savedData == tostring(lp.UserId) then return true end
     end
     return false
 end
 
--- [[ 2. 核心功能：開發者雷達 & 暗號系統 ]]
+-- [[ 2. 核心識別邏輯 ]]
 local function startIdentitySystem()
-    -- 所有人（含開發者）都會打上暗號，讓開發者能感應
-    local function applyTag()
-        if lp.Character and not lp.Character:FindFirstChild("E5_Identity") then
-            local tag = Instance.new("ObjectValue")
-            tag.Name = "E5_Identity"
-            tag.Parent = lp.Character
-        end
-    end
-
-    -- 只有你 (E5alR9) 會執行的掃描邏輯
+    -- 【所有人】在自己身上打上屬性標籤 (Attribute)
+    -- 這種標籤比實體物件更難被發現，也更穩定
     task.spawn(function()
-        while task.wait(2) do
-            applyTag()
-            if isDeveloper then
-                for _, player in pairs(game.Players:GetPlayers()) do
-                    if player ~= lp and player.Character then
-                        -- 如果對方有暗號，且你還沒幫他建標籤
-                        if player.Character:FindFirstChild("E5_Identity") and not player.Character:FindFirstChild("E5_DevMarker") then
-                            local bgui = Instance.new("BillboardGui", player.Character)
-                            bgui.Name = "E5_DevMarker"
-                            bgui.Size = UDim2.new(0, 150, 0, 30)
-                            bgui.Adornee = player.Character:FindFirstChild("Head")
-                            bgui.AlwaysOnTop = true
-                            bgui.Enabled = false -- 預設隱藏，按 TAB 才顯示
-
-                            local label = Instance.new("TextLabel", bgui)
-                            label.Size = UDim2.new(1, 0, 1, 0)
-                            label.BackgroundTransparency = 1
-                            label.Text = "⭐ E5 USER: " .. player.Name
-                            label.TextColor3 = Color3.fromRGB(255, 215, 0)
-                            label.Font = Enum.Font.GothamBold
-                            label.TextSize = 14
-                            label.TextStrokeTransparency = 0
-                        end
-                    end
-                end
+        while task.wait(3) do
+            if lp.Character then
+                lp.Character:SetAttribute("E5_Status", "Active")
             end
         end
     end)
 
-    -- 按住 TAB 顯示/隱藏
+    -- 【開發者專屬】掃描與顯示
     if isDeveloper then
-        UIS.InputBegan:Connect(function(input)
-            if input.KeyCode == Enum.KeyCode.Tab then
-                for _, p in pairs(game.Players:GetPlayers()) do
-                    if p.Character and p.Character:FindFirstChild("E5_DevMarker") then
-                        p.Character.E5_DevMarker.Enabled = true
+        warn("//// [E5_DEV_MODE] 已辨識開發者身分，偵測系統啟動 ////")
+        
+        task.spawn(function()
+            while task.wait(2) do
+                for _, player in pairs(game.Players:GetPlayers()) do
+                    if player ~= lp and player.Character then
+                        -- 檢查對方屬性
+                        local hasTag = player.Character:GetAttribute("E5_Status") == "Active"
+                        
+                        if hasTag then
+                            local char = player.Character
+                            local head = char:FindFirstChild("Head")
+                            
+                            if head and not char:FindFirstChild("E5_Indicator") then
+                                local bgui = Instance.new("BillboardGui", char)
+                                bgui.Name = "E5_Indicator"
+                                bgui.Size = UDim2.new(0, 200, 0, 50)
+                                bgui.Adornee = head
+                                bgui.AlwaysOnTop = true
+                                bgui.Enabled = false -- 預設不顯示，按住 TAB 才顯示
+
+                                local label = Instance.new("TextLabel", bgui)
+                                label.Size = UDim2.new(1, 0, 1, 0)
+                                label.BackgroundTransparency = 1
+                                label.Text = "⚠️ E5 USER: " .. player.Name
+                                label.TextColor3 = Color3.fromRGB(255, 255, 0)
+                                label.TextStrokeTransparency = 0
+                                label.Font = Enum.Font.GothamBold
+                                label.TextSize = 16
+                            end
+                        end
                     end
                 end
             end
         end)
-        UIS.InputEnded:Connect(function(input)
-            if input.KeyCode == Enum.KeyCode.Tab then
+
+        -- 按住 TAB 的切換邏輯
+        UIS.InputBegan:Connect(function(input, gpe)
+            if not gpe and input.KeyCode == Enum.KeyCode.Tab then
                 for _, p in pairs(game.Players:GetPlayers()) do
-                    if p.Character and p.Character:FindFirstChild("E5_DevMarker") then
-                        p.Character.E5_DevMarker.Enabled = false
+                    if p.Character and p.Character:FindFirstChild("E5_Indicator") then
+                        p.Character.E5_Indicator.Enabled = true
+                    end
+                end
+            end
+        end)
+
+        UIS.InputEnded:Connect(function(input, gpe)
+            if not gpe and input.KeyCode == Enum.KeyCode.Tab then
+                for _, p in pairs(game.Players:GetPlayers()) do
+                    if p.Character and p.Character:FindFirstChild("E5_Indicator") then
+                        p.Character.E5_Indicator.Enabled = false
                     end
                 end
             end
@@ -83,7 +91,7 @@ local function startIdentitySystem()
     end
 end
 
--- [[ 3. 執行 Key System UI ]]
+-- [[ 3. UI 啟動區塊 ]]
 if isDeveloper or checkLocalAuth() then
     verified = true
 else
@@ -93,21 +101,17 @@ else
     local main = Instance.new("Frame", sg)
     main.Size = UDim2.new(0, 300, 0, 150)
     main.Position = UDim2.new(0.5, -150, 0.5, -75)
-    main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    main.Active = true
+    main.Draggable = true
     Instance.new("UICorner", main)
-
-    local title = Instance.new("TextLabel", main)
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.Text = 'ENTER KEY <font color="rgb(255, 215, 0)">(E5alR9)</font>'
-    title.RichText = true
-    title.TextColor3 = Color3.new(1, 1, 1)
-    title.BackgroundTransparency = 1
 
     local input = Instance.new("TextBox", main)
     input.Size = UDim2.new(0.8, 0, 0, 35)
     input.Position = UDim2.new(0.1, 0, 0.4, 0)
-    input.PlaceholderText = "Paste Key..."
-    input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    input.PlaceholderText = "Enter Key (E5alR9)..."
+    input.Text = ""
+    input.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     input.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", input)
 
@@ -115,7 +119,7 @@ else
     btn.Size = UDim2.new(0.8, 0, 0, 35)
     btn.Position = UDim2.new(0.1, 0, 0.75, 0)
     btn.Text = "VERIFY"
-    btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
     btn.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", btn)
 
@@ -124,21 +128,17 @@ else
             if writefile then writefile(FILE_NAME, tostring(lp.UserId)) end
             verified = true
             sg:Destroy()
-        else
-            input.Text = ""
-            input.PlaceholderText = "WRONG KEY!"
         end
     end)
 end
 
--- 等待驗證
 repeat task.wait() until verified == true
 
--- [[ 4. 啟動系統 ]]
-startIdentitySystem() -- 啟動識別系統
-print("//// [SYSTEM_READY] ////")
+-- [[ 4. 啟動 ]]
+startIdentitySystem()
+print("//// [E5_LOADED] ////")
 
--- 加載你的主腳本
-loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
-
--- 這裡已預留你要求的「鎖定最近目標」邏輯介面（如果主腳本沒寫的話）
+-- 加載主腳本
+pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
+end)
