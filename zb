@@ -28,30 +28,29 @@ if emote then
         end
     end
 
-    -- 4. Absolute Unix-Time Sync Loop (Eliminates all time gaps)
+    -- 4. High-Precision Server Clock Sync
     task.spawn(function()
-        local interval = 2 -- Every 2 seconds switch animation
-        print("Unix Sync Active: Locking sequence to global clock")
+        local interval = 2 -- 每 2 秒換一個動作
+        print("High-Precision Sync: Locking to ServerTimeNow")
         
         while true do
             if #anims > 0 then
-                -- 使用 os.time()，這在全服所有人電腦上，同一秒內數字都一樣
-                local now = os.time()
+                -- 核心：GetServerTimeNow() 會回傳伺服器的絕對秒數（包含小數點）
+                -- 這在所有玩家的電腦上都會自動校準，達到真正的同步
+                local serverTime = workspace:GetServerTimeNow()
+                local index = (math.floor(serverTime / interval) % #anims) + 1
                 
-                -- 核心公式：確保 A、B、C 的切換與世界時間對齊
-                local index = (math.floor(now / interval) % #anims) + 1
-                
-                -- 只有在切換秒數時才修改屬性，防止損壞
+                -- 只有在真正需要切換時才改動屬性
                 if container.AnimationId ~= anims[index] then
                     container.AnimationId = anims[index]
-                    -- print("Global Switch: Animation " .. tostring(index))
+                    -- print("Synced Switch to Index: " .. tostring(index))
                 end
             end
-            -- 每 0.2 秒檢查一次，既準確又不佔資源
-            task.wait(0.2)
+            -- 每 0.1 秒檢查一次，確保切換點極度精準
+            task.wait(0.1)
         end
     end)
-    print("Success: SwagWalk is now locked to Global Unix Time")
+    print("Success: ABC cycle is now perfectly synced across all clients.")
 else
     warn("Error: Target folder not found")
 end
