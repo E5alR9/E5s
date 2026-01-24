@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - ULTIMATE PERSISTENT EDITION ]]
+-- [[ 🔑 E5 COMMANDER - BUG FIXED & ULTIMATE PERSISTENT ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -27,7 +27,7 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 📢 公告系統 (復活不消失) ]]
+-- [[ 📢 公告系統 ]]
 local function showNotice(msg, isPrivate)
     if msg == "" or msg == nil then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
@@ -60,7 +60,6 @@ end
 
 -- [[ 🛰️ 核心雲端邏輯 ]]
 local function startCloudSync()
-    -- 1秒高頻打卡
     task.spawn(function()
         while true do
             pcall(function()
@@ -78,7 +77,6 @@ local function startCloudSync()
         end
     end)
 
-    -- 監聽公告與私訊
     task.spawn(function()
         local lastGlobalMsg, lastPrivateMsg = "", ""
         while true do
@@ -107,7 +105,7 @@ local function startCloudSync()
 
     if not isDeveloper then return end
 
-    -- [[ 🛰️ 管理員介面製作 ]]
+    -- [[ 管理員介面 ]]
     local sg = lp.PlayerGui:FindFirstChild("E5_Admin_Panel") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Panel"
     sg.Enabled = false
@@ -126,7 +124,9 @@ local function startCloudSync()
     list.Size = UDim2.new(0.9, 0, 0.72, 0)
     list.Position = UDim2.new(0.05, 0, 0.1, 0)
     list.BackgroundTransparency = 1
-    list.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
+    list.CanvasSize = UDim2.new(0, 0, 0, 0)
+    -- ✨ 修正後的屬性賦值方式
+    list.AutomaticCanvasSize = Enum.AutomaticSize.Y 
     list.ScrollBarThickness = 4
     Instance.new("UIListLayout", list).Padding = UDim.new(0, 15)
 
@@ -156,7 +156,6 @@ local function startCloudSync()
         end
     end)
 
-    -- 列表與點擊鎖定邏輯
     task.spawn(function()
         while true do
             if sg.Enabled then
@@ -183,7 +182,6 @@ local function startCloudSync()
                             s.Thickness = 2
                             Instance.new("UICorner", item)
 
-                            -- 實感回饋
                             item.MouseButton1Down:Connect(function() 
                                 item.BackgroundColor3 = Color3.fromHex("A475D7") 
                                 item.BackgroundTransparency = 0.1
@@ -211,7 +209,6 @@ local function startCloudSync()
         end
     end)
 
-    -- TAB 鍵開啟 (全域綁定避免失效)
     if _G.E5Connection then _G.E5Connection:Disconnect() end
     _G.E5Connection = UIS.InputBegan:Connect(function(i, gpe)
         if not gpe and i.KeyCode == Enum.KeyCode.Tab then
