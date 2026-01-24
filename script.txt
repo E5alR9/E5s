@@ -41,7 +41,7 @@ local function showAnnouncement(msg)
     label.Font = Enum.Font.GothamBold
     label.Text = msg 
     label.TextWrapped = true
-    label.TextXAlignment = Enum.TextXAlignment.Center -- ✨ FIXED
+    label.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
     
     local stroke = label:FindFirstChild("Stroke") or Instance.new("UIStroke", label)
     stroke.Name = "Stroke"
@@ -114,7 +114,7 @@ local function startCloudSync()
     title.TextColor3 = Color3.fromHex("A475D7")
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
-    title.TextXAlignment = Enum.TextXAlignment.Center -- ✨ FIXED
+    title.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
 
     local list = Instance.new("ScrollingFrame", frame)
     list.Size = UDim2.new(0.9, 0, 0.65, 0)
@@ -129,7 +129,7 @@ local function startCloudSync()
     input.Text = ""
     input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextXAlignment = Enum.TextXAlignment.Center -- ✨ FIXED
+    input.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
     Instance.new("UICorner", input)
 
     input.FocusLost:Connect(function(enter)
@@ -160,7 +160,7 @@ local function startCloudSync()
                             item.TextColor3 = Color3.new(1, 1, 1)
                             item.TextSize = 14
                             item.Font = Enum.Font.GothamBold
-                            item.TextXAlignment = Enum.TextXAlignment.Center
+                            item.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
                             Instance.new("UICorner", item)
                         end
                     end
@@ -201,7 +201,7 @@ else
     title.TextColor3 = Color3.fromHex("A475D7")
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
-    title.TextXAlignment = Enum.TextXAlignment.Center -- ✨ FIXED
+    title.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
 
     local input = Instance.new("TextBox", main)
     input.Size = UDim2.new(0.8, 0, 0, 35)
@@ -210,7 +210,7 @@ else
     input.Text = ""
     input.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextXAlignment = Enum.TextXAlignment.Center -- ✨ FIXED
+    input.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
     Instance.new("UICorner", input)
     
     local btn = Instance.new("TextButton", main)
