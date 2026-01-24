@@ -1,11 +1,11 @@
--- [[ 🔑 E5 最終開發者清單版 - 修正穩定版 ]]
+-- [[ 🔑 E5 最終開發者清單版 - 修正彈出邏輯 ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 local verified = false
 
--- 🔑 你的身分資訊 (已更新 UserId)
+-- 🔑 你的身分資訊 (UserId: 8691746995)
 local devId = 8691746995
 local devName = "E5alR9"
 local isDeveloper = (lp.UserId == devId or lp.Name == devName)
@@ -19,9 +19,9 @@ local function checkLocalAuth()
     return false
 end
 
--- [[ 2. 核心識別邏輯 ]]
+-- [[ 2. 核心識別與列表邏輯 ]]
 local function startIdentitySystem()
-    -- 所有人：標記自己
+    -- 所有人持續標記自己
     task.spawn(function()
         while task.wait(3) do
             if lp.Character then
@@ -31,23 +31,23 @@ local function startIdentitySystem()
     end)
 
     if not isDeveloper then return end
-    warn("//// [E5_ADMIN_ACTIVE] 歡迎回來，開發者 ////")
 
-    -- 【開發者專屬清單 UI】
+    -- 【開發者專屬 UI 清單】
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_List"
+    sg.IgnoreGuiInset = true
     sg.Enabled = false 
 
     local frame = Instance.new("Frame", sg)
     frame.Size = UDim2.new(0, 220, 0, 300)
     frame.Position = UDim2.new(1, -230, 0.5, -150)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     frame.BackgroundTransparency = 0.2
     Instance.new("UICorner", frame)
 
     local title = Instance.new("TextLabel", frame)
     title.Size = UDim2.new(1, 0, 0, 35)
-    title.Text = "📡 E5 腳本使用者清單"
+    title.Text = "📡 E5 監控儀表板"
     title.TextColor3 = Color3.fromRGB(255, 215, 0)
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
@@ -57,12 +57,12 @@ local function startIdentitySystem()
     listFrame.Size = UDim2.new(0.9, 0, 0.8, 0)
     listFrame.Position = UDim2.new(0.05, 0, 0.15, 0)
     listFrame.BackgroundTransparency = 1
-    listFrame.ScrollBarThickness = 3
+    listFrame.ScrollBarThickness = 2
     
     local layout = Instance.new("UIListLayout", listFrame)
     layout.Padding = UDim.new(0, 5)
 
-    -- 更新名單
+    -- 更新名單 (即使沒人也會顯示提示)
     local function updateList()
         for _, child in pairs(listFrame:GetChildren()) do
             if child:IsA("TextLabel") then child:Destroy() end
@@ -74,32 +74,42 @@ local function startIdentitySystem()
                 count = count + 1
                 local item = Instance.new("TextLabel", listFrame)
                 item.Size = UDim2.new(1, -10, 0, 30)
-                item.BackgroundColor3 = (player == lp) and Color3.fromRGB(80, 80, 0) or Color3.fromRGB(40, 40, 40)
-                item.Text = " " .. player.Name .. " (" .. player.UserId .. ")"
+                item.BackgroundColor3 = (player == lp) and Color3.fromRGB(60, 60, 60) or Color3.fromRGB(35, 35, 35)
+                item.Text = " " .. player.Name .. (player == lp and " (YOU)" or "")
                 item.TextColor3 = Color3.new(1, 1, 1)
                 item.TextSize = 12
                 item.Font = Enum.Font.SourceSansSemibold
                 Instance.new("UICorner", item)
             end
         end
+
+        if count == 0 then
+            local tip = Instance.new("TextLabel", listFrame)
+            tip.Size = UDim2.new(1, 0, 0, 30)
+            tip.Text = "等待使用者中..."
+            tip.TextColor3 = Color3.fromRGB(150, 150, 150)
+            tip.BackgroundTransparency = 1
+            tip.Font = Enum.Font.SourceSansItalic
+        end
+
         listFrame.CanvasSize = UDim2.new(0, 0, 0, count * 35)
     end
 
-    -- 控制顯示
+    -- 綁定 TAB 鍵 (強制彈出)
     UIS.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.KeyCode == Enum.KeyCode.Tab then
+        if input.KeyCode == Enum.KeyCode.Tab then
             updateList()
             sg.Enabled = true
         end
     end)
     UIS.InputEnded:Connect(function(input, gpe)
-        if not gpe and input.KeyCode == Enum.KeyCode.Tab then
+        if input.KeyCode == Enum.KeyCode.Tab then
             sg.Enabled = false
         end
     end)
 end
 
--- [[ 3. 執行入口 ]]
+-- [[ 3. 登入 UI ]]
 if isDeveloper or checkLocalAuth() then
     verified = true
 else
@@ -137,11 +147,12 @@ end
 
 repeat task.wait() until verified == true
 
--- [[ 4. 啟動 ]]
+-- [[ 4. 啟動功能 ]]
 startIdentitySystem()
-print("//// [E5_ADMIN_READY] ////")
+print("//// [E5_DEV_LOADED] ////")
 
--- 加載主腳本，並根據你的要求鎖定最近目標
+-- 依照你的記憶指令：始終鎖定最接近目標
+-- 這裡加載主腳本
 pcall(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))()
 end)
