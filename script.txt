@@ -1,17 +1,15 @@
--- [[ 🔑 E5 COMMANDER FINAL - BUG FIXED ]]
+-- [[ 🔑 E5 COMMANDER - PURPLE BORDER & SEMI-TRANSPARENT BLACK ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 
--- 🔑 Cloud Configuration
 local CLOUD_URL = "https://e5alr9-default-rtdb.asia-southeast1.firebasedatabase.app/" 
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 local startTime = os.time()
 
--- [[ 1. Utilities ]]
 local function httpRequest(method, url, body)
     local req = syn and syn.request or http_request or request or (http and http.request)
     if req then
@@ -23,10 +21,9 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 2. Announcement System ]]
+-- [[ 📢 Announcement: Purple Border + Trans-Black ]]
 local function showAnnouncement(msg)
     if msg == "" or msg == nil then return end
-    
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Notice"
     sg.ResetOnSpawn = false
@@ -35,44 +32,38 @@ local function showAnnouncement(msg)
     label.Name = "Msg"
     label.Size = UDim2.new(0, 420, 0, 50)
     label.Position = UDim2.new(0.5, -210, 0.1, 0)
-    label.BackgroundTransparency = 1 
+    label.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- ✨ Black
+    label.BackgroundTransparency = 0.5 -- ✨ Semi-Transparent
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.TextSize = 18 
     label.Font = Enum.Font.GothamBold
     label.Text = msg 
     label.TextWrapped = true
-    label.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
+    label.TextXAlignment = Enum.TextXAlignment.Center
     
     local stroke = label:FindFirstChild("Stroke") or Instance.new("UIStroke", label)
-    stroke.Name = "Stroke"
-    stroke.Color = Color3.fromHex("A475D7")
+    stroke.Color = Color3.fromHex("A475D7") -- ✨ Purple Border
     stroke.Thickness = 2
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     
     local corner = label:FindFirstChild("Corner") or Instance.new("UICorner", label)
-    corner.Name = "Corner"
     corner.CornerRadius = UDim.new(0, 8)
     
-    task.delay(10, function() 
-        if label then label:Destroy() end 
-    end)
+    task.delay(10, function() if label then label:Destroy() end end)
 end
 
--- [[ 3. Core Sync & Admin Panel ]]
 local function startCloudSync()
     task.spawn(function()
         while true do
             pcall(function()
                 httpRequest("PUT", CLOUD_URL .. "users/" .. lp.UserId .. ".json", {
-                    ["displayName"] = lp.DisplayName,
-                    ["username"] = lp.Name,
-                    ["lastSeen"] = os.time(),
-                    ["joinTime"] = startTime,
+                    ["displayName"] = lp.DisplayName, ["username"] = lp.Name,
+                    ["lastSeen"] = os.time(), ["joinTime"] = startTime,
                     ["status"] = (lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.Health > 0) and "ALIVE" or "DEAD",
                     ["jobId"] = game.JobId
                 })
             end)
-            task.wait(10)
+            task.wait(1)
         end
     end)
 
@@ -97,24 +88,27 @@ local function startCloudSync()
 
     if not isDeveloper then return end
 
+    -- Admin Panel (Tab)
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Panel"
     sg.Enabled = false
-
     local frame = Instance.new("Frame", sg)
     frame.Size = UDim2.new(0, 330, 0, 520)
     frame.Position = UDim2.new(1, -340, 0.5, -260)
-    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    frame.BackgroundTransparency = 0.2
     Instance.new("UICorner", frame)
+    local stroke = Instance.new("UIStroke", frame)
+    stroke.Color = Color3.fromHex("A475D7")
+    stroke.Thickness = 2
 
     local title = Instance.new("TextLabel", frame)
     title.Size = UDim2.new(1, 0, 0, 45)
     title.Text = "🛰️ E5 COMMAND CENTER"
-    title.TextSize = 18
     title.TextColor3 = Color3.fromHex("A475D7")
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
-    title.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
+    title.TextXAlignment = Enum.TextXAlignment.Center
 
     local list = Instance.new("ScrollingFrame", frame)
     list.Size = UDim2.new(0.9, 0, 0.65, 0)
@@ -126,10 +120,10 @@ local function startCloudSync()
     input.Size = UDim2.new(0.9, 0, 0, 45)
     input.Position = UDim2.new(0.05, 0, 0.85, 0)
     input.PlaceholderText = "Type Announcement..."
-    input.Text = ""
     input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    input.BackgroundTransparency = 0.3
     input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
+    input.TextXAlignment = Enum.TextXAlignment.Center
     Instance.new("UICorner", input)
 
     input.FocusLost:Connect(function(enter)
@@ -137,9 +131,7 @@ local function startCloudSync()
             local msg = input.Text
             httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = msg})
             input.Text = ""
-            task.delay(15, function()
-                httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = ""})
-            end)
+            task.delay(15, function() httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = ""}) end)
         end
     end)
 
@@ -152,15 +144,15 @@ local function startCloudSync()
                     local data = HttpService:JSONDecode(res.Body)
                     for _, v in pairs(list:GetChildren()) do if v:IsA("TextLabel") then v:Destroy() end end
                     for id, info in pairs(data) do
-                        if os.time() - (info.lastSeen or 0) <= 45 then
+                        if os.time() - (info.lastSeen or 0) <= 15 then
                             local item = Instance.new("TextLabel", list)
                             item.Size = UDim2.new(1, -10, 0, 95)
-                            item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(25, 60, 25) or Color3.fromRGB(35, 35, 35)
+                            item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(40, 80, 40) or Color3.fromRGB(20, 20, 20)
+                            item.BackgroundTransparency = 0.4
                             item.Text = string.format("👤 %s(@%s)\nStatus: %s\nOnline: %d min", info.displayName or "User", info.username or "User", info.status or "Unknown", math.floor((os.time()-(info.joinTime or os.time()))/60))
                             item.TextColor3 = Color3.new(1, 1, 1)
-                            item.TextSize = 14
                             item.Font = Enum.Font.GothamBold
-                            item.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
+                            item.TextXAlignment = Enum.TextXAlignment.Center
                             Instance.new("UICorner", item)
                         end
                     end
@@ -178,13 +170,13 @@ local function startCloudSync()
     end)
 end
 
--- [[ 4. Init & Full Auth System ]]
 local function init()
     startCloudSync()
-    print("🎯 [E5_SYSTEM] System Initialized Successfully")
+    print("🎯 [E5_SYSTEM] UI Updated: Purple & Trans-Black")
     pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
 end
 
+-- [[ 🔐 Auth UI: Purple Border + Trans-Black ]]
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     init()
 else
@@ -192,25 +184,21 @@ else
     local main = Instance.new("Frame", authGui)
     main.Size = UDim2.new(0, 300, 0, 160)
     main.Position = UDim2.new(0.5, -150, 0.5, -80)
-    main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    main.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- ✨ Black
+    main.BackgroundTransparency = 0.5 -- ✨ Semi-Transparent
     Instance.new("UICorner", main)
+    local s = Instance.new("UIStroke", main)
+    s.Color = Color3.fromHex("A475D7") -- ✨ Purple Border
+    s.Thickness = 2
     
-    local title = Instance.new("TextLabel", main)
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.Text = "E5 SYSTEM AUTH"
-    title.TextColor3 = Color3.fromHex("A475D7")
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.GothamBold
-    title.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
-
     local input = Instance.new("TextBox", main)
     input.Size = UDim2.new(0.8, 0, 0, 35)
     input.Position = UDim2.new(0.1, 0, 0.4, 0)
-    input.PlaceholderText = "Enter Key..."
-    input.Text = ""
+    input.PlaceholderText = "Key: E5alR9"
+    input.TextXAlignment = Enum.TextXAlignment.Center
     input.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    input.BackgroundTransparency = 0.3
     input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextXAlignment = Enum.TextXAlignment.Center -- ✅ Fixed
     Instance.new("UICorner", input)
     
     local btn = Instance.new("TextButton", main)
@@ -219,7 +207,6 @@ else
     btn.Text = "VERIFY"
     btn.BackgroundColor3 = Color3.fromHex("A475D7")
     btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.GothamBold
     Instance.new("UICorner", btn)
     
     btn.MouseButton1Click:Connect(function()
@@ -227,10 +214,6 @@ else
             if writefile then writefile(FILE_NAME, tostring(lp.UserId)) end
             authGui:Destroy()
             init()
-        else
-            btn.Text = "INVALID KEY"
-            task.wait(1)
-            btn.Text = "VERIFY"
         end
     end)
 end
