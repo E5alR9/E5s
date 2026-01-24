@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - HIGH FEEDBACK & TARGET LOCK ]]
+-- [[ 🔑 E5 COMMANDER - ULTIMATE PERSISTENT EDITION ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -8,8 +8,9 @@ local FILE_NAME = "E5_Auth.txt"
 local CLOUD_URL = "https://e5alr9-default-rtdb.asia-southeast1.firebasedatabase.app/" 
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
+local startTime = os.time()
 
--- 兼容性剪貼簿
+-- [[ 🛠️ 核心工具函數 ]]
 local function copyToClipboard(txt)
     local func = setclipboard or setrbxclipboard or (syn and syn.write_clipboard)
     pcall(function() if func then func(tostring(txt)) end end)
@@ -26,7 +27,7 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 📢 Notice Display ]]
+-- [[ 📢 公告系統 (復活不消失) ]]
 local function showNotice(msg, isPrivate)
     if msg == "" or msg == nil then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
@@ -57,23 +58,56 @@ local function showNotice(msg, isPrivate)
     task.delay(10, function() if label then label:Destroy() end end)
 end
 
--- [[ 🛰️ Admin Panel Logic ]]
+-- [[ 🛰️ 核心雲端邏輯 ]]
 local function startCloudSync()
-    -- (省略重複的 Sync 邏輯以節省空間，功能保留)
+    -- 1秒高頻打卡
     task.spawn(function()
         while true do
             pcall(function()
                 httpRequest("PUT", CLOUD_URL .. "users/" .. lp.UserId .. ".json", {
-                    ["displayName"] = lp.DisplayName, ["username"] = lp.Name,
-                    ["lastSeen"] = os.time(), ["userId"] = lp.UserId, ["jobId"] = game.JobId
+                    ["displayName"] = lp.DisplayName, 
+                    ["username"] = lp.Name,
+                    ["lastSeen"] = os.time(), 
+                    ["joinTime"] = startTime,
+                    ["status"] = (lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.Health > 0) and "ALIVE" or "DEAD",
+                    ["jobId"] = game.JobId,
+                    ["userId"] = lp.UserId
                 })
             end)
             task.wait(1)
         end
     end)
 
+    -- 監聽公告與私訊
+    task.spawn(function()
+        local lastGlobalMsg, lastPrivateMsg = "", ""
+        while true do
+            pcall(function()
+                local resG = httpRequest("GET", CLOUD_URL .. "announcement.json")
+                if resG and resG.Body then
+                    local data = HttpService:JSONDecode(resG.Body)
+                    if data and data.msg and data.msg ~= "" and data.msg ~= lastGlobalMsg then
+                        lastGlobalMsg = data.msg
+                        showNotice(data.msg, false)
+                    end
+                end
+                local resP = httpRequest("GET", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
+                if resP and resP.Body then
+                    local data = HttpService:JSONDecode(resP.Body)
+                    if data and data.msg and data.msg ~= "" and data.msg ~= lastPrivateMsg then
+                        lastPrivateMsg = data.msg
+                        showNotice(data.msg, true)
+                        httpRequest("DELETE", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
+                    end
+                end
+            end)
+            task.wait(3)
+        end
+    end)
+
     if not isDeveloper then return end
 
+    -- [[ 🛰️ 管理員介面製作 ]]
     local sg = lp.PlayerGui:FindFirstChild("E5_Admin_Panel") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Panel"
     sg.Enabled = false
@@ -99,14 +133,30 @@ local function startCloudSync()
     local input = Instance.new("TextBox", frame)
     input.Size = UDim2.new(0.9, 0, 0, 60)
     input.Position = UDim2.new(0.05, 0, 0.88, 0)
-    input.PlaceholderText = "Target Locked Here..."
-    input.TextSize = 20
+    input.PlaceholderText = "Click Player to Lock Target..."
+    input.TextSize = 18
     input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     input.TextColor3 = Color3.new(1, 1, 1)
     input.TextWrapped = true
     Instance.new("UICorner", input)
 
-    -- [[ 👥 強化版列表按鈕 ]]
+    input.FocusLost:Connect(function(enter)
+        if enter and input.Text ~= "" then
+            local text = input.Text
+            if string.find(text, ":") then
+                local split = string.split(text, ":")
+                local target = string.gsub(split[1], " ", "")
+                local msgBody = text:sub(#target + 2)
+                httpRequest("PUT", CLOUD_URL .. "private/" .. target .. ".json", {["msg"] = msgBody})
+            else
+                httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = text})
+                task.delay(15, function() httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = ""}) end)
+            end
+            input.Text = ""
+        end
+    end)
+
+    -- 列表與點擊鎖定邏輯
     task.spawn(function()
         while true do
             if sg.Enabled then
@@ -121,35 +171,32 @@ local function startCloudSync()
                             item.Size = UDim2.new(1, -10, 0, 150)
                             item.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
                             item.BackgroundTransparency = 0.3
-                            item.Text = string.format("👤 %s\n(@%s)\nID: %s", info.displayName or "Unknown", info.username or "User", info.userId or "N/A")
+                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\n%s", 
+                                info.displayName or "Unknown", info.username or "User", info.userId or "N/A", info.status or "")
                             item.TextColor3 = Color3.new(1, 1, 1)
                             item.TextSize = 22
                             item.Font = Enum.Font.GothamBold
-                            item.ZIndex = 10 -- ✨ 確保在最上層
+                            item.ZIndex = 10
                             
                             local s = Instance.new("UIStroke", item)
                             s.Color = Color3.fromHex("A475D7")
                             s.Thickness = 2
                             Instance.new("UICorner", item)
 
-                            -- ✨ 增加點擊動態效果
-                            item.MouseButton1Down:Connect(function()
-                                item.BackgroundColor3 = Color3.fromHex("A475D7") -- 按下變紫色
+                            -- 實感回饋
+                            item.MouseButton1Down:Connect(function() 
+                                item.BackgroundColor3 = Color3.fromHex("A475D7") 
                                 item.BackgroundTransparency = 0.1
                             end)
-
-                            item.MouseButton1Up:Connect(function()
-                                item.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                            item.MouseButton1Up:Connect(function() 
+                                item.BackgroundColor3 = Color3.fromRGB(30, 30, 30) 
                                 item.BackgroundTransparency = 0.3
                             end)
 
                             item.MouseButton1Click:Connect(function()
-                                -- 鎖定邏輯
                                 copyToClipboard(info.userId)
                                 input.Text = tostring(info.userId) .. ":"
                                 input:CaptureFocus()
-                                
-                                -- 閃爍反饋
                                 s.Color = Color3.new(1,1,1)
                                 s.Thickness = 5
                                 task.wait(0.1)
@@ -164,7 +211,9 @@ local function startCloudSync()
         end
     end)
 
-    UIS.InputBegan:Connect(function(i, gpe)
+    -- TAB 鍵開啟 (全域綁定避免失效)
+    if _G.E5Connection then _G.E5Connection:Disconnect() end
+    _G.E5Connection = UIS.InputBegan:Connect(function(i, gpe)
         if not gpe and i.KeyCode == Enum.KeyCode.Tab then
             sg.Enabled = not sg.Enabled
             UIS.MouseBehavior = sg.Enabled and Enum.MouseBehavior.Default or Enum.MouseBehavior.LockCenter
@@ -172,9 +221,48 @@ local function startCloudSync()
     end)
 end
 
--- (Auth 系統維持原樣)
-if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
+-- [[ 🔐 驗證與初始化 ]]
+local function init()
     startCloudSync()
+    print("🎯 [E5_SYSTEM] All Systems Nominal")
+    pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
+end
+
+if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
+    init()
 else
-    -- 這裡放你的 Auth UI 代碼...
+    local authGui = Instance.new("ScreenGui", lp.PlayerGui)
+    authGui.ResetOnSpawn = false
+    local main = Instance.new("Frame", authGui)
+    main.Size = UDim2.new(0, 320, 0, 180)
+    main.Position = UDim2.new(0.5, -160, 0.5, -90)
+    main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    main.BackgroundTransparency = 0.5
+    Instance.new("UICorner", main)
+    Instance.new("UIStroke", main).Color = Color3.fromHex("A475D7")
+    
+    local input = Instance.new("TextBox", main)
+    input.Size = UDim2.new(0.8, 0, 0, 40)
+    input.Position = UDim2.new(0.1, 0, 0.35, 0)
+    input.PlaceholderText = "Key: E5alR9"
+    input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    input.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", input)
+
+    local btn = Instance.new("TextButton", main)
+    btn.Size = UDim2.new(0.8, 0, 0, 40)
+    btn.Position = UDim2.new(0.1, 0, 0.7, 0)
+    btn.Text = "VERIFY"
+    btn.BackgroundColor3 = Color3.fromHex("A475D7")
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    Instance.new("UICorner", btn)
+    
+    btn.MouseButton1Click:Connect(function()
+        if input.Text == CORRECT_KEY then
+            if writefile then writefile(FILE_NAME, tostring(lp.UserId)) end
+            authGui:Destroy()
+            init()
+        end
+    end)
 end
