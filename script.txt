@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - ANIMATED NOTICE & DATA SAVER ]]
+-- [[ 🔑 E5 COMMANDER - HIGH FREQUENCY STABLE ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -9,17 +9,22 @@ local FILE_NAME = "E5_Auth.txt"
 local CLOUD_URL = "https://e5alr9-default-rtdb.asia-southeast1.firebasedatabase.app/" 
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
-local startTime = os.time()
+
+-- [校準變數]
+local finalJoinTime = os.time() 
 
 -- [[ 🌐 HTTP 工具 ]]
 local function httpRequest(method, url, body)
     local req = syn and syn.request or http_request or request or (http and http.request)
     if req then
-        return req({
-            Url = url, Method = method,
-            Headers = {["Content-Type"] = "application/json"},
-            Body = body and HttpService:JSONEncode(body) or nil
-        })
+        local success, result = pcall(function()
+            return req({
+                Url = url, Method = method,
+                Headers = {["Content-Type"] = "application/json"},
+                Body = body and HttpService:JSONEncode(body) or nil
+            })
+        end)
+        return success and result or nil
     end
 end
 
@@ -41,7 +46,6 @@ local function showNotice(msg, isPrivate)
     local frameStroke = Instance.new("UIStroke", container)
     frameStroke.Color = isPrivate and Color3.fromRGB(255, 200, 0) or Color3.fromHex("A475D7")
     frameStroke.Thickness = 2
-    frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     frameStroke.Transparency = 1
 
     local label = Instance.new("TextLabel", container)
@@ -66,23 +70,20 @@ local function showNotice(msg, isPrivate)
         Position = UDim2.new(0.5, -210, 0.1, 0)
     })
     
-    local fadeInTween = TweenService:Create(label, TweenInfo.new(0.3), {TextTransparency = 0})
-    local strokeInTween = TweenService:Create(frameStroke, TweenInfo.new(0.3), {Transparency = 0})
-
     expandTween:Play()
     expandTween.Completed:Connect(function()
-        fadeInTween:Play()
-        strokeInTween:Play()
+        TweenService:Create(label, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+        TweenService:Create(frameStroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
     end)
 
     task.delay(8, function()
-        local fadeOut = TweenService:Create(label, TweenInfo.new(0.5), {TextTransparency = 1})
-        local shrink = TweenService:Create(container, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 50),
-            Position = UDim2.new(0.5, 0, container.Position.Y.Scale, container.Position.Y.Offset)
-        })
-        fadeOut:Play()
-        fadeOut.Completed:Connect(function()
+        local fade = TweenService:Create(label, TweenInfo.new(0.5), {TextTransparency = 1})
+        fade:Play()
+        fade.Completed:Connect(function()
+            local shrink = TweenService:Create(container, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Size = UDim2.new(0, 0, 0, 50),
+                Position = UDim2.new(0.5, 0, container.Position.Y.Scale, container.Position.Y.Offset)
+            })
             shrink:Play()
             shrink.Completed:Connect(function() container:Destroy() end)
         end)
@@ -142,63 +143,77 @@ local function buildAdminPanel()
             if sg.Enabled then
                 pcall(function()
                     local res = httpRequest("GET", CLOUD_URL .. "users.json")
-                    if not res or not res.Body then return end
-                    local data = HttpService:JSONDecode(res.Body)
-                    for _, v in pairs(list:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-                    for id, info in pairs(data) do
-                        if os.time() - (info.lastSeen or 0) <= 20 then
-                            local item = Instance.new("TextButton", list)
-                            item.Size = UDim2.new(1, 0, 0, 140) 
-                            item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
-                            item.BackgroundTransparency = 0.2
-                            Instance.new("UICorner", item).CornerRadius = UDim.new(0, 6)
-
-                            -- ⏳ 時間轉換優化 (Day, Hour, Min, Sec)
-                            local diff = os.time() - (info.joinTime or os.time())
-                            local days = math.floor(diff / 86400)
-                            local hours = math.floor((diff % 86400) / 3600)
-                            local mins = math.floor((diff % 3600) / 60)
-                            local secs = diff % 60
-                            local timeStr = string.format("%dd %dh %dm %ds", days, hours, mins, secs)
+                    if res and res.Body then
+                        local data = HttpService:JSONDecode(res.Body)
+                        for _, v in pairs(list:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+                        
+                        for id, info in pairs(data) do
+                            local currentTime = os.time()
+                            local lastSeen = tonumber(info.lastSeen) or 0
                             
-                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %s", 
-                                info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", timeStr)
-                            item.TextColor3 = Color3.new(1, 1, 1)
-                            item.TextSize = 17
-                            item.Font = Enum.Font.GothamBold
-                            item.TextWrapped = true
+                            if currentTime - lastSeen <= 30 then
+                                local item = Instance.new("TextButton", list)
+                                item.Size = UDim2.new(1, 0, 0, 140) 
+                                item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
+                                item.BackgroundTransparency = 0.2
+                                Instance.new("UICorner", item).CornerRadius = UDim.new(0, 6)
 
-                            item.MouseButton1Click:Connect(function()
-                                if setclipboard then setclipboard(tostring(info.userId) .. ":") end
-                            end)
+                                -- ⏳ 時間顯示優化
+                                local join = tonumber(info.joinTime) or currentTime
+                                local diff = math.max(0, currentTime - join)
+                                
+                                local d = math.floor(diff / 86400)
+                                local h = math.floor((diff % 86400) / 3600)
+                                local m = math.floor((diff % 3600) / 60)
+                                local s = math.floor(diff % 60)
+                                
+                                item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %dd %dh %dm %ds", 
+                                    info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", d, h, m, s)
+                                item.TextColor3 = Color3.new(1, 1, 1)
+                                item.TextSize = 17
+                                item.Font = Enum.Font.GothamBold
+                                item.TextWrapped = true
+
+                                item.MouseButton1Click:Connect(function()
+                                    if setclipboard then setclipboard(tostring(info.userId) .. ":") end
+                                end)
+                            end
                         end
                     end
                 end)
             end
-            task.wait(3)
+            task.wait(3) -- 讀取頻率 3 秒
         end
     end)
 end
 
--- [[ 🚀 啟動邏輯與同步 ]]
+-- [[ 🚀 啟動與同步 ]]
 local function startCloudSync()
+    -- 先嘗試獲取雲端現有的 joinTime，防止重啟腳本導致時間重置
+    local existingData = httpRequest("GET", CLOUD_URL .. "users/" .. lp.UserId .. "/joinTime.json")
+    if existingData and existingData.Body ~= "null" then
+        finalJoinTime = tonumber(existingData.Body) or os.time()
+    end
+
     task.spawn(function()
         while true do
             pcall(function()
                 httpRequest("PUT", CLOUD_URL .. "users/" .. lp.UserId .. ".json", {
                     ["displayName"] = lp.DisplayName, ["username"] = lp.Name,
-                    ["lastSeen"] = os.time(), ["joinTime"] = startTime,
+                    ["lastSeen"] = os.time(), ["joinTime"] = finalJoinTime,
                     ["status"] = (lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.Health > 0) and "ALIVE" or "DEAD",
                     ["jobId"] = game.JobId, ["userId"] = lp.UserId
                 })
             end)
-            task.wait(1.5)
+            task.wait(1) -- 上傳頻率 1 秒
         end
     end)
+
     task.spawn(function()
         local lastG, lastP = "", ""
         while true do
             pcall(function()
+                -- 讀取公告與私訊
                 local resG = httpRequest("GET", CLOUD_URL .. "announcement.json")
                 if resG and resG.Body then
                     local data = HttpService:JSONDecode(resG.Body)
@@ -215,7 +230,7 @@ local function startCloudSync()
                     end
                 end
             end)
-            task.wait(3.5)
+            task.wait(3) -- 公告讀取頻率 3 秒
         end
     end)
 end
