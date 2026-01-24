@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - FULL INTEGRATED SYSTEM ]]
+-- [[ 🔑 E5 COMMANDER - AUTO-COLON COPY SYSTEM ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -37,7 +37,7 @@ local function showNotice(msg, isPrivate)
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.TextSize = 18 
     label.Font = Enum.Font.GothamBold
-    label.Text = tostring(msg) -- 💡 純文字，無圖標
+    label.Text = tostring(msg)
     label.TextWrapped = true
     
     local stroke = Instance.new("UIStroke", label)
@@ -47,7 +47,6 @@ local function showNotice(msg, isPrivate)
     
     Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
     
-    -- 公告自動下移
     for _, v in pairs(sg:GetChildren()) do
         if v:IsA("TextLabel") and v ~= label then
             v.Position = v.Position + UDim2.new(0, 0, 0, 60)
@@ -64,18 +63,14 @@ local function buildAdminPanel()
     sg.ResetOnSpawn = false
     sg:ClearAllChildren()
 
-    -- 面板底框
     local frame = Instance.new("Frame", sg)
     frame.Size = UDim2.new(0, 420, 0, 650)
     frame.Position = UDim2.new(1, -430, 0.5, -325)
     frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     frame.BackgroundTransparency = 0.3
     Instance.new("UICorner", frame)
-    local frameStroke = Instance.new("UIStroke", frame)
-    frameStroke.Color = Color3.fromHex("A475D7")
-    frameStroke.Thickness = 2
+    Instance.new("UIStroke", frame).Color = Color3.fromHex("A475D7")
 
-    -- 玩家列表滾動區域
     local list = Instance.new("ScrollingFrame", frame)
     list.Size = UDim2.new(0.9, 0, 0.78, 0)
     list.Position = UDim2.new(0.05, 0, 0.05, 0)
@@ -84,14 +79,12 @@ local function buildAdminPanel()
     list.AutomaticCanvasSize = Enum.AutomaticSize.Y
     list.ScrollBarThickness = 2
     list.ScrollBarImageColor3 = Color3.fromHex("A475D7")
-    local layout = Instance.new("UIListLayout", list)
-    layout.Padding = UDim.new(0, 10)
+    Instance.new("UIListLayout", list).Padding = UDim.new(0, 10)
 
-    -- 指令輸入框
     local input = Instance.new("TextBox", frame)
     input.Size = UDim2.new(0.9, 0, 0, 60)
     input.Position = UDim2.new(0.05, 0, 0.88, 0)
-    input.PlaceholderText = "[ID:訊息] 或 [直接輸入公告]"
+    input.PlaceholderText = "[ID:MSG] 或 直接公告"
     input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     input.TextColor3 = Color3.new(1, 1, 1)
     input.TextSize = 18
@@ -112,7 +105,6 @@ local function buildAdminPanel()
         end
     end)
 
-    -- 定時更新列表
     task.spawn(function()
         while true do
             if sg.Enabled then
@@ -125,7 +117,6 @@ local function buildAdminPanel()
                         if os.time() - (info.lastSeen or 0) <= 20 then
                             local item = Instance.new("TextButton", list)
                             item.Size = UDim2.new(1, 0, 0, 100)
-                            -- 💡 色塊按鈕設計
                             item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
                             item.BackgroundTransparency = 0.2
                             item.BorderSizePixel = 0
@@ -141,8 +132,11 @@ local function buildAdminPanel()
                             item.Font = Enum.Font.GothamBold
                             item.TextWrapped = true
 
+                            -- 🖱️ 點擊事件：自動在 ID 後面加上冒號
                             item.MouseButton1Click:Connect(function()
-                                if setclipboard then setclipboard(tostring(info.userId)) end
+                                if setclipboard then 
+                                    setclipboard(tostring(info.userId) .. ":") 
+                                end
                             end)
                         end
                     end
@@ -152,7 +146,6 @@ local function buildAdminPanel()
         end
     end)
 
-    -- Tab 鍵切換
     if _G.E5Connection then _G.E5Connection:Disconnect() end
     _G.E5Connection = UIS.InputBegan:Connect(function(i, gpe)
         if not gpe and i.KeyCode == Enum.KeyCode.Tab then
@@ -186,7 +179,6 @@ local function startCloudSync()
         local lastPrivateMsg = ""
         while true do
             pcall(function()
-                -- 獲取公共公告
                 local resG = httpRequest("GET", CLOUD_URL .. "announcement.json")
                 if resG and resG.Body then
                     local data = HttpService:JSONDecode(resG.Body)
@@ -196,7 +188,6 @@ local function startCloudSync()
                     end
                 end
                 
-                -- 獲取個人私訊
                 local resP = httpRequest("GET", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
                 if resP and resP.Body then
                     local data = HttpService:JSONDecode(resP.Body)
