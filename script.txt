@@ -135,7 +135,7 @@ local function buildAdminPanel()
                     end
                 end)
             end
-            task.wait(5) -- 📉 降低頻率至 5 秒更新一次，節省 Firebase 流量
+            task.wait(3) -- 📉 降低頻率至 5 秒更新一次，節省 Firebase 流量
         end
     end)
 end
@@ -229,3 +229,4 @@ UIS.InputBegan:Connect(function(i, gpe)
         lp.PlayerGui.E5_Admin_Panel.Enabled = not lp.PlayerGui.E5_Admin_Panel.Enabled
     end
 end)
+
