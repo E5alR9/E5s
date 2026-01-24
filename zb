@@ -7,7 +7,7 @@ if emote then
     if oldModule then oldModule:Destroy() end
     emote.Name = "SwagWalk"
 
-    -- 2. Setup Animation Container
+    -- 2. Ensure Animation Container exists
     local container = emote:FindFirstChild("AnimationClassic")
     if not container then
         container = Instance.new("Animation")
@@ -15,7 +15,7 @@ if emote then
         container.Parent = emote
     end
 
-    -- 3. Extract IDs from A, B, and C
+    -- 3. Extract Animation IDs
     local options = emote:FindFirstChild("PossibleOptionsClassic")
     local anims = {}
     if options then
@@ -28,28 +28,29 @@ if emote then
         end
     end
 
-    -- 4. Synced ABC Rotation Loop
+    -- 4. Global Time-Sync Task (Eliminates Time Gap)
     task.spawn(function()
-        local interval = 2 -- Seconds for each animation
-        print("ABC Sync Loop Started")
+        local interval = 2 -- Every 2 seconds the animation switches
+        print("Global Sync Active: Using server clock for ABC sequence")
         
         while true do
             if #anims > 0 then
-                -- 使用全伺服器統一的遊戲時間來計算當前應該播放哪一個
-                -- 這確保了所有人計算出的 index 都是相同的
-                local globalTick = math.floor(workspace.DistributedGameTime / interval)
-                local index = (globalTick % #anims) + 1
+                -- CRITICAL SYNC LOGIC:
+                -- Instead of index = index + 1, we use workspace.DistributedGameTime.
+                -- Since this time is the same for everyone, the result is the same for everyone.
+                local serverTimeIndex = math.floor(workspace.DistributedGameTime / interval)
+                local currentIndex = (serverTimeIndex % #anims) + 1
                 
-                -- 只有當 ID 真正改變時才更新，避免重複刷新
-                if container.AnimationId ~= anims[index] then
-                    container.AnimationId = anims[index]
+                -- Only update when the cycle actually moves to the next animation
+                if container.AnimationId ~= anims[currentIndex] then
+                    container.AnimationId = anims[currentIndex]
                 end
             end
-            -- 稍微縮短檢查間隔（0.5秒），確保切換更精準
-            task.wait(0.5) 
+            -- Check frequently (every 0.1s) to make sure the switch happens exactly on time
+            task.wait(0.1) 
         end
     end)
-    print("Success: SwagWalk updated and ABC Sync active")
+    print("Success: SwagWalk is now globally synced")
 else
-    warn("Error: ZombieStride or SwagWalk not found")
+    warn("Error: Target folder not found")
 end
