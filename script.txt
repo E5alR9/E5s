@@ -71,7 +71,7 @@ local function startCloudSync()
 
     local title = Instance.new("TextLabel", frame)
     title.Size = UDim2.new(1, 0, 0, 50)
-    title.Text = "📡 E5 實時監控 (大字版)"
+    title.Text = "📡 E5 實時監控"
     title.TextSize = 20
     title.TextColor3 = Color3.fromRGB(255, 215, 0)
     title.BackgroundTransparency = 1
@@ -192,3 +192,4 @@ else
         end
     end)
 end
+
