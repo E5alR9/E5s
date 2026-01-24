@@ -28,29 +28,30 @@ if emote then
         end
     end
 
-    -- 4. High-Precision Server Clock Sync
+    -- 4. Precise Universal Sync Loop
     task.spawn(function()
         local interval = 2 -- 每 2 秒換一個動作
-        print("High-Precision Sync: Locking to ServerTimeNow")
+        print("High-Precision Sync Started: Using ServerTimeNow")
         
         while true do
             if #anims > 0 then
-                -- 核心：GetServerTimeNow() 會回傳伺服器的絕對秒數（包含小數點）
-                -- 這在所有玩家的電腦上都會自動校準，達到真正的同步
-                local serverTime = workspace:GetServerTimeNow()
-                local index = (math.floor(serverTime / interval) % #anims) + 1
+                -- 【關鍵修改】：使用 GetServerTimeNow() 代替 DistributedGameTime
+                -- 這會讓全伺服器所有人抓到的時間變數完全一致，消除時間差
+                local totalTime = workspace:GetServerTimeNow()
                 
-                -- 只有在真正需要切換時才改動屬性
+                -- 使用相同的數學公式，確保在同一毫秒計算出相同的 index
+                local index = (math.floor(totalTime / interval) % #anims) + 1
+                
+                -- 更新 ID
                 if container.AnimationId ~= anims[index] then
                     container.AnimationId = anims[index]
-                    -- print("Synced Switch to Index: " .. tostring(index))
                 end
             end
-            -- 每 0.1 秒檢查一次，確保切換點極度精準
+            -- 保持 0.1 秒檢查一次，確保切換瞬間精準同步
             task.wait(0.1)
         end
     end)
-    print("Success: ABC cycle is now perfectly synced across all clients.")
+    print("Success: SwagWalk is now strictly synced for all players")
 else
     warn("Error: Target folder not found")
 end
