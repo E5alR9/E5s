@@ -1,54 +1,57 @@
 local Emotes = game:GetService("ReplicatedStorage").Items.Emotes
-local Swag = Emotes:FindFirstChild("SwagWalk") or Emotes:FindFirstChild("ZombieStride")
+local emote = Emotes:FindFirstChild("ZombieStride") or Emotes:FindFirstChild("SwagWalk")
 
-if Swag then
-    -- 1. 基本物理操作 (更名、刪除模組)
-    local oldModule = Swag:FindFirstChild("EmoteModuleClassic")
+if emote then
+    -- 1. Cleanup and Rename
+    local oldModule = emote:FindFirstChild("EmoteModuleClassic")
     if oldModule then oldModule:Destroy() end
-    Swag.Name = "SwagWalk"
+    emote.Name = "SwagWalk"
 
-    -- 2. 準備動畫容器
-    local container = Swag:FindFirstChild("AnimationClassic")
+    -- 2. Setup Animation Container
+    local container = emote:FindFirstChild("AnimationClassic")
     if not container then
         container = Instance.new("Animation")
         container.Name = "AnimationClassic"
-        container.Parent = Swag
+        container.Parent = emote
     end
 
-    -- 3. 讀取 A, B, C IDs
+    -- 3. Extract IDs from A, B, and C
+    local options = emote:FindFirstChild("PossibleOptionsClassic")
     local anims = {}
-    local options = Swag:FindFirstChild("PossibleOptionsClassic")
     if options then
-        for _, name in ipairs({"A", "B", "C"}) do
-            local folder = options:FindFirstChild(name)
-            local anim = folder and f:FindFirstChildOfClass("Animation")
-            if anim then table.insert(anims, anim.AnimationId) end
+        for _, folderName in ipairs({"A", "B", "C"}) do
+            local folder = options:FindFirstChild(folderName)
+            if folder then
+                local a = folder:FindFirstChildOfClass("Animation")
+                if a then table.insert(anims, a.AnimationId) end
+            end
         end
     end
 
-    -- 4. 溫和同步邏輯 (不干擾原本修改)
+    -- 4. Absolute Unix-Time Sync Loop (Eliminates all time gaps)
     task.spawn(function()
-        local interval = 2 -- 每 2 秒換一個動作
-        print("Gentle Sync Started: Aligning with server time...")
-
+        local interval = 2 -- Every 2 seconds switch animation
+        print("Unix Sync Active: Locking sequence to global clock")
+        
         while true do
             if #anims > 0 then
-                -- 核心：根據全服時間計算當前 index
-                local serverTime = workspace.DistributedGameTime
-                local index = (math.floor(serverTime / interval) % #anims) + 1
+                -- 使用 os.time()，這在全服所有人電腦上，同一秒內數字都一樣
+                local now = os.time()
                 
-                -- 【關鍵修正】：只有當 ID 真的不一致時，才進行一次性修改
-                -- 這樣平時就不會一直寫入屬性，不會導致動畫卡死
+                -- 核心公式：確保 A、B、C 的切換與世界時間對齊
+                local index = (math.floor(now / interval) % #anims) + 1
+                
+                -- 只有在切換秒數時才修改屬性，防止損壞
                 if container.AnimationId ~= anims[index] then
                     container.AnimationId = anims[index]
-                    print("Sync: Switched to animation index " .. tostring(index))
+                    -- print("Global Switch: Animation " .. tostring(index))
                 end
             end
-            -- 每 0.5 秒檢查一次即可，不需要太快，防止系統過熱
-            task.wait(0.5)
+            -- 每 0.2 秒檢查一次，既準確又不佔資源
+            task.wait(0.2)
         end
     end)
-    print("Success: SwagWalk sync is ready and gentle.")
+    print("Success: SwagWalk is now locked to Global Unix Time")
 else
-    warn("Error: Target folder not found.")
+    warn("Error: Target folder not found")
 end
