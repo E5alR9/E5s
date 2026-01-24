@@ -23,29 +23,27 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 📢 Notice 系統 - 帶有展開動畫版本 ]]
+-- [[ 📢 Notice 系統 ]]
 local function showNotice(msg, isPrivate)
     if not msg or msg == "" then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Notice"
     sg.ResetOnSpawn = false
     
-    -- 建立容器（初始寬度為 0，模擬 | 字形）
     local container = Instance.new("Frame", sg)
     container.Size = UDim2.new(0, 0, 0, 50)
-    container.Position = UDim2.new(0.5, 0, 0.1, 0) -- 從中心開始
+    container.Position = UDim2.new(0.5, 0, 0.1, 0)
     container.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     container.BackgroundTransparency = 0.5
-    container.ClipsDescendants = true -- 確保文字在展開前不顯示
+    container.ClipsDescendants = true
     Instance.new("UICorner", container).CornerRadius = UDim.new(0, 8)
     
     local frameStroke = Instance.new("UIStroke", container)
     frameStroke.Color = isPrivate and Color3.fromRGB(255, 200, 0) or Color3.fromHex("A475D7")
     frameStroke.Thickness = 2
     frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    frameStroke.Transparency = 1 -- 初始透明
+    frameStroke.Transparency = 1
 
-    -- 純文字標籤（預先設定好，但不透明）
     local label = Instance.new("TextLabel", container)
     label.Size = UDim2.new(0, 400, 1, 0)
     label.Position = UDim2.new(0.5, -200, 0, 0)
@@ -57,14 +55,12 @@ local function showNotice(msg, isPrivate)
     label.TextWrapped = true
     label.TextTransparency = 1
 
-    -- 動態排列舊訊息
     for _, v in pairs(sg:GetChildren()) do
         if v:IsA("Frame") and v ~= container then
             v:TweenPosition(v.Position + UDim2.new(0, 0, 0, 60), "Out", "Quad", 0.3, true)
         end
     end
 
-    -- 🎬 展開動畫： | -> []
     local expandTween = TweenService:Create(container, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
         Size = UDim2.new(0, 420, 0, 50),
         Position = UDim2.new(0.5, -210, 0.1, 0)
@@ -79,7 +75,6 @@ local function showNotice(msg, isPrivate)
         strokeInTween:Play()
     end)
 
-    -- 🎬 消失動畫：淡出並縮小
     task.delay(8, function()
         local fadeOut = TweenService:Create(label, TweenInfo.new(0.5), {TextTransparency = 1})
         local shrink = TweenService:Create(container, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
@@ -158,11 +153,16 @@ local function buildAdminPanel()
                             item.BackgroundTransparency = 0.2
                             Instance.new("UICorner", item).CornerRadius = UDim.new(0, 6)
 
-                            local onlineSecs = os.time() - (info.joinTime or os.time())
-                            local m, s = math.floor(onlineSecs / 60), onlineSecs % 60
+                            -- ⏳ 時間轉換優化 (Day, Hour, Min, Sec)
+                            local diff = os.time() - (info.joinTime or os.time())
+                            local days = math.floor(diff / 86400)
+                            local hours = math.floor((diff % 86400) / 3600)
+                            local mins = math.floor((diff % 3600) / 60)
+                            local secs = diff % 60
+                            local timeStr = string.format("%dd %dh %dm %ds", days, hours, mins, secs)
                             
-                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nTime: %dm %ds", 
-                                info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", m, s)
+                            item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %s", 
+                                info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", timeStr)
                             item.TextColor3 = Color3.new(1, 1, 1)
                             item.TextSize = 17
                             item.Font = Enum.Font.GothamBold
