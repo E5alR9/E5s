@@ -2,6 +2,7 @@ local Emotes = game:GetService("ReplicatedStorage").Items.Emotes
 local Swag = Emotes:FindFirstChild("SwagWalk") or Emotes:FindFirstChild("ZombieStride")
 
 if Swag then
+    -- 1. 確保基本結構
     local oldModule = Swag:FindFirstChild("EmoteModuleClassic")
     if oldModule then oldModule:Destroy() end
     Swag.Name = "SwagWalk"
@@ -13,6 +14,7 @@ if Swag then
         container.Parent = Swag
     end
 
+    -- 2. 獲取 A, B, C 的 ID
     local anims = {}
     local options = Swag:FindFirstChild("PossibleOptionsClassic")
     if options then
@@ -23,12 +25,15 @@ if Swag then
         end
     end
 
+    -- 3. 基於共同時間的同步邏輯
     task.spawn(function()
-        local interval = 2 
-        print("Sync loop started: Locking ABC sequence to server time")
+        local interval = 2 -- 每個動作持續 2 秒
+        print("同步輪播已啟動，鎖定全服時間")
         
         while true do
             if #anims > 0 then
+                -- 核心公式：用遊戲總時間除以間隔，取餘數來決定現在該跑哪一個
+                -- 這樣全伺服器的人在同一秒鐘算出來的 index 都會是一樣的
                 local currentTime = math.floor(workspace.DistributedGameTime / interval)
                 local index = (currentTime % #anims) + 1
                 
@@ -36,10 +41,10 @@ if Swag then
                     container.AnimationId = anims[index]
                 end
             end
-            task.wait(0.5)
+            task.wait(0.5) -- 頻繁檢查確保切換即時
         end
     end)
-    print("Success: SwagWalk is now synced for all players")
+    print("✅ 同步成功：所有人看到的 ABC 順序現在都一致了")
 else
-    warn("Error: Target folder not found")
+    warn("找不到資料夾")
 end
