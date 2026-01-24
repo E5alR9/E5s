@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - PURPLE BORDER & SEMI-TRANSPARENT BLACK ]]
+-- [[ 🔑 E5 COMMANDER - BALANCED TEXT & PURPLE BORDER ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -21,7 +21,7 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 📢 Announcement: Purple Border + Trans-Black ]]
+-- [[ 📢 Announcement: Kept Small & Clean (Size 18) ]]
 local function showAnnouncement(msg)
     if msg == "" or msg == nil then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
@@ -30,28 +30,27 @@ local function showAnnouncement(msg)
     
     local label = sg:FindFirstChild("Msg") or Instance.new("TextLabel", sg)
     label.Name = "Msg"
-    label.Size = UDim2.new(0, 420, 0, 50)
+    label.Size = UDim2.new(0, 420, 0, 50) -- ✨ 回復原始精簡大小
     label.Position = UDim2.new(0.5, -210, 0.1, 0)
-    label.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- ✨ Black
-    label.BackgroundTransparency = 0.5 -- ✨ Semi-Transparent
+    label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    label.BackgroundTransparency = 0.5
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextSize = 18 
+    label.TextSize = 18 -- ✨ 回復 18 號字，不過大
     label.Font = Enum.Font.GothamBold
     label.Text = msg 
     label.TextWrapped = true
     label.TextXAlignment = Enum.TextXAlignment.Center
     
     local stroke = label:FindFirstChild("Stroke") or Instance.new("UIStroke", label)
-    stroke.Color = Color3.fromHex("A475D7") -- ✨ Purple Border
+    stroke.Color = Color3.fromHex("A475D7")
     stroke.Thickness = 2
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     
-    local corner = label:FindFirstChild("Corner") or Instance.new("UICorner", label)
-    corner.CornerRadius = UDim.new(0, 8)
-    
+    Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
     task.delay(10, function() if label then label:Destroy() end end)
 end
 
+-- [[ 3. Core Sync ]]
 local function startCloudSync()
     task.spawn(function()
         while true do
@@ -63,7 +62,7 @@ local function startCloudSync()
                     ["jobId"] = game.JobId
                 })
             end)
-            task.wait(1)
+            task.wait(1) -- ✨ 保持 1 秒高頻打卡
         end
     end)
 
@@ -88,31 +87,32 @@ local function startCloudSync()
 
     if not isDeveloper then return end
 
-    -- Admin Panel (Tab)
+    -- Admin Panel (Keep Big for Ease of Use)
     local sg = Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Panel"
     sg.Enabled = false
     local frame = Instance.new("Frame", sg)
-    frame.Size = UDim2.new(0, 330, 0, 520)
-    frame.Position = UDim2.new(1, -340, 0.5, -260)
+    frame.Size = UDim2.new(0, 380, 0, 580)
+    frame.Position = UDim2.new(1, -390, 0.5, -290)
     frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     frame.BackgroundTransparency = 0.2
     Instance.new("UICorner", frame)
-    local stroke = Instance.new("UIStroke", frame)
-    stroke.Color = Color3.fromHex("A475D7")
-    stroke.Thickness = 2
+    local s = Instance.new("UIStroke", frame)
+    s.Color = Color3.fromHex("A475D7")
+    s.Thickness = 2
 
     local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, 0, 0, 45)
+    title.Size = UDim2.new(1, 0, 0, 50)
     title.Text = "🛰️ E5 COMMAND CENTER"
+    title.TextSize = 20
     title.TextColor3 = Color3.fromHex("A475D7")
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
     title.TextXAlignment = Enum.TextXAlignment.Center
 
     local list = Instance.new("ScrollingFrame", frame)
-    list.Size = UDim2.new(0.9, 0, 0.65, 0)
-    list.Position = UDim2.new(0.05, 0, 0.12, 0)
+    list.Size = UDim2.new(0.9, 0, 0.7, 0)
+    list.Position = UDim2.new(0.05, 0, 0.1, 0)
     list.BackgroundTransparency = 1
     Instance.new("UIListLayout", list).Padding = UDim.new(0, 10)
 
@@ -120,8 +120,8 @@ local function startCloudSync()
     input.Size = UDim2.new(0.9, 0, 0, 45)
     input.Position = UDim2.new(0.05, 0, 0.85, 0)
     input.PlaceholderText = "Type Announcement..."
+    input.TextSize = 18
     input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    input.BackgroundTransparency = 0.3
     input.TextColor3 = Color3.new(1, 1, 1)
     input.TextXAlignment = Enum.TextXAlignment.Center
     Instance.new("UICorner", input)
@@ -146,11 +146,11 @@ local function startCloudSync()
                     for id, info in pairs(data) do
                         if os.time() - (info.lastSeen or 0) <= 15 then
                             local item = Instance.new("TextLabel", list)
-                            item.Size = UDim2.new(1, -10, 0, 95)
-                            item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(40, 80, 40) or Color3.fromRGB(20, 20, 20)
-                            item.BackgroundTransparency = 0.4
-                            item.Text = string.format("👤 %s(@%s)\nStatus: %s\nOnline: %d min", info.displayName or "User", info.username or "User", info.status or "Unknown", math.floor((os.time()-(info.joinTime or os.time()))/60))
+                            item.Size = UDim2.new(1, -10, 0, 100)
+                            item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromRGB(40, 80, 40) or Color3.fromRGB(25, 25, 25)
+                            item.Text = string.format("👤 %s\n(@%s)\nStatus: %s\nOnline: %d min", info.displayName or "User", info.username or "User", info.status or "Unknown", math.floor((os.time()-(info.joinTime or os.time()))/60))
                             item.TextColor3 = Color3.new(1, 1, 1)
+                            item.TextSize = 16
                             item.Font = Enum.Font.GothamBold
                             item.TextXAlignment = Enum.TextXAlignment.Center
                             Instance.new("UICorner", item)
@@ -170,13 +170,13 @@ local function startCloudSync()
     end)
 end
 
+-- [[ 🔐 Auth UI ]]
 local function init()
     startCloudSync()
-    print("🎯 [E5_SYSTEM] UI Updated: Purple & Trans-Black")
+    print("🎯 [E5_SYSTEM] Balanced Layout Initialized")
     pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
 end
 
--- [[ 🔐 Auth UI: Purple Border + Trans-Black ]]
 if isDeveloper or (isfile and readfile and isfile(FILE_NAME) and readfile(FILE_NAME) == tostring(lp.UserId)) then
     init()
 else
@@ -184,29 +184,40 @@ else
     local main = Instance.new("Frame", authGui)
     main.Size = UDim2.new(0, 300, 0, 160)
     main.Position = UDim2.new(0.5, -150, 0.5, -80)
-    main.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- ✨ Black
-    main.BackgroundTransparency = 0.5 -- ✨ Semi-Transparent
+    main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    main.BackgroundTransparency = 0.5
     Instance.new("UICorner", main)
     local s = Instance.new("UIStroke", main)
-    s.Color = Color3.fromHex("A475D7") -- ✨ Purple Border
+    s.Color = Color3.fromHex("A475D7")
     s.Thickness = 2
     
+    local title = Instance.new("TextLabel", main)
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Text = "E5 SYSTEM AUTH"
+    title.TextSize = 18
+    title.TextColor3 = Color3.fromHex("A475D7")
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextXAlignment = Enum.TextXAlignment.Center
+
     local input = Instance.new("TextBox", main)
     input.Size = UDim2.new(0.8, 0, 0, 35)
     input.Position = UDim2.new(0.1, 0, 0.4, 0)
-    input.PlaceholderText = "Key: E5alR9"
-    input.TextXAlignment = Enum.TextXAlignment.Center
+    input.PlaceholderText = "Enter Key..."
+    input.TextSize = 16
     input.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    input.BackgroundTransparency = 0.3
     input.TextColor3 = Color3.new(1, 1, 1)
+    input.TextXAlignment = Enum.TextXAlignment.Center
     Instance.new("UICorner", input)
     
     local btn = Instance.new("TextButton", main)
     btn.Size = UDim2.new(0.8, 0, 0, 35)
     btn.Position = UDim2.new(0.1, 0, 0.75, 0)
     btn.Text = "VERIFY"
+    btn.TextSize = 18
     btn.BackgroundColor3 = Color3.fromHex("A475D7")
     btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
     Instance.new("UICorner", btn)
     
     btn.MouseButton1Click:Connect(function()
