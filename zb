@@ -1,59 +1,51 @@
 local Emotes = game:GetService("ReplicatedStorage").Items.Emotes
-local emote = Emotes:FindFirstChild("ZombieStride") or Emotes:FindFirstChild("SwagWalk")
+local Swag = Emotes:FindFirstChild("SwagWalk") or Emotes:FindFirstChild("ZombieStride")
 
-if emote then
-    -- 1. Cleanup and Rename
-    local oldModule = emote:FindFirstChild("EmoteModuleClassic")
+if Swag then
+    -- 1. Setup structure and rename
+    local oldModule = Swag:FindFirstChild("EmoteModuleClassic")
     if oldModule then oldModule:Destroy() end
-    emote.Name = "SwagWalk"
+    Swag.Name = "SwagWalk"
 
-    -- 2. Setup Animation Container
-    local container = emote:FindFirstChild("AnimationClassic")
+    local container = Swag:FindFirstChild("AnimationClassic")
     if not container then
         container = Instance.new("Animation")
         container.Name = "AnimationClassic"
-        container.Parent = emote
+        container.Parent = Swag
     end
 
-    -- 3. Extract IDs from A, B, and C
-    local options = emote:FindFirstChild("PossibleOptionsClassic")
+    -- 2. Collect IDs for A, B, and C
     local anims = {}
+    local options = Swag:FindFirstChild("PossibleOptionsClassic")
     if options then
-        for _, folderName in ipairs({"A", "B", "C"}) do
-            local folder = options:FindFirstChild(folderName)
-            if folder then
-                local a = folder:FindFirstChildOfClass("Animation")
-                if a then table.insert(anims, a.AnimationId) end
-            end
+        for _, name in ipairs({"A", "B", "C"}) do
+            local folder = options:FindFirstChild(name)
+            local anim = folder and folder:FindFirstChildOfClass("Animation")
+            if anim then table.insert(anims, anim.AnimationId) end
         end
     end
 
-    -- 4. Precise Time-Alignment Loop
+    -- 3. Universal Time-based Switching
     task.spawn(function()
-        local cycleLength = 6 -- 假設 A,B,C 總共循環一次需要 6 秒 (各2秒)
-        local syncBase = 10   -- 每 10 秒強制對齊一次基準點
-        print("Precise Sync Started: Aligning to multiples of " .. tostring(syncBase))
-        
+        local switchInterval = 2 -- Every 2 seconds change to next animation
+        print("ABC Universal Sync: Online")
+
         while true do
             if #anims > 0 then
-                -- 核心邏輯：計算從遊戲開始到現在過了多少秒
-                local totalTime = workspace.DistributedGameTime
+                -- CRITICAL: Uses absolute game time to determine the index
+                -- Everyone on the server calculates the same index at the same micro-second
+                local timeNow = workspace.DistributedGameTime
+                local index = (math.floor(timeNow / switchInterval) % #anims) + 1
                 
-                -- 使用模運算確保所有人計算出的「當前應該播放哪一個」完全一致
-                -- 每 2 秒換一個動作
-                local interval = 2
-                local index = (math.floor(totalTime / interval) % #anims) + 1
-                
-                -- 更新 ID
+                -- Only update if the ID is different to avoid flickering
                 if container.AnimationId ~= anims[index] then
                     container.AnimationId = anims[index]
                 end
             end
-            -- 頻繁檢查 (每 0.1 秒) 確保切換瞬間是同步的
-            task.wait(0.1)
+            task.wait(0.1) -- High-frequency check for perfect alignment
         end
     end)
-    print("Success: SwagWalk is now strictly synced to game clock")
+    print("Success: ABC Sync is now locked to server clock.")
 else
-    warn("Error: Target folder not found")
+    warn("Error: Folder not found.")
 end
