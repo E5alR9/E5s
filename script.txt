@@ -1,7 +1,8 @@
--- [[ 🔑 E5 COMMANDER - DATA SAVER & UI FIX ]]
+-- [[ 🔑 E5 COMMANDER - ANIMATED NOTICE & DATA SAVER ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 
@@ -22,30 +23,75 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 📢 Notice 系統 ]]
+-- [[ 📢 Notice 系統 - 帶有展開動畫版本 ]]
 local function showNotice(msg, isPrivate)
     if not msg or msg == "" then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Notice"
     sg.ResetOnSpawn = false
-    local label = Instance.new("TextLabel", sg)
-    label.Size = UDim2.new(0, 420, 0, 50)
-    label.Position = UDim2.new(0.5, -210, 0.1, 0)
-    label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    label.BackgroundTransparency = 0.5
+    
+    -- 建立容器（初始寬度為 0，模擬 | 字形）
+    local container = Instance.new("Frame", sg)
+    container.Size = UDim2.new(0, 0, 0, 50)
+    container.Position = UDim2.new(0.5, 0, 0.1, 0) -- 從中心開始
+    container.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    container.BackgroundTransparency = 0.5
+    container.ClipsDescendants = true -- 確保文字在展開前不顯示
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 8)
+    
+    local frameStroke = Instance.new("UIStroke", container)
+    frameStroke.Color = isPrivate and Color3.fromRGB(255, 200, 0) or Color3.fromHex("A475D7")
+    frameStroke.Thickness = 2
+    frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    frameStroke.Transparency = 1 -- 初始透明
+
+    -- 純文字標籤（預先設定好，但不透明）
+    local label = Instance.new("TextLabel", container)
+    label.Size = UDim2.new(0, 400, 1, 0)
+    label.Position = UDim2.new(0.5, -200, 0, 0)
+    label.BackgroundTransparency = 1
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.TextSize = 18 
     label.Font = Enum.Font.GothamBold
     label.Text = tostring(msg)
     label.TextWrapped = true
-    local stroke = Instance.new("UIStroke", label)
-    stroke.Color = isPrivate and Color3.fromRGB(255, 200, 0) or Color3.fromHex("A475D7")
-    stroke.Thickness = 2
-    Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
+    label.TextTransparency = 1
+
+    -- 動態排列舊訊息
     for _, v in pairs(sg:GetChildren()) do
-        if v:IsA("TextLabel") and v ~= label then v.Position = v.Position + UDim2.new(0, 0, 0, 60) end
+        if v:IsA("Frame") and v ~= container then
+            v:TweenPosition(v.Position + UDim2.new(0, 0, 0, 60), "Out", "Quad", 0.3, true)
+        end
     end
-    task.delay(10, function() if label then label:Destroy() end end)
+
+    -- 🎬 展開動畫： | -> []
+    local expandTween = TweenService:Create(container, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 420, 0, 50),
+        Position = UDim2.new(0.5, -210, 0.1, 0)
+    })
+    
+    local fadeInTween = TweenService:Create(label, TweenInfo.new(0.3), {TextTransparency = 0})
+    local strokeInTween = TweenService:Create(frameStroke, TweenInfo.new(0.3), {Transparency = 0})
+
+    expandTween:Play()
+    expandTween.Completed:Connect(function()
+        fadeInTween:Play()
+        strokeInTween:Play()
+    end)
+
+    -- 🎬 消失動畫：淡出並縮小
+    task.delay(8, function()
+        local fadeOut = TweenService:Create(label, TweenInfo.new(0.5), {TextTransparency = 1})
+        local shrink = TweenService:Create(container, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 50),
+            Position = UDim2.new(0.5, 0, container.Position.Y.Scale, container.Position.Y.Offset)
+        })
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            shrink:Play()
+            shrink.Completed:Connect(function() container:Destroy() end)
+        end)
+    end)
 end
 
 -- [[ 🛰️ Admin Panel ]]
@@ -107,7 +153,6 @@ local function buildAdminPanel()
                     for id, info in pairs(data) do
                         if os.time() - (info.lastSeen or 0) <= 20 then
                             local item = Instance.new("TextButton", list)
-                            -- 🚀 高度增加到 140，確保三行文字+時間都能顯示
                             item.Size = UDim2.new(1, 0, 0, 140) 
                             item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
                             item.BackgroundTransparency = 0.2
@@ -116,13 +161,8 @@ local function buildAdminPanel()
                             local onlineSecs = os.time() - (info.joinTime or os.time())
                             local m, s = math.floor(onlineSecs / 60), onlineSecs % 60
                             
-                            -- 📝 精簡文字排版
                             item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nTime: %dm %ds", 
-                                info.displayName or "N/A", 
-                                info.username or "N/A", 
-                                info.userId or "N/A", 
-                                info.status or "ALIVE",
-                                m, s)
+                                info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", m, s)
                             item.TextColor3 = Color3.new(1, 1, 1)
                             item.TextSize = 17
                             item.Font = Enum.Font.GothamBold
@@ -135,12 +175,12 @@ local function buildAdminPanel()
                     end
                 end)
             end
-            task.wait(3) -- 📉 降低頻率至 5 秒更新一次，節省 Firebase 流量
+            task.wait(5)
         end
     end)
 end
 
--- [[ 🚀 啟動邏輯 ]]
+-- [[ 🚀 啟動邏輯與同步 ]]
 local function startCloudSync()
     task.spawn(function()
         while true do
@@ -152,7 +192,7 @@ local function startCloudSync()
                     ["jobId"] = game.JobId, ["userId"] = lp.UserId
                 })
             end)
-            task.wait(1.5) -- 同步間隔稍微拉長一點點
+            task.wait(1.5)
         end
     end)
     task.spawn(function()
@@ -223,10 +263,8 @@ else
     end)
 end
 
--- 快捷鍵開關
 UIS.InputBegan:Connect(function(i, gpe)
     if not gpe and i.KeyCode == Enum.KeyCode.Tab and lp.PlayerGui:FindFirstChild("E5_Admin_Panel") then
         lp.PlayerGui.E5_Admin_Panel.Enabled = not lp.PlayerGui.E5_Admin_Panel.Enabled
     end
 end)
-
