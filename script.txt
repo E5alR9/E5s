@@ -314,3 +314,11 @@ UIS.InputBegan:Connect(function(i, gpe)
         lp.PlayerGui.E5_Admin_Panel.Enabled = not lp.PlayerGui.E5_Admin_Panel.Enabled
     end
 end)
+
+-- [[ 💀 復活自動關閉列表 ]]
+lp.CharacterAdded:Connect(function()
+    local panel = lp.PlayerGui:FindFirstChild("E5_Admin_Panel")
+    if panel then
+        panel.Enabled = false
+    end
+end)
