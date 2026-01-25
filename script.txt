@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - HIGH FREQUENCY STABLE (INTEGRATED) ]]
+-- [[ 🔑 E5 COMMANDER - 10-WAY STABLE (FULL INTEGRATED) ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -6,19 +6,23 @@ local TweenService = game:GetService("TweenService")
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 
--- [[ 🌐 三路分流 URL 配置 ]]
+-- [[ 🌐 十路分流 URL 配置 ]]
 local DB_LIST = {
+    [0] = "https://e5alr90-default-rtdb.asia-southeast1.firebasedatabase.app/",
     [1] = "https://e5alr9-default-rtdb.asia-southeast1.firebasedatabase.app/",
     [2] = "https://e5alr92-default-rtdb.asia-southeast1.firebasedatabase.app/",
-    [3] = "https://e5alr93-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    [3] = "https://e5alr93-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    [4] = "https://e5alr94-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    [5] = "https://e5alr95-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    [6] = "https://e5alr96-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    [7] = "https://e5alr97-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    [8] = "https://e5alr98-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    [9] = "https://e5alr99-default-rtdb.asia-southeast1.firebasedatabase.app/"
 }
 
--- [分流計算與清理規則]
+-- [分流計算：尾數 0-9 對應]
 local function getTargetDB(uid)
-    local digit = uid % 10
-    if digit <= 3 then return 1 end
-    if digit <= 6 then return 2 end
-    return 3
+    return uid % 10
 end
 
 local myDBIndex = getTargetDB(lp.UserId)
@@ -144,7 +148,7 @@ local function buildAdminPanel()
     input.FocusLost:Connect(function(enter)
         if enter and input.Text ~= "" then
             local text = input.Text
-            for i = 1, 3 do 
+            for i = 0, 9 do 
                 if string.find(text, ":") then
                     local split = string.split(text, ":")
                     httpRequest("PUT", DB_LIST[i] .. "private/" .. string.gsub(split[1], " ", "") .. ".json", {["msg"] = split[2]})
@@ -161,14 +165,14 @@ local function buildAdminPanel()
         while true do
             if sg.Enabled then
                 local allUserData = {}
-                for i = 1, 3 do 
+                for i = 0, 9 do 
                     pcall(function()
                         local res = httpRequest("GET", DB_LIST[i] .. "users.json")
                         if res and res.Body then
                             local data = HttpService:JSONDecode(res.Body)
                             for id, info in pairs(data) do 
                                 local uid = tonumber(id) or tonumber(info.userId)
-                                -- 自動清理：如果該玩家不在對應的庫，直接刪除
+                                -- 自動清理：如果該玩家不在對應尾數的庫，直接刪除
                                 if uid and getTargetDB(uid) ~= i then
                                     httpRequest("DELETE", DB_LIST[i] .. "users/" .. id .. ".json")
                                 else
@@ -204,14 +208,14 @@ local function buildAdminPanel()
                     end
                 end
             end
-            task.wait(3)
+            task.wait(5)
         end
     end)
 end
 
 -- [[ 🚀 啟動與同步 ]]
 local function startCloudSync()
-    -- [[ JoinTime 穩定器：讀取失敗不覆蓋 ]]
+    -- [[ JoinTime 穩定器 ]]
     local cloudTime = nil
     for i = 1, 3 do
         local res = httpRequest("GET", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json")
@@ -225,11 +229,9 @@ local function startCloudSync()
     if cloudTime then
         finalJoinTime = cloudTime
     else
-        -- 雲端真的沒資料才寫入
         httpRequest("PUT", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json", finalJoinTime)
     end
 
-    -- 定時上傳狀態
     task.spawn(function()
         while true do
             pcall(function()
@@ -244,7 +246,6 @@ local function startCloudSync()
         end
     end)
 
-    -- 定時讀取公告與私訊
     task.spawn(function()
         local lastG, lastP = "", ""
         while true do
