@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - HIGH FREQUENCY STABLE ]]
+-- [[ 🔑 E5 COMMANDER - HIGH FREQUENCY STABLE (SHARDING) ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -6,7 +6,24 @@ local TweenService = game:GetService("TweenService")
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 
-local CLOUD_URL = "https://e5alr9-default-rtdb.asia-southeast1.firebasedatabase.app/" 
+-- [[ 🌐 三路分流 URL 配置 ]]
+local DB_LIST = {
+    [1] = "https://e5alr9-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    [2] = "https://e5alr92-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    [3] = "https://e5alr93-default-rtdb.asia-southeast1.firebasedatabase.app/"
+}
+
+-- [分流計算]
+local lastDigit = lp.UserId % 10
+local myDBURL
+if lastDigit <= 3 then
+    myDBURL = DB_LIST[1]
+elseif lastDigit <= 6 then
+    myDBURL = DB_LIST[2]
+else
+    myDBURL = DB_LIST[3]
+end
+
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
 
@@ -127,12 +144,14 @@ local function buildAdminPanel()
     input.FocusLost:Connect(function(enter)
         if enter and input.Text ~= "" then
             local text = input.Text
-            if string.find(text, ":") then
-                local split = string.split(text, ":")
-                httpRequest("PUT", CLOUD_URL .. "private/" .. string.gsub(split[1], " ", "") .. ".json", {["msg"] = split[2]})
-            else
-                httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = text})
-                task.delay(15, function() httpRequest("PUT", CLOUD_URL .. "announcement.json", {["msg"] = ""}) end)
+            for i = 1, 3 do -- 指令廣播至 3 個分流庫
+                if string.find(text, ":") then
+                    local split = string.split(text, ":")
+                    httpRequest("PUT", DB_LIST[i] .. "private/" .. string.gsub(split[1], " ", "") .. ".json", {["msg"] = split[2]})
+                else
+                    httpRequest("PUT", DB_LIST[i] .. "announcement.json", {["msg"] = text})
+                    task.delay(15, function() httpRequest("PUT", DB_LIST[i] .. "announcement.json", {["msg"] = ""}) end)
+                end
             end
             input.Text = ""
         end
@@ -141,56 +160,47 @@ local function buildAdminPanel()
     task.spawn(function()
         while true do
             if sg.Enabled then
-                pcall(function()
-                    local res = httpRequest("GET", CLOUD_URL .. "users.json")
-                    if res and res.Body then
-                        local data = HttpService:JSONDecode(res.Body)
-                        for _, v in pairs(list:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-                        
-                        for id, info in pairs(data) do
-                            local currentTime = os.time()
-                            local lastSeen = tonumber(info.lastSeen) or 0
-                            
-                            if currentTime - lastSeen <= 30 then
-                                local item = Instance.new("TextButton", list)
-                                item.Size = UDim2.new(1, 0, 0, 140) 
-                                item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
-                                item.BackgroundTransparency = 0.2
-                                Instance.new("UICorner", item).CornerRadius = UDim.new(0, 6)
-
-                                -- ⏳ 時間顯示優化
-                                local join = tonumber(info.joinTime) or currentTime
-                                local diff = math.max(0, currentTime - join)
-                                
-                                local d = math.floor(diff / 86400)
-                                local h = math.floor((diff % 86400) / 3600)
-                                local m = math.floor((diff % 3600) / 60)
-                                local s = math.floor(diff % 60)
-                                
-                                item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %dd %dh %dm %ds", 
-                                    info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", d, h, m, s)
-                                item.TextColor3 = Color3.new(1, 1, 1)
-                                item.TextSize = 17
-                                item.Font = Enum.Font.GothamBold
-                                item.TextWrapped = true
-
-                                item.MouseButton1Click:Connect(function()
-                                    if setclipboard then setclipboard(tostring(info.userId) .. ":") end
-                                end)
-                            end
+                local allUserData = {}
+                for i = 1, 3 do -- 抓取 3 個庫的玩家資料
+                    pcall(function()
+                        local res = httpRequest("GET", DB_LIST[i] .. "users.json")
+                        if res and res.Body then
+                            local data = HttpService:JSONDecode(res.Body)
+                            for id, info in pairs(data) do allUserData[id] = info end
                         end
+                    end)
+                end
+                
+                for _, v in pairs(list:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+                for id, info in pairs(allUserData) do
+                    local currentTime = os.time()
+                    local lastSeen = tonumber(info.lastSeen) or 0
+                    if currentTime - lastSeen <= 30 then
+                        local item = Instance.new("TextButton", list)
+                        item.Size = UDim2.new(1, 0, 0, 140) 
+                        item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
+                        item.BackgroundTransparency = 0.2
+                        Instance.new("UICorner", item).CornerRadius = UDim.new(0, 6)
+                        local join = tonumber(info.joinTime) or currentTime
+                        local diff = math.max(0, currentTime - join)
+                        local d, h, m, s = math.floor(diff/86400), math.floor((diff%86400)/3600), math.floor((diff%3600)/60), math.floor(diff%60)
+                        item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %dd %dh %dm %ds", info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", d, h, m, s)
+                        item.TextColor3 = Color3.new(1, 1, 1)
+                        item.TextSize = 17
+                        item.Font = Enum.Font.GothamBold
+                        item.TextWrapped = true
+                        item.MouseButton1Click:Connect(function() if setclipboard then setclipboard(tostring(info.userId) .. ":") end end)
                     end
-                end)
+                end
             end
-            task.wait(3) -- 讀取頻率 3 秒
+            task.wait(3)
         end
     end)
 end
 
 -- [[ 🚀 啟動與同步 ]]
 local function startCloudSync()
-    -- 先嘗試獲取雲端現有的 joinTime，防止重啟腳本導致時間重置
-    local existingData = httpRequest("GET", CLOUD_URL .. "users/" .. lp.UserId .. "/joinTime.json")
+    local existingData = httpRequest("GET", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json")
     if existingData and existingData.Body ~= "null" then
         finalJoinTime = tonumber(existingData.Body) or os.time()
     end
@@ -198,14 +208,14 @@ local function startCloudSync()
     task.spawn(function()
         while true do
             pcall(function()
-                httpRequest("PUT", CLOUD_URL .. "users/" .. lp.UserId .. ".json", {
+                httpRequest("PUT", myDBURL .. "users/" .. lp.UserId .. ".json", {
                     ["displayName"] = lp.DisplayName, ["username"] = lp.Name,
                     ["lastSeen"] = os.time(), ["joinTime"] = finalJoinTime,
                     ["status"] = (lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.Health > 0) and "ALIVE" or "DEAD",
                     ["jobId"] = game.JobId, ["userId"] = lp.UserId
                 })
             end)
-            task.wait(1) -- 上傳頻率 1 秒
+            task.wait(1)
         end
     end)
 
@@ -213,24 +223,23 @@ local function startCloudSync()
         local lastG, lastP = "", ""
         while true do
             pcall(function()
-                -- 讀取公告與私訊
-                local resG = httpRequest("GET", CLOUD_URL .. "announcement.json")
+                local resG = httpRequest("GET", myDBURL .. "announcement.json")
                 if resG and resG.Body then
                     local data = HttpService:JSONDecode(resG.Body)
                     if data and data.msg and data.msg ~= "" and data.msg ~= lastG then
                         lastG = data.msg; showNotice(data.msg, false)
                     end
                 end
-                local resP = httpRequest("GET", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
+                local resP = httpRequest("GET", myDBURL .. "private/" .. lp.UserId .. ".json")
                 if resP and resP.Body then
                     local data = HttpService:JSONDecode(resP.Body)
                     if data and data.msg and data.msg ~= "" and data.msg ~= lastP then
                         lastP = data.msg; showNotice(data.msg, true)
-                        httpRequest("DELETE", CLOUD_URL .. "private/" .. lp.UserId .. ".json")
+                        httpRequest("DELETE", myDBURL .. "private/" .. lp.UserId .. ".json")
                     end
                 end
             end)
-            task.wait(3) -- 公告讀取頻率 3 秒
+            task.wait(3)
         end
     end)
 end
