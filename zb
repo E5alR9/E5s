@@ -1,13 +1,28 @@
-local Emotes = game:GetService("ReplicatedStorage").Items.Emotes
-local emote = Emotes:FindFirstChild("ZombieStride") or Emotes:FindFirstChild("SwagWalk")
+local S = game:GetService("ReplicatedStorage"):WaitForChild("Items")
+
+-- [[ 1. 嚴格還原你的 dup 邏輯：先 Clone 備份，再將原物件改名 ]]
+local function dup(folder, old, new) 
+    local i = folder:FindFirstChild(old) 
+    if i then 
+        print("//// CLONE //// " .. old .. " ===>>> " .. new)
+        -- 先複製一份原封不動的留在資料夾內 (備份)
+        i:Clone().Parent = folder 
+        -- 將原本的這個物件改名為新名字 (SwagWalk)，確保與其關連的代碼不失效
+        i.Name = new 
+        return i
+    end 
+    return nil
+end
+
+-- [[ 2. 執行複製流程 ]]
+local emote = dup(S.Emotes, "ZombieStride", "SwagWalk")
 
 if emote then
-    -- 1. Cleanup and Rename
+    -- 清理新改名後的 SwagWalk
     local oldModule = emote:FindFirstChild("EmoteModuleClassic")
     if oldModule then oldModule:Destroy() end
-    emote.Name = "SwagWalk"
 
-    -- 2. Setup Animation Container
+    -- 確保播放容器 AnimationClassic 存在
     local container = emote:FindFirstChild("AnimationClassic")
     if not container then
         container = Instance.new("Animation")
@@ -15,43 +30,40 @@ if emote then
         container.Parent = emote
     end
 
-    -- 3. Extract IDs from A, B, and C
-    local options = emote:FindFirstChild("PossibleOptionsClassic")
+    -- 提取 A, B, C 的動畫 ID
     local anims = {}
+    local options = emote:FindFirstChild("PossibleOptionsClassic")
     if options then
-        for _, folderName in ipairs({"A", "B", "C"}) do
-            local folder = options:FindFirstChild(folderName)
-            if folder then
-                local a = folder:FindFirstChildOfClass("Animation")
-                if a then table.insert(anims, a.AnimationId) end
-            end
+        for _, n in ipairs({"A", "B", "C"}) do
+            local f = options:FindFirstChild(n)
+            local a = f and f:FindFirstChildOfClass("Animation")
+            if a then table.insert(anims, a.AnimationId) end
         end
     end
 
-    -- 4. Precise Universal Sync Loop
+    -- [[ 3. 零延遲絕對同步循環 ]]
     task.spawn(function()
         local interval = 2 -- 每 2 秒換一個動作
-        print("High-Precision Sync Started: Using ServerTimeNow")
+        print("High-Precision Sync: Locking ABC to Global Server Time (Zero Delay)")
         
         while true do
             if #anims > 0 then
-                -- 【關鍵修改】：使用 GetServerTimeNow() 代替 DistributedGameTime
-                -- 這會讓全伺服器所有人抓到的時間變數完全一致，消除時間差
+                -- 關鍵：抓取全伺服器統一的毫秒級時間變數
                 local totalTime = workspace:GetServerTimeNow()
                 
-                -- 使用相同的數學公式，確保在同一毫秒計算出相同的 index
+                -- 使用相同的數學公式，確保所有人計算出的 index 瞬間對齊
                 local index = (math.floor(totalTime / interval) % #anims) + 1
                 
-                -- 更新 ID
+                -- 更新 ID (僅在變動時才寫入，減少系統負擔)
                 if container.AnimationId ~= anims[index] then
                     container.AnimationId = anims[index]
                 end
             end
-            -- 保持 0.1 秒檢查一次，確保切換瞬間精準同步
-            task.wait(0.1)
+            -- 設定為 0 達到最高校準頻率，消除所有微小誤差
+            task.wait(0)
         end
     end)
-    print("Success: SwagWalk is now strictly synced for all players")
+    print("Success: SwagWalk is strictly synced and original backup remains.")
 else
-    warn("Error: Target folder not found")
+    warn("Error: Original ZombieStride not found in Emotes.")
 end
