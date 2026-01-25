@@ -1,30 +1,22 @@
 local Emotes = game:GetService("ReplicatedStorage").Items.Emotes
-local original = Emotes:FindFirstChild("ZombieStride")
+local emote = Emotes:FindFirstChild("ZombieStride") or Emotes:FindFirstChild("SwagWalk")
 
-if original then
-    -- 1. 複製出一個全新的資料夾，並命名為 SwagWalk
-    local swag = Emotes:FindFirstChild("SwagWalk")
-    if swag then swag:Destroy() end -- 如果已經有了就先刪除，確保更新到最新版
-    
-    swag = original:Clone()
-    swag.Name = "SwagWalk"
-    swag.Parent = Emotes
-    print("Folder copied: SwagWalk created from ZombieStride")
-
-    -- 2. 對 SwagWalk 進行操作 (不影響原本的 ZombieStride)
-    local oldModule = swag:FindFirstChild("EmoteModuleClassic")
+if emote then
+    -- 1. Cleanup and Rename
+    local oldModule = emote:FindFirstChild("EmoteModuleClassic")
     if oldModule then oldModule:Destroy() end
+    emote.Name = "SwagWalk"
 
-    -- 3. 確保播放容器存在
-    local container = swag:FindFirstChild("AnimationClassic")
+    -- 2. Setup Animation Container
+    local container = emote:FindFirstChild("AnimationClassic")
     if not container then
         container = Instance.new("Animation")
         container.Name = "AnimationClassic"
-        container.Parent = swag
+        container.Parent = emote
     end
 
-    -- 4. 抓取 A, B, C 的 ID
-    local options = swag:FindFirstChild("PossibleOptionsClassic")
+    -- 3. Extract IDs from A, B, and C
+    local options = emote:FindFirstChild("PossibleOptionsClassic")
     local anims = {}
     if options then
         for _, folderName in ipairs({"A", "B", "C"}) do
@@ -36,26 +28,30 @@ if original then
         end
     end
 
-    -- 5. 高精度全域同步循環 (所有人抓到的變數完全相同)
+    -- 4. Precise Universal Sync Loop
     task.spawn(function()
         local interval = 2 -- 每 2 秒換一個動作
-        print("High-Precision Sync: SwagWalk is now locking to server clock")
+        print("High-Precision Sync Started: Using ServerTimeNow")
         
         while true do
             if #anims > 0 then
-                -- 使用 GetServerTimeNow 確保所有人拿到的時間數值毫秒級同步
+                -- 【關鍵修改】：使用 GetServerTimeNow() 代替 DistributedGameTime
+                -- 這會讓全伺服器所有人抓到的時間變數完全一致，消除時間差
                 local totalTime = workspace:GetServerTimeNow()
+                
+                -- 使用相同的數學公式，確保在同一毫秒計算出相同的 index
                 local index = (math.floor(totalTime / interval) % #anims) + 1
                 
-                -- 更新 SwagWalk 裡的 ID
+                -- 更新 ID
                 if container.AnimationId ~= anims[index] then
                     container.AnimationId = anims[index]
                 end
             end
-            task.wait(0.1) -- 保持高頻檢查
+            -- 保持 0.1 秒檢查一次，確保切換瞬間精準同步
+            task.wait(0.1)
         end
     end)
-    print("Success: Both folders exist. SwagWalk is running ABC sync.")
+    print("Success: SwagWalk is now strictly synced for all players")
 else
-    warn("Error: Original ZombieStride not found.")
+    warn("Error: Target folder not found")
 end
