@@ -1,4 +1,4 @@
--- [[ 🔑 E5 COMMANDER - AUTO-CLEAN CROSS-DB DATA ]]
+-- [[ 🔑 E5 COMMANDER - HIGH FREQUENCY STABLE (INTEGRATED) ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -13,7 +13,7 @@ local DB_LIST = {
     [3] = "https://e5alr93-default-rtdb.asia-southeast1.firebasedatabase.app/"
 }
 
--- [分流與清理規則定義]
+-- [分流計算與清理規則]
 local function getTargetDB(uid)
     local digit = uid % 10
     if digit <= 3 then return 1 end
@@ -26,6 +26,8 @@ local myDBURL = DB_LIST[myDBIndex]
 
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
+
+-- [校準變數]
 local finalJoinTime = os.time() 
 
 -- [[ 🌐 HTTP 工具 ]]
@@ -43,12 +45,13 @@ local function httpRequest(method, url, body)
     end
 end
 
--- [[ 📢 Notice 系統 (保持原版) ]]
+-- [[ 📢 Notice 系統 ]]
 local function showNotice(msg, isPrivate)
     if not msg or msg == "" then return end
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Notice"
     sg.ResetOnSpawn = false
+    
     local container = Instance.new("Frame", sg)
     container.Size = UDim2.new(0, 0, 0, 50)
     container.Position = UDim2.new(0.5, 0, 0.1, 0)
@@ -56,10 +59,12 @@ local function showNotice(msg, isPrivate)
     container.BackgroundTransparency = 0.5
     container.ClipsDescendants = true
     Instance.new("UICorner", container).CornerRadius = UDim.new(0, 8)
+    
     local frameStroke = Instance.new("UIStroke", container)
     frameStroke.Color = isPrivate and Color3.fromRGB(255, 200, 0) or Color3.fromHex("A475D7")
     frameStroke.Thickness = 2
     frameStroke.Transparency = 1
+
     local label = Instance.new("TextLabel", container)
     label.Size = UDim2.new(0, 400, 1, 0)
     label.Position = UDim2.new(0.5, -200, 0, 0)
@@ -81,11 +86,13 @@ local function showNotice(msg, isPrivate)
         Size = UDim2.new(0, 420, 0, 50),
         Position = UDim2.new(0.5, -210, 0.1, 0)
     })
+    
     expandTween:Play()
     expandTween.Completed:Connect(function()
         TweenService:Create(label, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
         TweenService:Create(frameStroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
     end)
+
     task.delay(8, function()
         local fade = TweenService:Create(label, TweenInfo.new(0.5), {TextTransparency = 1})
         fade:Play()
@@ -100,13 +107,14 @@ local function showNotice(msg, isPrivate)
     end)
 end
 
--- [[ 🛰️ Admin Panel (包含跨庫清理邏輯) ]]
+-- [[ 🛰️ Admin Panel ]]
 local function buildAdminPanel()
     local sg = lp.PlayerGui:FindFirstChild("E5_Admin_Panel") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Admin_Panel"
     sg.Enabled = false
     sg.ResetOnSpawn = false
     sg:ClearAllChildren()
+
     local frame = Instance.new("Frame", sg)
     frame.Size = UDim2.new(0, 420, 0, 650)
     frame.Position = UDim2.new(1, -430, 0.5, -325)
@@ -114,13 +122,16 @@ local function buildAdminPanel()
     frame.BackgroundTransparency = 0.3
     Instance.new("UICorner", frame)
     Instance.new("UIStroke", frame).Color = Color3.fromHex("A475D7")
+
     local list = Instance.new("ScrollingFrame", frame)
     list.Size = UDim2.new(0.9, 0, 0.78, 0)
     list.Position = UDim2.new(0.05, 0, 0.05, 0)
     list.BackgroundTransparency = 1
+    list.CanvasSize = UDim2.new(0, 0, 0, 0)
     list.AutomaticCanvasSize = Enum.AutomaticSize.Y
     list.ScrollBarThickness = 2
     Instance.new("UIListLayout", list).Padding = UDim.new(0, 10)
+
     local input = Instance.new("TextBox", frame)
     input.Size = UDim2.new(0.9, 0, 0, 60)
     input.Position = UDim2.new(0.05, 0, 0.88, 0)
@@ -133,7 +144,7 @@ local function buildAdminPanel()
     input.FocusLost:Connect(function(enter)
         if enter and input.Text ~= "" then
             local text = input.Text
-            for i = 1, 3 do
+            for i = 1, 3 do 
                 if string.find(text, ":") then
                     local split = string.split(text, ":")
                     httpRequest("PUT", DB_LIST[i] .. "private/" .. string.gsub(split[1], " ", "") .. ".json", {["msg"] = split[2]})
@@ -150,38 +161,47 @@ local function buildAdminPanel()
         while true do
             if sg.Enabled then
                 local allUserData = {}
-                for i = 1, 3 do
+                for i = 1, 3 do 
                     pcall(function()
                         local res = httpRequest("GET", DB_LIST[i] .. "users.json")
                         if res and res.Body then
                             local data = HttpService:JSONDecode(res.Body)
-                            for id, info in pairs(data) do
+                            for id, info in pairs(data) do 
                                 local uid = tonumber(id) or tonumber(info.userId)
-                                -- 🔥 強制清理邏輯：如果該玩家不屬於這個庫，直接 DELETE
+                                -- 自動清理：如果該玩家不在對應的庫，直接刪除
                                 if uid and getTargetDB(uid) ~= i then
                                     httpRequest("DELETE", DB_LIST[i] .. "users/" .. id .. ".json")
-                                elseif os.time() - (tonumber(info.lastSeen) or 0) <= 30 then
-                                    allUserData[id] = info
+                                else
+                                    allUserData[id] = info 
                                 end
                             end
                         end
                     end)
                 end
+                
                 for _, v in pairs(list:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
                 for id, info in pairs(allUserData) do
-                    local item = Instance.new("TextButton", list)
-                    item.Size = UDim2.new(1, 0, 0, 140) 
-                    item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
-                    item.BackgroundTransparency = 0.2
-                    Instance.new("UICorner", item).CornerRadius = UDim.new(0, 6)
-                    local diff = math.max(0, os.time() - (tonumber(info.joinTime) or os.time()))
-                    local d, h, m, s = math.floor(diff/86400), math.floor((diff%86400)/3600), math.floor((diff%3600)/60), diff%60
-                    item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %dd %dh %dm %ds", info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", d, h, m, s)
-                    item.TextColor3 = Color3.new(1, 1, 1)
-                    item.TextSize = 17
-                    item.Font = Enum.Font.GothamBold
-                    item.TextWrapped = true
-                    item.MouseButton1Click:Connect(function() if setclipboard then setclipboard(tostring(info.userId) .. ":") end end)
+                    local currentTime = os.time()
+                    local lastSeen = tonumber(info.lastSeen) or 0
+                    if currentTime - lastSeen <= 30 then
+                        local item = Instance.new("TextButton", list)
+                        item.Size = UDim2.new(1, 0, 0, 140) 
+                        item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
+                        item.BackgroundTransparency = 0.2
+                        Instance.new("UICorner", item).CornerRadius = UDim.new(0, 6)
+
+                        local join = tonumber(info.joinTime) or currentTime
+                        local diff = math.max(0, currentTime - join)
+                        local d, h, m, s = math.floor(diff/86400), math.floor((diff%86400)/3600), math.floor((diff%3600)/60), math.floor(diff%60)
+                        
+                        item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %dd %dh %dm %ds", 
+                            info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", d, h, m, s)
+                        item.TextColor3 = Color3.new(1, 1, 1)
+                        item.TextSize = 17
+                        item.Font = Enum.Font.GothamBold
+                        item.TextWrapped = true
+                        item.MouseButton1Click:Connect(function() if setclipboard then setclipboard(tostring(info.userId) .. ":") end end)
+                    end
                 end
             end
             task.wait(3)
@@ -191,27 +211,25 @@ end
 
 -- [[ 🚀 啟動與同步 ]]
 local function startCloudSync()
-    -- 啟動時先清理一遍自己的資料庫，刪除那些「跑錯棚」的玩家
-    task.spawn(function()
-        pcall(function()
-            local res = httpRequest("GET", myDBURL .. "users.json")
-            if res and res.Body then
-                local data = HttpService:JSONDecode(res.Body)
-                for id, info in pairs(data) do
-                    local uid = tonumber(id) or tonumber(info.userId)
-                    if uid and getTargetDB(uid) ~= myDBIndex then
-                        httpRequest("DELETE", myDBURL .. "users/" .. id .. ".json")
-                    end
-                end
-            end
-        end)
-    end)
-
-    local existingData = httpRequest("GET", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json")
-    if existingData and existingData.Body ~= "null" then
-        finalJoinTime = tonumber(existingData.Body) or os.time()
+    -- [[ JoinTime 穩定器：讀取失敗不覆蓋 ]]
+    local cloudTime = nil
+    for i = 1, 3 do
+        local res = httpRequest("GET", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json")
+        if res and res.Body and res.Body ~= "null" then
+            cloudTime = tonumber(res.Body)
+            break
+        end
+        task.wait(0.5)
     end
 
+    if cloudTime then
+        finalJoinTime = cloudTime
+    else
+        -- 雲端真的沒資料才寫入
+        httpRequest("PUT", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json", finalJoinTime)
+    end
+
+    -- 定時上傳狀態
     task.spawn(function()
         while true do
             pcall(function()
@@ -226,18 +244,22 @@ local function startCloudSync()
         end
     end)
 
+    -- 定時讀取公告與私訊
     task.spawn(function()
         local lastG, lastP = "", ""
         while true do
             pcall(function()
                 local resG = httpRequest("GET", myDBURL .. "announcement.json")
-                if resG and resG.Body and HttpService:JSONDecode(resG.Body).msg ~= lastG then
-                    lastG = HttpService:JSONDecode(resG.Body).msg; showNotice(lastG, false)
+                if resG and resG.Body then
+                    local data = HttpService:JSONDecode(resG.Body)
+                    if data and data.msg and data.msg ~= "" and data.msg ~= lastG then
+                        lastG = data.msg; showNotice(data.msg, false)
+                    end
                 end
                 local resP = httpRequest("GET", myDBURL .. "private/" .. lp.UserId .. ".json")
                 if resP and resP.Body then
                     local data = HttpService:JSONDecode(resP.Body)
-                    if data and data.msg ~= "" and data.msg ~= lastP then
+                    if data and data.msg and data.msg ~= "" and data.msg ~= lastP then
                         lastP = data.msg; showNotice(data.msg, true)
                         httpRequest("DELETE", myDBURL .. "private/" .. lp.UserId .. ".json")
                     end
@@ -248,7 +270,7 @@ local function startCloudSync()
     end)
 end
 
-function init()
+local function init()
     startCloudSync()
     if isDeveloper then buildAdminPanel() end
     pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/main"))() end)
@@ -291,6 +313,7 @@ else
     end)
 end
 
+-- 按 Tab 切換 Admin 面板
 UIS.InputBegan:Connect(function(i, gpe)
     if not gpe and i.KeyCode == Enum.KeyCode.Tab and lp.PlayerGui:FindFirstChild("E5_Admin_Panel") then
         lp.PlayerGui.E5_Admin_Panel.Enabled = not lp.PlayerGui.E5_Admin_Panel.Enabled
