@@ -1,8 +1,9 @@
--- [[ 🔑 E5 COMMANDER - 10-WAY STABLE (FULL INTEGRATED) ]]
+-- [[ 🔑 E5 COMMANDER - 10-WAY STABLE (INTEGRATED + TELEPORT) ]]
 local lp = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService") -- 服務獲取
 local CORRECT_KEY = "E5alR9"
 local FILE_NAME = "E5_Auth.txt"
 
@@ -20,7 +21,7 @@ local DB_LIST = {
     [9] = "https://e5alr99-default-rtdb.asia-southeast1.firebasedatabase.app/"
 }
 
--- [分流計算：尾數 0-9 對應]
+-- [分流計算]
 local function getTargetDB(uid)
     return uid % 10
 end
@@ -30,8 +31,6 @@ local myDBURL = DB_LIST[myDBIndex]
 
 local devId = 8691746995
 local isDeveloper = (lp.UserId == devId or lp.Name == "E5alR9")
-
--- [校準變數]
 local finalJoinTime = os.time() 
 
 -- [[ 🌐 HTTP 工具 ]]
@@ -55,7 +54,6 @@ local function showNotice(msg, isPrivate)
     local sg = lp.PlayerGui:FindFirstChild("E5_Notice") or Instance.new("ScreenGui", lp.PlayerGui)
     sg.Name = "E5_Notice"
     sg.ResetOnSpawn = false
-    
     local container = Instance.new("Frame", sg)
     container.Size = UDim2.new(0, 0, 0, 50)
     container.Position = UDim2.new(0.5, 0, 0.1, 0)
@@ -63,12 +61,10 @@ local function showNotice(msg, isPrivate)
     container.BackgroundTransparency = 0.5
     container.ClipsDescendants = true
     Instance.new("UICorner", container).CornerRadius = UDim.new(0, 8)
-    
     local frameStroke = Instance.new("UIStroke", container)
     frameStroke.Color = isPrivate and Color3.fromRGB(255, 200, 0) or Color3.fromHex("A475D7")
     frameStroke.Thickness = 2
     frameStroke.Transparency = 1
-
     local label = Instance.new("TextLabel", container)
     label.Size = UDim2.new(0, 400, 1, 0)
     label.Position = UDim2.new(0.5, -200, 0, 0)
@@ -79,31 +75,25 @@ local function showNotice(msg, isPrivate)
     label.Text = tostring(msg)
     label.TextWrapped = true
     label.TextTransparency = 1
-
     for _, v in pairs(sg:GetChildren()) do
         if v:IsA("Frame") and v ~= container then
             v:TweenPosition(v.Position + UDim2.new(0, 0, 0, 60), "Out", "Quad", 0.3, true)
         end
     end
-
     local expandTween = TweenService:Create(container, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 420, 0, 50),
-        Position = UDim2.new(0.5, -210, 0.1, 0)
+        Size = UDim2.new(0, 420, 0, 50), Position = UDim2.new(0.5, -210, 0.1, 0)
     })
-    
     expandTween:Play()
     expandTween.Completed:Connect(function()
         TweenService:Create(label, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
         TweenService:Create(frameStroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
     end)
-
     task.delay(8, function()
         local fade = TweenService:Create(label, TweenInfo.new(0.5), {TextTransparency = 1})
         fade:Play()
         fade.Completed:Connect(function()
             local shrink = TweenService:Create(container, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Size = UDim2.new(0, 0, 0, 50),
-                Position = UDim2.new(0.5, 0, container.Position.Y.Scale, container.Position.Y.Offset)
+                Size = UDim2.new(0, 0, 0, 50), Position = UDim2.new(0.5, 0, container.Position.Y.Scale, container.Position.Y.Offset)
             })
             shrink:Play()
             shrink.Completed:Connect(function() container:Destroy() end)
@@ -172,7 +162,6 @@ local function buildAdminPanel()
                             local data = HttpService:JSONDecode(res.Body)
                             for id, info in pairs(data) do 
                                 local uid = tonumber(id) or tonumber(info.userId)
-                                -- 自動清理：如果該玩家不在對應尾數的庫，直接刪除
                                 if uid and getTargetDB(uid) ~= i then
                                     httpRequest("DELETE", DB_LIST[i] .. "users/" .. id .. ".json")
                                 else
@@ -193,18 +182,32 @@ local function buildAdminPanel()
                         item.BackgroundColor3 = (info.jobId == game.JobId) and Color3.fromHex("4A306D") or Color3.fromRGB(35, 35, 35)
                         item.BackgroundTransparency = 0.2
                         Instance.new("UICorner", item).CornerRadius = UDim.new(0, 6)
-
                         local join = tonumber(info.joinTime) or currentTime
                         local diff = math.max(0, currentTime - join)
                         local d, h, m, s = math.floor(diff/86400), math.floor((diff%86400)/3600), math.floor((diff%3600)/60), math.floor(diff%60)
-                        
-                        item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %dd %dh %dm %ds", 
-                            info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", d, h, m, s)
+                        item.Text = string.format("👤 %s\n(@%s)\nID: %s\nStatus: %s\nOnline: %dd %dh %dm %ds", info.displayName or "N/A", info.username or "N/A", info.userId or "N/A", info.status or "ALIVE", d, h, m, s)
                         item.TextColor3 = Color3.new(1, 1, 1)
                         item.TextSize = 17
                         item.Font = Enum.Font.GothamBold
                         item.TextWrapped = true
-                        item.MouseButton1Click:Connect(function() if setclipboard then setclipboard(tostring(info.userId) .. ":") end end)
+
+                        -- [[ 🖱️ 單擊複製 / 雙擊追蹤 ]]
+                        local lastClick = 0
+                        item.MouseButton1Click:Connect(function()
+                            local now = tick()
+                            if now - lastClick < 0.35 then
+                                if info.jobId and info.jobId ~= "" and info.jobId ~= game.JobId then
+                                    showNotice("正在追蹤玩家...", true)
+                                    TeleportService:TeleportToPlaceInstance(game.PlaceId, info.jobId, lp)
+                                end
+                            else
+                                if setclipboard then 
+                                    setclipboard(tostring(info.userId) .. ":")
+                                    showNotice("已複製 ID: " .. info.userId, false)
+                                end
+                            end
+                            lastClick = now
+                        end)
                     end
                 end
             end
@@ -215,7 +218,6 @@ end
 
 -- [[ 🚀 啟動與同步 ]]
 local function startCloudSync()
-    -- [[ JoinTime 穩定器 ]]
     local cloudTime = nil
     for i = 1, 3 do
         local res = httpRequest("GET", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json")
@@ -225,13 +227,7 @@ local function startCloudSync()
         end
         task.wait(0.5)
     end
-
-    if cloudTime then
-        finalJoinTime = cloudTime
-    else
-        httpRequest("PUT", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json", finalJoinTime)
-    end
-
+    if cloudTime then finalJoinTime = cloudTime else httpRequest("PUT", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json", finalJoinTime) end
     task.spawn(function()
         while true do
             pcall(function()
@@ -245,7 +241,6 @@ local function startCloudSync()
             task.wait(1)
         end
     end)
-
     task.spawn(function()
         local lastG, lastP = "", ""
         while true do
@@ -314,7 +309,6 @@ else
     end)
 end
 
--- 按 Tab 切換 Admin 面板
 UIS.InputBegan:Connect(function(i, gpe)
     if not gpe and i.KeyCode == Enum.KeyCode.Tab and lp.PlayerGui:FindFirstChild("E5_Admin_Panel") then
         lp.PlayerGui.E5_Admin_Panel.Enabled = not lp.PlayerGui.E5_Admin_Panel.Enabled
