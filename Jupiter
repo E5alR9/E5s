@@ -1,39 +1,24 @@
--- [[ 🪐 木星 18.0 - 純粒子系統：無核心球體、黑色隕石、四大衛星 ]]
+-- [[ 🪐 木星 19.0 - 全域隨機動態平衡版 ]]
 local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 local p = game:GetService("Players").LocalPlayer
-local jupiterTag = "E5_Jupiter_Pure_Particle"
+local jupiterTag = "E5_Jupiter_DynamicBalance"
 
--- 檢查是否已存在，若存在則執行「清理並恢復天空」
 local existing = workspace:FindFirstChild(jupiterTag)
 if existing then
 	_G.jupiterActive = false
 	existing:Destroy()
-	
-	-- 【天空恢復核心】
 	if _G.oldLighting then
 		Lighting.ClockTime = _G.oldLighting.Time
 		Lighting.Brightness = _G.oldLighting.Brightness
 		Lighting.OutdoorAmbient = _G.oldLighting.Outdoor
-		_G.oldLighting = nil -- 清除緩存
-	else
-		-- 萬一緩存丟失，恢復默認值
-		Lighting.ClockTime = 14
-		Lighting.Brightness = 2
-		Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+		_G.oldLighting = nil
 	end
 	return 
 else
-	-- 開啟木星邏輯
 	_G.jupiterActive = true
-	
-	-- 儲存當前天空狀態以便稍後恢復
-	_G.oldLighting = {
-		Time = Lighting.ClockTime,
-		Brightness = Lighting.Brightness,
-		Outdoor = Lighting.OutdoorAmbient
-	}
+	_G.oldLighting = {Time = Lighting.ClockTime, Brightness = Lighting.Brightness, Outdoor = Lighting.OutdoorAmbient}
 
-	-- 進入宇宙模式：全黑
 	Lighting.ClockTime = 0
 	Lighting.Brightness = 0
 	Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
@@ -44,54 +29,68 @@ else
 	local jupiterRadius = 250
 	local bodyCount = 10000 
 	local ringCount = 3500 
-	local bodyParts, ringParts, moons = {}, {}, {}
+	
+	-- 數據儲存池
+	local activeBody = {}   -- 本體
+	local inactiveBody = {} 
+	local activeRing = {}   -- 隕石環
+	local inactiveRing = {}
 
-	-- 1. 木星本體生成 (Tab 縮進)
+	-- 1. 木星本體數據初始化 (完全保留原始懸臂/球體函數)
 	for i = 1, bodyCount do
-		local prt = Instance.new("Part", container)
-		local isDetail = (i % 2 == 0)
-		prt.Size = isDetail and Vector3.new(10, 10, 10) or Vector3.new(22, 22, 22)
-		prt.Material, prt.Anchored, prt.CanCollide = Enum.Material.Neon, true, false
-		
 		local offset = 2 / bodyCount
 		local inc = math.pi * (3 - math.sqrt(5))
 		local y = ((i - 1) * offset - 1) + (offset / 2)
 		local r = math.sqrt(1 - math.pow(y, 2))
 		local phi = i * inc
+		local isDetail = (i % 2 == 0)
 		
-		table.insert(bodyParts, {
-			Obj = prt,
+		local data = {
+			Size = isDetail and Vector3.new(10, 10, 10) or Vector3.new(22, 22, 22),
 			RadiusAtY = r * jupiterRadius,
 			YPos = y * jupiterRadius,
 			InitialPhi = phi,
-			Lat = y, U = phi, V = y
-		})
-	end
-
-	-- 2. 黑色隕石環 (Tab 縮進)
-	for i = 1, ringCount do
+			Lat = y, U = phi, V = y,
+			Instance = nil
+		}
+		
+		-- 初始加載實體
 		local prt = Instance.new("Part", container)
-		prt.Shape, prt.Size = Enum.PartType.Ball, Vector3.new(1,1,1) * (math.random()*6+2)
-		prt.Material = Enum.Material.Basalt
-		local g = math.random(10, 35)
-		prt.Color = Color3.fromRGB(g, g, g)
-		prt.Anchored, prt.CanCollide = true, false
-		local rad = jupiterRadius * 1.5 + (math.random() * jupiterRadius * 1.3)
-		table.insert(ringParts, {
-			Obj = prt, Rad = rad, Angle = math.random()*6,
-			Spd = 0.04/(math.sqrt(rad)*0.1), H = (math.random()-0.5)*35,
-			RotAxis = Vector3.new(math.random(),math.random(),math.random()).Unit, RotSpd = math.random()*3
-		})
+		prt.Size = data.Size
+		prt.Material, prt.Anchored, prt.CanCollide = Enum.Material.Neon, true, false
+		data.Instance = prt
+		table.insert(activeBody, data)
 	end
 
-	-- 3. 衛星系統 (Tab 縮進)
+	-- 2. 黑色隕石環數據初始化
+	for i = 1, ringCount do
+		local rad = jupiterRadius * 1.5 + (math.random() * jupiterRadius * 1.3)
+		local g = math.random(10, 35)
+		local data = {
+			Rad = rad, Angle = math.random()*6,
+			Spd = 0.04/(math.sqrt(rad)*0.1), H = (math.random()-0.5)*35,
+			Size = Vector3.new(1,1,1) * (math.random()*6+2),
+			Color = Color3.fromRGB(g, g, g),
+			RotAxis = Vector3.new(math.random(),math.random(),math.random()).Unit, 
+			RotSpd = math.random()*3,
+			Instance = nil
+		}
+		
+		local prt = Instance.new("Part", container)
+		prt.Shape, prt.Size, prt.Color = Enum.PartType.Ball, data.Size, data.Color
+		prt.Material, prt.Anchored, prt.CanCollide = Enum.Material.Basalt, true, false
+		data.Instance = prt
+		table.insert(activeRing, data)
+	end
+
+	-- 3. 衛星系統 (較輕量，不參與隨機刪除以保持地標可見)
+	local moons = {}
 	local moonData = {
 		{Name = "Io", Col = Color3.fromRGB(255, 220, 50), Rad = 600, Spd = 0.012, Size = 15},
 		{Name = "Europa", Col = Color3.fromRGB(160, 200, 255), Rad = 900, Spd = 0.009, Size = 12},
 		{Name = "Ganymede", Col = Color3.fromRGB(180, 180, 180), Rad = 1300, Spd = 0.006, Size = 22},
 		{Name = "Callisto", Col = Color3.fromRGB(120, 100, 90), Rad = 1700, Spd = 0.004, Size = 20}
 	}
-
 	for _, m in ipairs(moonData) do
 		local g = {}
 		for j = 1, 350 do
@@ -104,18 +103,63 @@ else
 		table.insert(moons, {Parts = g, Config = m, Angle = math.random()*6})
 	end
 
-	-- 渲染主循環
+	-- 渲染循環
 	task.spawn(function()
-		local t = 0
+		local t, fps = 0, 144
 		local tilt = CFrame.Angles(math.rad(20), 0, math.rad(10))
+		
 		while _G.jupiterActive and container.Parent do
+			local dt = RunService.RenderStepped:Wait()
+			fps = 0.9 * fps + 0.1 * (1 / dt)
 			t = t + 0.004
+			
 			local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
 			if root then
 				local center = root.Position + Vector3.new(1200, 500, -1200)
-				
-				-- 木星差異自轉
-				for _, d in ipairs(bodyParts) do
+
+				-- 【木星隨機平衡邏輯：只刪密度，不改半徑】
+				if fps < 100 then
+					-- 刪除本體粒子
+					if #activeBody > 500 then
+						for i = 1, 30 do
+							local rIdx = math.random(#activeBody)
+							local data = table.remove(activeBody, rIdx)
+							if data and data.Instance then data.Instance:Destroy(); data.Instance = nil; table.insert(inactiveBody, data) end
+						end
+					end
+					-- 刪除隕石環粒子
+					if #activeRing > 300 then
+						for i = 1, 15 do
+							local rIdx = math.random(#activeRing)
+							local data = table.remove(activeRing, rIdx)
+							if data and data.Instance then data.Instance:Destroy(); data.Instance = nil; table.insert(inactiveRing, data) end
+						end
+					end
+				elseif fps > 115 then
+					-- 補回本體
+					for i = 1, 15 do
+						if #inactiveBody == 0 then break end
+						local data = table.remove(inactiveBody, math.random(#inactiveBody))
+						local prt = Instance.new("Part", container)
+						prt.Size = data.Size
+						prt.Material, prt.Anchored, prt.CanCollide = Enum.Material.Neon, true, false
+						data.Instance = prt
+						table.insert(activeBody, data)
+					end
+					-- 補回隕石
+					for i = 1, 8 do
+						if #inactiveRing == 0 then break end
+						local data = table.remove(inactiveRing, math.random(#inactiveRing))
+						local prt = Instance.new("Part", container)
+						prt.Shape, prt.Size, prt.Color = Enum.PartType.Ball, data.Size, data.Color
+						prt.Material, prt.Anchored, prt.CanCollide = Enum.Material.Basalt, true, false
+						data.Instance = prt
+						table.insert(activeRing, data)
+					end
+				end
+
+				-- 渲染木星本體
+				for _, d in ipairs(activeBody) do
 					local diffSpd = (1 - math.abs(d.Lat) * 0.4) * t * 0.2
 					local currentPhi = d.InitialPhi + diffSpd
 					local noise = math.noise(d.U * 0.5, d.V * 2, t * 0.3)
@@ -124,21 +168,20 @@ else
 					d.Obj.Position = center + (tilt * Vector3.new(math.cos(currentPhi)*d.RadiusAtY, d.YPos, math.sin(currentPhi)*d.RadiusAtY))
 				end
 				
-				-- 隕石翻滾
-				for _, d in ipairs(ringParts) do
+				-- 渲染隕石環
+				for _, d in ipairs(activeRing) do
 					d.Angle = d.Angle + d.Spd * 0.4
 					local pos = center + (tilt * Vector3.new(math.cos(d.Angle)*d.Rad, d.H, math.sin(d.Angle)*d.Rad))
 					d.Obj.CFrame = CFrame.new(pos) * tilt * CFrame.fromAxisAngle(d.RotAxis, t * d.RotSpd)
 				end
 
-				-- 衛星運行
+				-- 渲染衛星
 				for _, m in ipairs(moons) do
 					m.Angle = m.Angle + m.Config.Spd
 					local mC = center + (tilt * Vector3.new(math.cos(m.Angle)*m.Config.Rad, 0, math.sin(m.Angle)*m.Config.Rad))
 					for _, mp in ipairs(m.Parts) do mp.Obj.Position = mC + mp.LPos end
 				end
 			end
-			task.wait()
 		end
 	end)
 end
