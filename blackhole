@@ -1,8 +1,8 @@
--- [[ 粒子黑洞：FPS 低於 100 自動刪除粒子 + 280 最佳距離 ]]
+-- [[ 🌌 粒子黑洞 11.0 - 隨機密度平衡 (不改吸積盤長度) ]]
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local p = game:GetService("Players").LocalPlayer
-local holeTag = "E5_Vortex_Auto_Delete"
+local holeTag = "E5_Vortex_DynamicBalance"
 
 local existingHole = workspace:FindFirstChild(holeTag)
 
@@ -50,10 +50,27 @@ else
 	core.Color, core.Material = Color3.new(0, 0, 0), Enum.Material.Neon
 	core.CanCollide, core.Anchored = false, true
 
-	local orbs = {}
+	local activeOrbs = {}   -- 場上的粒子
+	local inactivePool = {} -- 被暫時刪除的數據池
 	local orbCount = 15000 
 
+	-- 初始化數據（保持你原始的半徑數學公式）
 	for i = 1, orbCount do
+		local prog = i / orbCount
+		local baseRadius = 22 + (math.sqrt(prog) * 65) 
+		
+		local data = {
+			BaseRadius = baseRadius,
+			Angle = math.random() * math.pi * 2,
+			DriftSpeed = 0.5 + math.random(),
+			DriftAmount = 5 + math.random(0, 15),
+			RotSpeed = (0.25 + math.random() * 0.15) / (baseRadius^0.4),
+			Seed = math.random(1, 100000),
+			YOffset = (math.random() - 0.5) * (baseRadius * 0.1),
+			Part = nil
+		}
+
+		-- 初始加載所有實體
 		local part = Instance.new("Part", container)
 		part.Shape, part.Size = Enum.PartType.Ball, Vector3.new(0.5, 0.5, 0.5)
 		part.Material, part.CanCollide, part.Anchored = Enum.Material.Neon, false, true
@@ -63,26 +80,14 @@ else
 		a1.Position = Vector3.new(0, 0.2, 0)
 		tr.Attachment0, tr.Attachment1 = a0, a1
 		tr.Lifetime, tr.WidthScale = 0.1, NumberSequence.new(0.8, 0)
-
-		local prog = i / orbCount
-		local baseRadius = 22 + (math.sqrt(prog) * 65) 
 		
-		table.insert(orbs, {
-			Part = part,
-			Angle = math.random() * math.pi * 2,
-			BaseRadius = baseRadius,
-			DriftSpeed = 0.5 + math.random(),
-			DriftAmount = 5 + math.random(0, 15), 
-			RotSpeed = (0.25 + math.random() * 0.15) / (baseRadius^0.4),
-			Seed = math.random(1, 100000),
-			YOffset = (math.random() - 0.5) * (baseRadius * 0.1)
-		})
+		data.Part = part
+		table.insert(activeOrbs, data)
 	end
 
 	task.spawn(function()
-		local t = 0
+		local t, fps = 0, 144
 		local tilt = CFrame.Angles(math.rad(25), 0, math.rad(15)) 
-		local fps = 144
 		
 		while container.Parent and _G.skyEnabled do
 			local dt = RunService.RenderStepped:Wait()
@@ -93,24 +98,45 @@ else
 			local root = char and char:FindFirstChild("HumanoidRootPart")
 			
 			if root then
-				-- 【距離回歸 280：保持穩定壓迫感】
 				local centerPos = root.Position + Vector3.new(280, 120, -150)
 				core.Position = centerPos
 				
-				-- 自動刪除邏輯：若 FPS 低於 100，每幀強制移除 30 個粒子直到回升
-				if fps < 100 and #orbs > 500 then
-					for i = 1, 30 do
-						local targetIdx = #orbs -- 從最外圈開始刪除
-						local data = orbs[targetIdx]
+				-- 【黑洞隨機平衡邏輯】
+				if fps < 100 and #activeOrbs > 500 then
+					-- 隨機刪除粒子，密度降低但盤不縮短
+					for i = 1, 40 do
+						local rIdx = math.random(#activeOrbs)
+						local data = table.remove(activeOrbs, rIdx)
+						if data and data.Part then
+							data.Part:Destroy()
+							data.Part = nil
+							table.insert(inactivePool, data)
+						end
+					end
+				elseif fps > 115 and #inactivePool > 0 then
+					-- 隨機補回粒子
+					for i = 1, 20 do
+						local rIdx = math.random(#inactivePool)
+						local data = table.remove(inactivePool, rIdx)
 						if data then
-							if data.Part then data.Part:Destroy() end
-							table.remove(orbs, targetIdx)
+							local part = Instance.new("Part", container)
+							part.Shape, part.Size = Enum.PartType.Ball, Vector3.new(0.5, 0.5, 0.5)
+							part.Material, part.CanCollide, part.Anchored = Enum.Material.Neon, false, true
+							
+							local tr = Instance.new("Trail", part)
+							local a0, a1 = Instance.new("Attachment", part), Instance.new("Attachment", part)
+							a1.Position = Vector3.new(0, 0.2, 0)
+							tr.Attachment0, tr.Attachment1 = a0, a1
+							tr.Lifetime, tr.WidthScale = 0.1, NumberSequence.new(0.8, 0)
+							
+							data.Part = part
+							table.insert(activeOrbs, data)
 						end
 					end
 				end
 
-				-- 渲染循環
-				for _, data in ipairs(orbs) do
+				-- 渲染所有存在的粒子
+				for _, data in ipairs(activeOrbs) do
 					data.Angle = data.Angle + data.RotSpeed
 					local drift = math.sin(t * data.DriftSpeed + data.Seed) * data.DriftAmount
 					local currentR = data.BaseRadius + drift
