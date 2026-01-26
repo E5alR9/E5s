@@ -1,0 +1,127 @@
+-- [[ 🪐 光年速轉 124.0 - 1min=1yr 真實比例 / 太陽核心 / 100 FPS / Tab 縮進 ]]
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local p = game:GetService("Players").LocalPlayer
+local solarTag = "Universe_TimeScale_V124"
+
+-- 【1. 開關核心邏輯】
+local existing = workspace:FindFirstChild(solarTag)
+if existing then
+	_G.solarActive = false
+	existing:Destroy()
+	if _G.oldLightingV124 then
+		Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = _G.oldLightingV124.T, _G.oldLightingV124.B, _G.oldLightingV124.O
+	end
+	return 
+end
+
+_G.oldLightingV124 = {T = Lighting.ClockTime, B = Lighting.Brightness, O = Lighting.OutdoorAmbient}
+_G.solarActive = true
+local currentSession = tick()
+_G.solarSession = currentSession
+
+Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = 0, 0, Color3.new(0, 0, 0)
+
+local container = Instance.new("Model", workspace)
+container.Name = solarTag
+
+-- 【2. 時間與比例設定】
+local YEAR_DURATION = 60 -- 地球公轉一圈所需秒數 (1分鐘=1年)
+local BASE_SPEED = (math.pi * 2) / YEAR_DURATION -- 地球角速度
+
+-- 行星配置 (Rad=軌道半徑, OrbitSpeed=相對於地球的速度比例)
+-- 現實比例：水(0.24yr), 金(0.61yr), 地(1yr), 火(1.88yr), 木(11.86yr), 土(29.45yr)
+local pConfigs = {
+	{Name = "Mercury", Col = Color3.fromRGB(170, 170, 170), Rad = 500,  RelSpd = 1/0.24,  Size = 12},
+	{Name = "Venus",   Col = Color3.fromRGB(255, 220, 100), Rad = 750,  RelSpd = 1/0.61,  Size = 22},
+	{Name = "Earth",   Col = Color3.fromRGB(50, 150, 255),  Rad = 1000, RelSpd = 1/1,     Size = 24},
+	{Name = "Mars",    Col = Color3.fromRGB(255, 100, 50),  Rad = 1300, RelSpd = 1/1.88,  Size = 16},
+	{Name = "Jupiter", Col = Color3.fromRGB(220, 180, 140), Rad = 1800, RelSpd = 1/11.86, Size = 55},
+	{Name = "Saturn",  Col = Color3.fromRGB(240, 220, 180), Rad = 2400, RelSpd = 1/29.45, Size = 48}
+}
+
+-- 【3. 太陽生成 (5,000球)】
+local sunRadius = 280
+local sunBodyCount = 5000
+local activeSun, inactiveSun = {}, {}
+for i = 1, sunBodyCount do
+	local offset = 2 / sunBodyCount
+	local inc = math.pi * (3 - math.sqrt(5))
+	local y = ((i - 1) * offset - 1) + (offset / 2)
+	local r = math.sqrt(1 - math.pow(y, 2))
+	local phi = i * inc
+	local data = {
+		Size = (i % 2 == 0) and Vector3.new(12, 12, 12) or Vector3.new(24, 24, 24),
+		RadiusAtY = r * sunRadius, YPos = y * sunRadius, InitialPhi = phi, Lat = y, Obj = nil
+	}
+	local prt = Instance.new("Part")
+	prt.Size, prt.Material, prt.Anchored, prt.CanCollide = data.Size, Enum.Material.Neon, true, false
+	prt.Parent = container
+	data.Obj = prt
+	table.insert(activeSun, data)
+end
+
+-- 【4. 行星初始化】
+local planets = {}
+for _, cfg in ipairs(pConfigs) do
+	local group = {}
+	for j = 1, 300 do
+		local pPart = Instance.new("Part", container)
+		pPart.Shape, pPart.Size, pPart.Material = Enum.PartType.Ball, Vector3.new(6,6,6), Enum.Material.Neon
+		pPart.Anchored, pPart.CanCollide, pPart.Color = true, false, cfg.Col
+		local v = Vector3.new(math.random()-0.5, math.random()-0.5, math.random()-0.5).Unit * cfg.Size
+		table.insert(group, {Obj = pPart, LPos = v})
+	end
+	table.insert(planets, {Parts = group, Config = cfg, Angle = math.random() * math.pi * 2})
+end
+
+-- 【5. 渲染與物理循環】
+task.spawn(function()
+	local t, fps = 0, 144
+	local tilt = CFrame.Angles(math.rad(10), 0, math.rad(5))
+
+	while _G.solarActive and _G.solarSession == currentSession do
+		local dt = RunService.RenderStepped:Wait()
+		fps = 0.9 * fps + 0.1 * (1 / dt)
+		t = t + dt
+
+		local char = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+		if char then
+			local center = char.Position + Vector3.new(1200, 500, -1200)
+
+			-- FPS 動態平衡
+			if fps < 100 and #activeSun > 500 then
+				local d = table.remove(activeSun, math.random(#activeSun))
+				if d.Obj then d.Obj:Destroy(); d.Obj = nil; table.insert(inactiveSun, d) end
+			elseif fps > 115 and #inactiveSun > 0 then
+				local d = table.remove(inactiveSun, math.random(#inactiveSun))
+				local prt = Instance.new("Part", container)
+				prt.Size, prt.Material, prt.Anchored, prt.CanCollide = d.Size, Enum.Material.Neon, true, false
+				d.Obj = prt
+				table.insert(activeSun, d)
+			end
+
+			-- 太陽自轉與渲染
+			for _, d in ipairs(activeSun) do
+				if d.Obj then
+					local currentPhi = d.InitialPhi + t * 0.1
+					local wave = (math.sin(d.Lat * 15 + t * 2) + 1) / 2
+					d.Obj.Color = Color3.fromRGB(255, 40, 0):lerp(Color3.fromRGB(255, 180, 0), wave)
+					d.Obj.Position = center + (tilt * Vector3.new(math.cos(currentPhi)*d.RadiusAtY, d.YPos, math.sin(currentPhi)*d.RadiusAtY))
+				end
+			end
+
+			-- 行星公轉計算 (1min = 1yr)
+			for _, pl in ipairs(planets) do
+				-- 計算當前角速度：基礎速度 * 相對現實速度比例
+				local angularVelocity = BASE_SPEED * pl.Config.RelSpd
+				pl.Angle = pl.Angle + (angularVelocity * dt)
+				
+				local pPos = center + (tilt * Vector3.new(math.cos(pl.Angle)*pl.Config.Rad, 0, math.sin(pl.Angle)*pl.Config.Rad))
+				for _, mp in ipairs(pl.Parts) do
+					mp.Obj.Position = pPos + mp.LPos
+				end
+			end
+		end
+	end
+end)
