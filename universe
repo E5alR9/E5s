@@ -1,0 +1,111 @@
+-- [[ 🌌 天文光譜 113.0 - 15,000 球 / 按大小分佈真實色 / 100 FPS 平衡 / Tab 縮進 ]]
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local p = game:GetService("Players").LocalPlayer
+local v113Tag = "Universe_Spectra_V113"
+
+-- 【1. 環境備份與恢復】
+local existing = workspace:FindFirstChild(v113Tag)
+if existing then
+	_G.v113Active = false; existing:Destroy()
+	if _G.EnvBackupV113 then
+		Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = _G.EnvBackupV113.T, _G.EnvBackupV113.B, _G.EnvBackupV113.O
+	end
+	return 
+end
+
+_G.EnvBackupV113 = {T = Lighting.ClockTime, B = Lighting.Brightness, O = Lighting.OutdoorAmbient}
+_G.v113Active = true
+local currentSession = tick()
+_G.v113Session = currentSession
+
+Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = 0, 0, Color3.new(0,0,0)
+local container = Instance.new("Model", workspace)
+container.Name = v113Tag
+
+-- 【2. 核心變量】
+local stars = {}
+local targetTotalStars = 15000 
+local currentTotalCount = 0
+local fps = 144
+
+-- 【3. 真實光譜色彩函數】
+local function getStarSpecs()
+	local rand = math.random()
+	local size, color
+	if rand > 0.95 then -- 大質量藍/白星 (極少數)
+		size = 4.5 + math.random() * 3.5
+		color = Color3.fromRGB(180, 220, 255) -- 藍白色
+	elseif rand > 0.70 then -- 中等黃/白星 (太陽類)
+		size = 2.5 + math.random() * 2
+		color = Color3.fromRGB(255, 255, 230) -- 淡黃白
+	else -- 小質量橙/紅星 (多數)
+		size = 1.2 + math.random() * 1.5
+		color = Color3.fromRGB(255, 120, 60) -- 橙紅色
+	end
+	return size, color
+end
+
+-- 【4. 星球生成：500-1200 碼】
+local function createStar()
+	local radius = math.random(500, 1200)
+	local phi = math.rad(math.random(360))
+	local theta = math.acos(2 * math.random() - 1)
+	
+	local size, color = getStarSpecs()
+	
+	local s = Instance.new("Part", container)
+	s.Shape, s.Anchored, s.CanCollide, s.Material = Enum.PartType.Ball, true, false, Enum.Material.Neon
+	s.Size = Vector3.new(size, size, size)
+	s.Color = color
+	
+	local starData = {
+		Obj = s, Radius = radius, Phi = phi, Theta = theta,
+		Speed = (math.random() > 0.5 and 1 or -1) * (math.random(30, 75) * 0.00001)
+	}
+	currentTotalCount = currentTotalCount + 1
+	return starData
+end
+
+-- 【5. 核心循環】
+task.spawn(function()
+	-- 初始啟動
+	for i = 1, 1500 do table.insert(stars, createStar()) end
+
+	while _G.v113Active and _G.v113Session == currentSession do
+		local dt = RunService.RenderStepped:Wait()
+		fps = 0.9 * fps + 0.1 * (1 / dt)
+		local char = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+		if not char then continue end
+		local rp = char.Position
+
+		-- 【100 FPS 守護者】
+		if fps < 100 and #stars > 100 then
+			for k = 1, 35 do
+				local s = table.remove(stars, math.random(#stars))
+				if s then s.Obj:Destroy() end
+				currentTotalCount = currentTotalCount - 1
+			end
+		elseif fps > 105 and currentTotalCount < targetTotalStars then
+			for k = 1, 25 do
+				if currentTotalCount < targetTotalStars then
+					table.insert(stars, createStar())
+				end
+			end
+		end
+
+		-- 天體物理運算
+		for i = #stars, 1, -1 do
+			local s = stars[i]
+			s.Phi = s.Phi + s.Speed
+			local starPos = rp + Vector3.new(
+				s.Radius * math.sin(s.Theta) * math.cos(s.Phi),
+				s.Radius * math.cos(s.Theta),
+				s.Radius * math.sin(s.Theta) * math.sin(s.Phi)
+			)
+			s.Obj.Position = starPos
+			-- 下方視距過濾
+			s.Obj.Transparency = (starPos.Y < rp.Y - 5) and 1 or 0
+		end
+	end
+end)
