@@ -135,7 +135,7 @@ task.spawn(function()
     pcall(function()
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "SYSTEM CHECK";
-            Text = "do u have Rockin?";
+            Text = "do u have Rockin? IF YOU R THE FIRST IN SERVER CHOOSE YES";
             Duration = 99999;
             Button1 = "YES";
             Button2 = "NO";
