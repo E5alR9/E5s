@@ -1,31 +1,51 @@
--- [[ 🪐 木星 29.0 - 慢速自轉 + Session 鎖定平衡 ]]
+-- [[ 🪐 木星 30.0 - 執行即開關控制版 ]]
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local p = game:GetService("Players").LocalPlayer
-local jupiterTag = "E5_Jupiter_Slow_Final"
+local jupiterTag = "E5_Jupiter_Switch_System"
 
--- 1. 唯一 Session 鎖定：解決重生平衡失效
-local currentSession = tick()
-_G.jupiterSession = currentSession
-
+-- 【1. 開關核心邏輯】
 local existing = workspace:FindFirstChild(jupiterTag)
 if existing then
+	-- 如果木星已存在，執行關閉邏輯
+	_G.jupiterActive = false
+	_G.jupiterSession = nil
 	existing:Destroy()
-	task.wait(0.05)
+	
+	-- 恢復天空環境
+	if _G.oldLighting then
+		Lighting.ClockTime = _G.oldLighting.Time
+		Lighting.Brightness = _G.oldLighting.Brightness
+		Lighting.OutdoorAmbient = _G.oldLighting.Outdoor
+		_G.oldLighting = nil
+	else
+		Lighting.ClockTime = 14
+		Lighting.Brightness = 2
+		Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+	end
+	print("木星系統已關閉")
+	return -- 直接結束腳本，不執行後續生成
 end
 
--- 2. 初始化環境與數據表
+-- 【2. 啟動邏輯】
+print("木星系統啟動中...")
+local currentSession = tick()
+_G.jupiterSession = currentSession
 _G.jupiterActive = true
-_G.oldLighting = _G.oldLighting or {
+
+-- 儲存當前環境以便稍後恢復
+_G.oldLighting = {
 	Time = Lighting.ClockTime,
 	Brightness = Lighting.Brightness,
 	Outdoor = Lighting.OutdoorAmbient
 }
 
+-- 設置宇宙全黑環境
 Lighting.ClockTime = 0
 Lighting.Brightness = 0
 Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
 
+-- 創建容器
 local container = Instance.new("Model")
 container.Name = jupiterTag
 container.Parent = workspace
@@ -38,7 +58,7 @@ local activeBody, inactiveBody = {}, {}
 local activeRing, inactiveRing = {}, {}
 local moons = {}
 
--- 1. 木星本體生成 (Tab 縮進)
+-- 3. 本體生成 (Tab 縮進)
 for i = 1, bodyCount do
 	local offset = 2 / bodyCount
 	local inc = math.pi * (3 - math.sqrt(5))
@@ -64,7 +84,7 @@ for i = 1, bodyCount do
 	table.insert(activeBody, data)
 end
 
--- 2. 黑色隕石環生成
+-- 4. 黑色隕石環生成
 for i = 1, ringCount do
 	local rad = jupiterRadius * 1.5 + (math.random() * jupiterRadius * 1.3)
 	local g = math.random(10, 35)
@@ -84,9 +104,9 @@ for i = 1, ringCount do
 	table.insert(activeRing, data)
 end
 
--- 3. 衛星系統
+-- 5. 衛星系統
 local moonData = {
-	{Col = Color3.fromRGB(255, 220, 50), Rad = 600, Spd = 0.003, Size = 15}, -- 慢速化
+	{Col = Color3.fromRGB(255, 220, 50), Rad = 600, Spd = 0.003, Size = 15},
 	{Col = Color3.fromRGB(160, 200, 255), Rad = 900, Spd = 0.002, Size = 12},
 	{Col = Color3.fromRGB(180, 180, 180), Rad = 1300, Spd = 0.0015, Size = 22},
 	{Col = Color3.fromRGB(120, 100, 90), Rad = 1700, Spd = 0.001, Size = 20}
@@ -109,35 +129,26 @@ task.spawn(function()
 	local t, fps = 0, 144
 	local tilt = CFrame.Angles(math.rad(20), 0, math.rad(10))
 
-	while _G.jupiterSession == currentSession and container.Parent do
+	while _G.jupiterActive and _G.jupiterSession == currentSession and container.Parent do
 		local dt = RunService.RenderStepped:Wait()
 		fps = 0.9 * fps + 0.1 * (1 / dt)
-		
-		-- 自轉增量調低 (0.004 -> 0.0012)
-		t = t + 0.0012
+		t = t + 0.0012 -- 慢速自轉
 
 		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
 		if root then
 			local center = root.Position + Vector3.new(1200, 500, -1200)
 			
-			-- 【FPS 動態平衡：100下刪 / 115上補】
+			-- 【動態平衡：100下刪 / 115上補】
 			if fps < 100 then
 				if #activeBody > 500 then
-					for i = 1, 100 do -- 加大刪除力度確保迅速回升
+					for i = 1, 100 do
 						local rIdx = math.random(#activeBody)
 						local data = table.remove(activeBody, rIdx)
 						if data.Obj then data.Obj:Destroy(); data.Obj = nil; table.insert(inactiveBody, data) end
 					end
 				end
-				if #activeRing > 300 then
-					for i = 1, 40 do
-						local rIdx = math.random(#activeRing)
-						local data = table.remove(activeRing, rIdx)
-						if data.Obj then data.Obj:Destroy(); data.Obj = nil; table.insert(inactiveRing, data) end
-					end
-				end
 			elseif fps > 115 then
-				for i = 1, 20 do
+				for i = 1, 25 do
 					if #inactiveBody == 0 then break end
 					local data = table.remove(inactiveBody, math.random(#inactiveBody))
 					local prt = Instance.new("Part")
@@ -163,7 +174,7 @@ task.spawn(function()
 			-- 渲染隕石與衛星
 			for _, d in ipairs(activeRing) do
 				if d.Obj then
-					d.Angle = d.Angle + d.Spd * 0.1 -- 隕石也慢速化
+					d.Angle = d.Angle + d.Spd * 0.1
 					local pos = center + (tilt * Vector3.new(math.cos(d.Angle)*d.Rad, d.H, math.sin(d.Angle)*d.Rad))
 					d.Obj.CFrame = CFrame.new(pos) * tilt * CFrame.fromAxisAngle(d.RotAxis, t * d.RotSpd)
 				end
