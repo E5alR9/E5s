@@ -1,7 +1,8 @@
--- [[ 粒子黑洞：極近距離偏移 + 天空恢復版 ]]
+-- [[ 粒子黑洞：FPS 低於 100 自動刪除粒子 + 280 最佳距離 ]]
 local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 local p = game:GetService("Players").LocalPlayer
-local holeTag = "E5_Vortex_Legacy_Custom"
+local holeTag = "E5_Vortex_Auto_Delete"
 
 local existingHole = workspace:FindFirstChild(holeTag)
 
@@ -81,18 +82,34 @@ else
 	task.spawn(function()
 		local t = 0
 		local tilt = CFrame.Angles(math.rad(25), 0, math.rad(15)) 
+		local fps = 144
 		
 		while container.Parent and _G.skyEnabled do
+			local dt = RunService.RenderStepped:Wait()
+			fps = 0.9 * fps + 0.1 * (1 / dt)
 			t = t + 0.04
+			
 			local char = p.Character
 			local root = char and char:FindFirstChild("HumanoidRootPart")
 			
 			if root then
-				-- 【極近距離設定：壓迫感上限】
-				-- 前移 280, 高度 120, 側移 -150
+				-- 【距離回歸 280：保持穩定壓迫感】
 				local centerPos = root.Position + Vector3.new(280, 120, -150)
 				core.Position = centerPos
 				
+				-- 自動刪除邏輯：若 FPS 低於 100，每幀強制移除 30 個粒子直到回升
+				if fps < 100 and #orbs > 500 then
+					for i = 1, 30 do
+						local targetIdx = #orbs -- 從最外圈開始刪除
+						local data = orbs[targetIdx]
+						if data then
+							if data.Part then data.Part:Destroy() end
+							table.remove(orbs, targetIdx)
+						end
+					end
+				end
+
+				-- 渲染循環
 				for _, data in ipairs(orbs) do
 					data.Angle = data.Angle + data.RotSpeed
 					local drift = math.sin(t * data.DriftSpeed + data.Seed) * data.DriftAmount
@@ -119,7 +136,6 @@ else
 					data.Part.Color = Color3.new(saturate(finalC.X), saturate(finalC.Y), saturate(finalC.Z))
 				end
 			end
-			task.wait()
 		end
 	end)
 end
