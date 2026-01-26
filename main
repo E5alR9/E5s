@@ -194,7 +194,10 @@ task.spawn(function()
     end
 end)
 
--- [[ 🖥️ 介面處理核心 - 完全整合版 ]]
+-- [[ 1. 將計數器放在最外面，確保死亡不重置 ]]
+_G.zbClickCount = _G.zbClickCount or 0 
+
+-- [[ 🖥️ 介面處理核心 - 完全整合修正版 ]]
 local function createUI()
     if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console:Destroy() end
     local sg = Instance.new("ScreenGui", p.PlayerGui)
@@ -225,10 +228,10 @@ local function createUI()
     local content = Instance.new("Frame", m)
     content.Size = UDim2.new(1, 0, 0, 150)
     content.Position = UDim2.new(0, 0, 1, -160)
-    content.BackgroundTransparency, content.Visible = 1, not _G.isMinimized 
+    content.BackgroundTransparency, content.Visible = 1, not _G.isMinimized
 
--- 第一排：LAG TOOL | KEY | SPD | SNS
-local lagToolBtn = Instance.new("TextButton", content)
+    -- [[ 第一排：LAG TOOL | KEY | SPD | SENS ]]
+    local lagToolBtn = Instance.new("TextButton", content)
     lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.02, 0, 0, 0), "TOOL"
     lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.fromRGB(70, 90, 110), Color3.new(1, 1, 1), 0.5
     Instance.new("UICorner", lagToolBtn)
@@ -238,43 +241,42 @@ local lagToolBtn = Instance.new("TextButton", content)
         notify("TOOL", "Freeze Window & Spin Loaded!")
     end)
 
-local spinKeyBtn = Instance.new("TextButton", content)
-spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.38, 0, 0, 0)
-spinKeyBtn.Text = "K:".._G.toggleKey.Name
-spinKeyBtn.BackgroundColor3, spinKeyBtn.TextColor3, spinKeyBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
-spinKeyBtn.MouseButton1Click:Connect(function()
-    spinKeyBtn.Text = "..."
-    local con; con = UIS.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.Keyboard then
-            _G.toggleKey = i.KeyCode
-            spinKeyBtn.Text = "K:".._G.toggleKey.Name
-            notify("KEYBIND", "Spin Key: ".._G.toggleKey.Name)
-            con:Disconnect()
+    local spinKeyBtn = Instance.new("TextButton", content)
+    spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.38, 0, 0, 0)
+    spinKeyBtn.Text = "K:".._G.toggleKey.Name
+    spinKeyBtn.BackgroundColor3, spinKeyBtn.TextColor3, spinKeyBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
+    spinKeyBtn.MouseButton1Click:Connect(function()
+        spinKeyBtn.Text = "..."
+        local con; con = UIS.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.Keyboard then
+                _G.toggleKey = i.KeyCode
+                spinKeyBtn.Text = "K:".._G.toggleKey.Name
+                notify("KEYBIND", "Spin Key: ".._G.toggleKey.Name)
+                con:Disconnect()
+            end
+        end)
+    end)
+
+    local spdBox = Instance.new("TextBox", content)
+    spdBox.Size, spdBox.Position, spdBox.Text = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.58, 0, 0, 0), tostring(_G.switchInterval)
+    spdBox.BackgroundColor3, spdBox.TextColor3, spdBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
+    spdBox.FocusLost:Connect(function()
+        _G.switchInterval = tonumber(spdBox.Text) or 0.08
+        notify("SPD", "Interval: ".._G.switchInterval)
+    end)
+
+    local sensBox = Instance.new("TextBox", content)
+    sensBox.Size, sensBox.Position, sensBox.Text = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.78, 0, 0, 0), tostring(_G.sensitivity)
+    sensBox.BackgroundColor3, sensBox.TextColor3, sensBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
+    sensBox.FocusLost:Connect(function()
+        local val = tonumber(sensBox.Text)
+        if val then 
+            _G.sensitivity = val
+            notify("SENS", "Sensitivity: ".._G.sensitivity)
         end
     end)
-end)
 
-local spdBox = Instance.new("TextBox", content)
-spdBox.Size, spdBox.Position, spdBox.Text = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.58, 0, 0, 0), tostring(_G.switchInterval)
-spdBox.BackgroundColor3, spdBox.TextColor3, spdBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
-spdBox.FocusLost:Connect(function()
-    _G.switchInterval = tonumber(spdBox.Text) or 0.08
-    notify("SPD", "Interval: ".._G.switchInterval)
-end)
-
--- 這裡是重點：讓 UI 能修改 _G.sensitivity
-local sensBox = Instance.new("TextBox", content)
-sensBox.Size, sensBox.Position, sensBox.Text = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.78, 0, 0, 0), tostring(_G.sensitivity)
-sensBox.BackgroundColor3, sensBox.TextColor3, sensBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
-sensBox.FocusLost:Connect(function()
-    local val = tonumber(sensBox.Text)
-    if val then 
-        _G.sensitivity = val
-        notify("SENS", "Sensitivity: ".._G.sensitivity)
-    end
-end)
-
-    -- 第二排：PGDN (fKN) | MS
+    -- [[ 第二排：PGDN (fKN) | MS ]]
     local l = Instance.new("TextButton", content)
     l.Size, l.Position, l.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 50), _G.fKN
     l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
@@ -296,7 +298,7 @@ end)
         if val then _G.freezeMS = val; notify("SYSTEM", "MS: " .. _G.freezeMS) end
     end)
 
-    -- 第三排：SETFFLAG
+    -- [[ 第三排：SETFFLAG ]]
     local fBtn = Instance.new("TextButton", content)
     fBtn.Size, fBtn.Position, fBtn.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 100), "DisplayFPS(RE)"
     fBtn.BackgroundColor3, fBtn.TextColor3, fBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
@@ -313,21 +315,62 @@ end)
         game:GetService("TeleportService"):Teleport(game.PlaceId, p)
     end)
 
+-- [[ 頂部追加：Zombie / Violin 按鈕 ]]
+    local zbBtn = Instance.new("TextButton", m) 
+    zbBtn.Size = UDim2.new(0.94, 0, 0, 35) 
+    zbBtn.Position = UDim2.new(0.03, 0, 0, 35) 
+    zbBtn.ZIndex = 10 
+    zbBtn.BackgroundColor3 = Color3.new(0, 0, 0) 
+    zbBtn.BackgroundTransparency = 0.7 
+    zbBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", zbBtn)
+
+    -- 根據計數器初始化文字與外觀
+    local function updateZbStyle()
+        if _G.zbClickCount == 0 then
+            zbBtn.Text = "Zombie"
+            zbBtn.TextColor3 = Color3.new(1, 1, 1)
+        elseif _G.zbClickCount == 1 then
+            zbBtn.Text = "Violin"
+            zbBtn.TextColor3 = Color3.new(1, 1, 1)
+        else
+            zbBtn.Text = "DONE"
+            zbBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5)
+            zbBtn.BackgroundTransparency = 0.9
+        end
+    end
+    updateZbStyle()
+
+    zbBtn.MouseButton1Click:Connect(function()
+        if _G.zbClickCount >= 2 then return end 
+        _G.zbClickCount = _G.zbClickCount + 1
+        
+        if _G.zbClickCount == 1 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/zb"))() end)
+            if notify then notify("SYSTEM", "Zombie Active (1/2)") end
+        elseif _G.zbClickCount == 2 then
+            pcall(function() game:GetService("ReplicatedStorage").Items.Emotes.DeadBoneStride.Name = "SwagWalk" end)
+            if notify then notify("SYSTEM", "Violin Active (2/2)") end
+        end
+        updateZbStyle()
+    end)
+
+    -- [[ 整合後的最小化邏輯 (修復重複點擊衝突) ]]
     minBtn.MouseButton1Click:Connect(function()
         _G.isMinimized = not _G.isMinimized
         m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
-        bg.Visible, content.Visible = not _G.isMinimized, not _G.isMinimized
+        bg.Visible = not _G.isMinimized
+        content.Visible = not _G.isMinimized
+        zbBtn.Visible = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
     end)
-end
+end -- createUI 正常結束
 
--- 確保 UserInputService 已經定義
+-- [[ 以下是全局核心邏輯，放在函數外面 ]]
 local UIS = game:GetService("UserInputService")
 local p = game:GetService("Players").LocalPlayer
 
--- 建立一個函數來安全地啟動 UI
 local function ensureUI()
-    -- 檢查是否已經存在 UI，避免重複生成
     if not p.PlayerGui:FindFirstChild("E5_Console") then
         createUI()
     end
@@ -336,22 +379,17 @@ end
 -- 1. 初始執行
 ensureUI()
 
--- 2. 監測玩家復活 (確保復活後 UI 重新顯示)
--- 因為很多遊戲在玩家死亡時會清理 PlayerGui
+-- 2. 監測玩家復活
 p.CharacterAdded:Connect(function()
-    task.wait(1) -- 等待角色加載完成後再生成 UI
+    task.wait(1) 
     ensureUI()
 end)
 
--- 3. 加入「按鍵喚醒」功能
--- 這樣你點了 X 關閉後，按鍵盤上的 "Insert" 鍵就能再次叫出選單
+-- 3. 按鍵喚醒 (Insert)
 UIS.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.Insert then
         ensureUI()
-        -- 如果你之前有定義 notify 函數，這裡會彈出提示
-        if notify then
-            notify("SYSTEM", "Menu Re-opened!")
-        end
+        if notify then notify("SYSTEM", "Menu Re-opened!") end
     end
 end)
 
