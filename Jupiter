@@ -1,0 +1,122 @@
+-- [[ 🪐 木星 17.0 - 終極系統：差異自轉、黑色隕石、四大衛星 ]]
+local Lighting = game:GetService("Lighting")
+local p = game:GetService("Players").LocalPlayer
+local jupiterTag = "E5_Jupiter_Final_System"
+
+local existing = workspace:FindFirstChild(jupiterTag)
+if existing then
+	_G.jupiterActive = false
+	existing:Destroy()
+	return 
+else
+	_G.jupiterActive = true
+	Lighting.ClockTime = 0
+	Lighting.Brightness = 0
+	Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
+
+	local container = Instance.new("Model", workspace)
+	container.Name = jupiterTag
+
+	local jupiterRadius = 250
+	local bodyCount = 8500  
+	local ringCount = 4500 
+	
+	local core = Instance.new("Part", container)
+	core.Shape, core.Size = Enum.PartType.Ball, Vector3.new(jupiterRadius * 1.96, jupiterRadius * 1.96, jupiterRadius * 1.96)
+	core.Material, core.Color, core.Anchored, core.CanCollide = Enum.Material.SmoothPlastic, Color3.fromRGB(15, 10, 5), true, false
+
+	local bodyParts, ringParts, moons = {}, {}, {}
+
+	-- 1. 木星本體 (鎖定差異自轉參數)
+	for i = 1, bodyCount do
+		local prt = Instance.new("Part", container)
+		local isDetail = (i % 2 == 0)
+		prt.Size = isDetail and Vector3.new(8, 8, 8) or Vector3.new(18, 18, 18)
+		prt.Material, prt.Anchored, prt.CanCollide = Enum.Material.Neon, true, false
+		local offset = 2 / bodyCount
+		local inc = math.pi * (3 - math.sqrt(5))
+		local y = ((i - 1) * offset - 1) + (offset / 2)
+		local r = math.sqrt(1 - math.pow(y, 2))
+		local phi = i * inc
+		table.insert(bodyParts, {
+			Obj = prt,
+			RadiusAtY = r * jupiterRadius,
+			YPos = y * jupiterRadius,
+			InitialPhi = phi,
+			Lat = y, U = phi, V = y
+		})
+	end
+
+	-- 2. 黑色隕石環 (鎖定翻滾與石頭質感)
+	for i = 1, ringCount do
+		local prt = Instance.new("Part", container)
+		prt.Shape, prt.Size = Enum.PartType.Ball, Vector3.new(1,1,1) * (math.random()*5+2)
+		prt.Material = Enum.Material.Basalt
+		local g = math.random(10, 40)
+		prt.Color = Color3.fromRGB(g, g, g)
+		prt.Anchored, prt.CanCollide = true, false
+		local rad = jupiterRadius * 1.45 + (math.random() * jupiterRadius * 1.4)
+		table.insert(ringParts, {
+			Obj = prt, Rad = rad, Angle = math.random()*6,
+			Spd = 0.04/(math.sqrt(rad)*0.1), H = (math.random()-0.5)*30,
+			RotAxis = Vector3.new(math.random(),math.random(),math.random()).Unit, RotSpd = math.random()*4
+		})
+	end
+
+	-- 3. 衛星系統 (鎖定 Io, Europa, Ganymede, Callisto)
+	local moonData = {
+		{Name = "Io", Col = Color3.fromRGB(255, 230, 80), Rad = 550, Spd = 0.015, Size = 15},
+		{Name = "Europa", Col = Color3.fromRGB(180, 210, 255), Rad = 850, Spd = 0.010, Size = 12},
+		{Name = "Ganymede", Col = Color3.fromRGB(160, 160, 160), Rad = 1200, Spd = 0.007, Size = 22},
+		{Name = "Callisto", Col = Color3.fromRGB(110, 90, 80), Rad = 1600, Spd = 0.004, Size = 20}
+	}
+
+	for _, m in ipairs(moonData) do
+		local g = {}
+		for j = 1, 300 do
+			local p = Instance.new("Part", container)
+			p.Shape, p.Size, p.Material = Enum.PartType.Ball, Vector3.new(3,3,3), Enum.Material.Neon
+			p.Anchored, p.CanCollide, p.Color = true, false, m.Col
+			local v = Vector3.new(math.random()-0.5, math.random()-0.5, math.random()-0.5).Unit * m.Size
+			table.insert(g, {Obj = p, LPos = v})
+		end
+		table.insert(moons, {Parts = g, Config = m, Angle = math.random()*6})
+	end
+
+	task.spawn(function()
+		local t = 0
+		local tilt = CFrame.Angles(math.rad(22), 0, math.rad(8))
+		while _G.jupiterActive and container.Parent do
+			t = t + 0.004
+			local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local center = root.Position + Vector3.new(1200, 600, -1200)
+				
+				-- 木星差異自轉
+				for _, d in ipairs(bodyParts) do
+					local diffSpd = (1 - math.abs(d.Lat) * 0.4) * t * 0.2
+					local currentPhi = d.InitialPhi + diffSpd
+					local noise = math.noise(d.U * 0.6, d.V * 2.5, t * 0.4)
+					local wave = (math.sin(d.V * 15 + noise * 8) + 1) / 2
+					d.Obj.Color = Color3.fromRGB(180, 100, 40):lerp(Color3.fromRGB(255, 220, 160), wave)
+					d.Obj.Position = center + (tilt * Vector3.new(math.cos(currentPhi)*d.RadiusAtY, d.YPos, math.sin(currentPhi)*d.RadiusAtY))
+				end
+				
+				-- 黑色隕石環翻滾
+				for _, d in ipairs(ringParts) do
+					d.Angle = d.Angle + d.Spd * 0.4
+					local pos = center + (tilt * Vector3.new(math.cos(d.Angle)*d.Rad, d.H, math.sin(d.Angle)*d.Rad))
+					d.Obj.CFrame = CFrame.new(pos) * tilt * CFrame.fromAxisAngle(d.RotAxis, t * d.RotSpd)
+				end
+
+				-- 衛星公轉
+				for _, m in ipairs(moons) do
+					m.Angle = m.Angle + m.Config.Spd
+					local mC = center + (tilt * Vector3.new(math.cos(m.Angle)*m.Config.Rad, 0, math.sin(m.Angle)*m.Config.Rad))
+					for _, mp in ipairs(m.Parts) do mp.Obj.Position = mC + mp.LPos end
+				end
+			end
+			task.wait()
+		end
+	end)
+end
