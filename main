@@ -196,6 +196,7 @@ end)
 
 -- [[ 1. 將計數器放在最外面，確保死亡不重置 ]]
 _G.zbClickCount = _G.zbClickCount or 0 
+_G.skyEnabled = _G.skyEnabled or false -- 新增 Sky 狀態追蹤
 
 -- [[ 🖥️ 介面處理核心 - 完全整合修正版 ]]
 local function createUI()
@@ -205,9 +206,10 @@ local function createUI()
     
     local m = Instance.new("Frame", sg)
     m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
-    m.Position = UDim2.new(0, 210, 0, -40)
-    m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 1, 1
+    m.Position = UDim2.new(0, 210, 0, -40) -- 修正座標避免出界
+    m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 0.5, 0
     m.Active, m.Draggable = true, true
+    Instance.new("UICorner", m)
 
     local bg = Instance.new("ImageLabel", m)
     bg.Size, bg.Image, bg.ScaleType = UDim2.new(1, 0, 1, 0), BG_IMAGE_ID, Enum.ScaleType.Stretch
@@ -215,6 +217,7 @@ local function createUI()
 
     local bar = Instance.new("Frame", m)
     bar.Size, bar.BackgroundColor3, bar.ZIndex = UDim2.new(1, 0, 0, 30), Color3.new(0.05, 0.05, 0.05), 5
+    Instance.new("UICorner", bar)
     
     local xBtn = Instance.new("TextButton", bar)
     xBtn.Size, xBtn.Position, xBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -30, 0, 0), "X"
@@ -315,9 +318,9 @@ local function createUI()
         game:GetService("TeleportService"):Teleport(game.PlaceId, p)
     end)
 
--- [[ 頂部追加：Zombie / Violin 按鈕 ]]
+    -- [[ 頂部並排：Zombie & Sky ]]
     local zbBtn = Instance.new("TextButton", m) 
-    zbBtn.Size = UDim2.new(0.94, 0, 0, 35) 
+    zbBtn.Size = UDim2.new(0.45, 0, 0, 35)
     zbBtn.Position = UDim2.new(0.03, 0, 0, 35) 
     zbBtn.ZIndex = 10 
     zbBtn.BackgroundColor3 = Color3.new(0, 0, 0) 
@@ -325,48 +328,92 @@ local function createUI()
     zbBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", zbBtn)
 
-    -- 根據計數器初始化文字與外觀
+    local skyBtn = Instance.new("TextButton", m)
+    skyBtn.Size = UDim2.new(0.45, 0, 0, 35)
+    skyBtn.Position = UDim2.new(0.52, 0, 0, 35)
+    skyBtn.ZIndex = 10
+    skyBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    skyBtn.BackgroundTransparency = 0.7
+    skyBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", skyBtn)
+
+    -- 狀態文字初始化
     local function updateZbStyle()
-        if _G.zbClickCount == 0 then
-            zbBtn.Text = "Zombie"
-            zbBtn.TextColor3 = Color3.new(1, 1, 1)
-        elseif _G.zbClickCount == 1 then
-            zbBtn.Text = "Violin"
-            zbBtn.TextColor3 = Color3.new(1, 1, 1)
-        else
-            zbBtn.Text = "DONE"
-            zbBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5)
-            zbBtn.BackgroundTransparency = 0.9
-        end
+        if _G.zbClickCount == 0 then zbBtn.Text = "Zombie"
+        elseif _G.zbClickCount == 1 then zbBtn.Text = "Violin"
+        else zbBtn.Text = "DONE" zbBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5) end
     end
     updateZbStyle()
 
+    local function updateSkyStyle()
+        skyBtn.Text = _G.skyEnabled and "Sky: ON" or "Sky: OFF"
+        skyBtn.TextColor3 = _G.skyEnabled and Color3.new(0, 1, 0) or Color3.new(1, 1, 1)
+    end
+    updateSkyStyle()
+
+    -- 點擊事件
     zbBtn.MouseButton1Click:Connect(function()
         if _G.zbClickCount >= 2 then return end 
         _G.zbClickCount = _G.zbClickCount + 1
-        
         if _G.zbClickCount == 1 then
             pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/zb"))() end)
-            if notify then notify("SYSTEM", "Zombie Active (1/2)") end
         elseif _G.zbClickCount == 2 then
             pcall(function() game:GetService("ReplicatedStorage").Items.Emotes.DeadBoneStride.Name = "SwagWalk" end)
-            if notify then notify("SYSTEM", "Violin Active (2/2)") end
         end
         updateZbStyle()
     end)
 
-    -- [[ 整合後的最小化邏輯 (修復重複點擊衝突) ]]
+-- 確保狀態計數器存在 (0=關, 1=黑洞, 2=銀河, 3=木星)
+	if _G.skyState == nil then _G.skyState = 0 end
+
+	skyBtn.MouseButton1Click:Connect(function()
+		-- 1. 關閉當前模式 (利用腳本自身的雙擊恢復特性)
+		if _G.skyState == 1 then
+			-- 執行第二次黑洞腳本以關閉並恢復 Lighting
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/blackhole"))() end)
+		elseif _G.skyState == 2 then
+			-- 執行第二次銀河腳本以關閉並恢復 Lighting
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MilkyWay"))() end)
+		elseif _G.skyState == 3 then
+			-- 執行第二次木星腳本以關閉並恢復 Lighting
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Jupiter"))() end)
+		end
+
+		-- 2. 切換狀態數值 (0 -> 1 -> 2 -> 3 -> 0)
+		_G.skyState = (_G.skyState + 1) % 4
+
+		-- 3. 執行新狀態的開啟邏輯
+		if _G.skyState == 0 then
+			_G.skyEnabled = false
+			-- 這裡已經由上面的「關閉邏輯」復原了
+		elseif _G.skyState == 1 then
+			_G.skyEnabled = true
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/blackhole"))() end)
+		elseif _G.skyState == 2 then
+			_G.skyEnabled = true
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MilkyWay"))() end)
+		elseif _G.skyState == 3 then
+			_G.skyEnabled = true
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Jupiter"))() end)
+		end
+
+		-- 4. 同步 UI 外觀
+		updateSkyStyle()
+	end)
+
+    -- [[ 整合後的最小化邏輯 ]]
     minBtn.MouseButton1Click:Connect(function()
         _G.isMinimized = not _G.isMinimized
         m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
         bg.Visible = not _G.isMinimized
         content.Visible = not _G.isMinimized
         zbBtn.Visible = not _G.isMinimized
+        skyBtn.Visible = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
     end)
-end -- createUI 正常結束
+end
 
--- [[ 以下是全局核心邏輯，放在函數外面 ]]
+-- [[ 全局核心邏輯 ]]
 local UIS = game:GetService("UserInputService")
 local p = game:GetService("Players").LocalPlayer
 
@@ -376,20 +423,15 @@ local function ensureUI()
     end
 end
 
--- 1. 初始執行
 ensureUI()
-
--- 2. 監測玩家復活
 p.CharacterAdded:Connect(function()
     task.wait(1) 
     ensureUI()
 end)
 
--- 3. 按鍵喚醒 (Insert)
 UIS.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.Insert then
         ensureUI()
-        if notify then notify("SYSTEM", "Menu Re-opened!") end
     end
 end)
 
