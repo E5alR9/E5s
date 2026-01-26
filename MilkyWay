@@ -1,108 +1,132 @@
--- [[ 🌌 銀河系 7.0 - 15,000 顆 異樣尺寸版 ]]
+-- [[ 🌌 銀河系 9.5 - 隨機抽樣減密 (保留懸臂長度) ]]
 local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 local p = game:GetService("Players").LocalPlayer
-local galaxyTag = "E5_Galaxy_RealScale"
+local galaxyTag = "E5_Galaxy_RandomBalance"
 
 local existing = workspace:FindFirstChild(galaxyTag)
 if existing then
-    _G.galaxyActive = false
-    existing:Destroy()
-    
-    if _G.oldLighting then
-        Lighting.ClockTime = _G.oldLighting.Time
-        Lighting.Brightness = _G.oldLighting.Brightness
-        Lighting.OutdoorAmbient = _G.oldLighting.Outdoor
-        if _G.oldAtmosphere then _G.oldAtmosphere.Parent = Lighting end
-    end
-    print("Environment Restored.")
-    return 
+	_G.galaxyActive = false
+	existing:Destroy()
+	if _G.oldLighting then
+		Lighting.ClockTime = _G.oldLighting.Time
+		Lighting.Brightness = _G.oldLighting.Brightness
+		Lighting.OutdoorAmbient = _G.oldLighting.Outdoor
+		if _G.oldAtmosphere then _G.oldAtmosphere.Parent = Lighting end
+	end
+	return 
 else
-    _G.galaxyActive = true
-    _G.oldLighting = {
-        Time = Lighting.ClockTime,
-        Brightness = Lighting.Brightness,
-        Outdoor = Lighting.OutdoorAmbient
-    }
-    _G.oldAtmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-    if _G.oldAtmosphere then _G.oldAtmosphere.Parent = nil end
+	_G.galaxyActive = true
+	_G.oldLighting = {Time = Lighting.ClockTime, Brightness = Lighting.Brightness, Outdoor = Lighting.OutdoorAmbient}
+	_G.oldAtmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	if _G.oldAtmosphere then _G.oldAtmosphere.Parent = nil end
 
-    -- 宇宙黑化環境
-    Lighting.ClockTime = 0
-    Lighting.Brightness = 0
-    Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
+	Lighting.ClockTime = 0
+	Lighting.Brightness = 0
+	Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
 
-    local container = Instance.new("Model", workspace)
-    container.Name = galaxyTag
+	local container = Instance.new("Model", workspace)
+	container.Name = galaxyTag
 
-    local stars = {}
-    local starCount = 15000 
-    
-    local colorPalette = {
-        Core = Color3.fromRGB(255, 245, 200),
-        Inner = Color3.fromRGB(255, 255, 255),
-        Arm = Color3.fromRGB(160, 210, 255),
-        Dust = Color3.fromRGB(180, 140, 255)
-    }
+	local activeStars = {}  -- 目前在場上的星 (索引連貫)
+	local fullData = {}     -- 原始 15000 顆星的靜態數據
+	local inactiveIndices = {} -- 存放目前「沒被加載」的索引池
+	local starCount = 15000 
+	
+	local colorPalette = {
+		Core = Color3.fromRGB(255, 245, 200),
+		Inner = Color3.fromRGB(255, 255, 255),
+		Arm = Color3.fromRGB(160, 210, 255),
+		Dust = Color3.fromRGB(180, 140, 255)
+	}
 
-    for i = 1, starCount do
-        local prt = Instance.new("Part", container)
-        
-        -- 【智能尺寸分配】
-        local sizeRand = math.random()
-        local baseSize
-        if sizeRand > 0.98 then
-            baseSize = 3.5 + (math.random() * 1.5) -- 2% 的巨星 (罕見)
-        elseif sizeRand > 0.85 then
-            baseSize = 1.8 + (math.random() * 1.0) -- 13% 的中型恆星
-        else
-            baseSize = 0.4 + (math.random() * 0.8) -- 85% 的微小星點 (背景)
-        end
-        
-        prt.Shape, prt.Size = Enum.PartType.Ball, Vector3.new(baseSize, baseSize, baseSize)
-        prt.Material, prt.Anchored, prt.CanCollide = Enum.Material.Neon, true, false
-        
-        local ratio = i / starCount
-        local radius = 30 + (math.pow(ratio, 0.8) * 500)
-        local d = radius / 530
-        
-        -- 顏色插值計算
-        local finalColor
-        if d < 0.2 then
-            finalColor = colorPalette.Core:lerp(colorPalette.Inner, d/0.2)
-        elseif d < 0.65 then
-            finalColor = colorPalette.Inner:lerp(colorPalette.Arm, (d-0.2)/0.45)
-        else
-            finalColor = colorPalette.Arm:lerp(colorPalette.Dust, (d-0.65)/0.35)
-        end
-        prt.Color = finalColor
+	-- 1. 初始化所有數據
+	for i = 1, starCount do
+		local sizeRand = math.random()
+		local baseSize = (sizeRand > 0.98 and 3.5 + math.random()*1.5) or (sizeRand > 0.85 and 1.8 + math.random()) or (0.4 + math.random()*0.8)
+		local ratio = i / starCount
+		local radius = 30 + (math.pow(ratio, 0.8) * 850)
+		local d = radius / 880
+		
+		local finalColor
+		if d < 0.2 then finalColor = colorPalette.Core:lerp(colorPalette.Inner, d/0.2)
+		elseif d < 0.65 then finalColor = colorPalette.Inner:lerp(colorPalette.Arm, (d-0.2)/0.45)
+		else finalColor = colorPalette.Arm:lerp(colorPalette.Dust, (d-0.65)/0.35) end
 
-        table.insert(stars, {
-            Obj = prt,
-            Rad = radius,
-            Angle = (i % 2) * math.pi + (radius * 0.012),
-            OffX = (math.random() - 0.5) * (radius * 0.28),
-            OffZ = (math.random() - 0.5) * (radius * 0.28),
-            H = (math.random() - 0.5) * (80 * (1 - d)),
-            Speed = (0.2 / (math.sqrt(radius) + 18)) * (0.8 + math.random() * 0.4)
-        })
-    end
+		fullData[i] = {
+			Size = baseSize,
+			Color = finalColor,
+			Rad = radius,
+			Angle = (i % 2) * math.pi + (radius * 0.01),
+			OffX = (math.random() - 0.5) * (radius * 0.3),
+			OffZ = (math.random() - 0.5) * (radius * 0.3),
+			H = (math.random() - 0.5) * (130 * (1 - d)),
+			Speed = (0.15 / (math.sqrt(radius) + 20)) * (0.8 + math.random() * 0.4),
+			Instance = nil
+		}
+		table.insert(inactiveIndices, i) -- 初始全部在待命池
+	end
 
-    task.spawn(function()
-        local t = 0
-        local tilt = CFrame.Angles(math.rad(12), 0, math.rad(5))
-        while _G.galaxyActive and container.Parent do
-            t = t + 0.3
-            local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                local center = root.Position + Vector3.new(0, 280, 0)
-                for _, data in ipairs(stars) do
-                    local curA = data.Angle + (t * data.Speed)
-                    local pos = Vector3.new(math.cos(curA) * data.Rad + data.OffX, data.H, math.sin(curA) * data.Rad + data.OffZ)
-                    data.Obj.Position = center + (tilt * pos)
-                end
-            end
-            task.wait()
-        end
-    end)
-    print("Galaxy V7: Dynamic Scaling Active. [15k Stars]")
+	-- 2. 隨機打亂初始待命池 (洗牌算法)，確保加載時是隨機散佈的
+	for i = #inactiveIndices, 2, -1 do
+		local j = math.random(i)
+		inactiveIndices[i], inactiveIndices[j] = inactiveIndices[j], inactiveIndices[i]
+	end
+
+	-- 核心渲染與平衡循環
+	task.spawn(function()
+		local t, fps = 0, 144
+		local tilt = CFrame.Angles(math.rad(15), 0, math.rad(10)) 
+		
+		while _G.galaxyActive and container.Parent do
+			local dt = RunService.RenderStepped:Wait()
+			fps = 0.9 * fps + 0.1 * (1 / dt)
+			t = t + 0.2
+			
+			local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local center = root.Position + Vector3.new(0, 350, 0)
+				
+				-- 【隨機動態平衡核心】
+				if fps < 100 and #activeStars > 1000 then
+					-- FPS 低：隨機刪除 (從 activeStars 隨機抽)
+					for i = 1, 40 do
+						local randIdx = math.random(#activeStars)
+						local data = table.remove(activeStars, randIdx)
+						if data and data.Instance then
+							data.Instance:Destroy()
+							data.Instance = nil
+							-- 將該星星的原始編號放回待命池，以便未來補回
+							for origIdx, d in pairs(fullData) do
+								if d == data then table.insert(inactiveIndices, origIdx) break end
+							end
+						end
+					end
+				elseif fps > 115 and #inactiveIndices > 0 then
+					-- FPS 高：隨機補回 (從 inactiveIndices 抽)
+					for i = 1, 25 do
+						if #inactiveIndices == 0 then break end
+						local poolIdx = math.random(#inactiveIndices)
+						local origIdx = table.remove(inactiveIndices, poolIdx)
+						local data = fullData[origIdx]
+						
+						local prt = Instance.new("Part")
+						prt.Shape, prt.Size = Enum.PartType.Ball, Vector3.new(data.Size, data.Size, data.Size)
+						prt.Color, prt.Material = data.Color, Enum.Material.Neon
+						prt.Anchored, prt.CanCollide = true, false
+						prt.Parent = container
+						data.Instance = prt
+						table.insert(activeStars, data)
+					end
+				end
+
+				-- 渲染
+				for _, data in ipairs(activeStars) do
+					local curA = data.Angle + (t * data.Speed)
+					local pos = Vector3.new(math.cos(curA)*data.Rad + data.OffX, data.H, math.sin(curA)*data.Rad + data.OffZ)
+					data.Instance.Position = center + (tilt * pos)
+				end
+			end
+		end
+	end)
 end
