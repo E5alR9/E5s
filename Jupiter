@@ -3,13 +3,37 @@ local Lighting = game:GetService("Lighting")
 local p = game:GetService("Players").LocalPlayer
 local jupiterTag = "E5_Jupiter_Pure_Particle"
 
+-- 檢查是否已存在，若存在則執行「清理並恢復天空」
 local existing = workspace:FindFirstChild(jupiterTag)
 if existing then
 	_G.jupiterActive = false
 	existing:Destroy()
+	
+	-- 【天空恢復核心】
+	if _G.oldLighting then
+		Lighting.ClockTime = _G.oldLighting.Time
+		Lighting.Brightness = _G.oldLighting.Brightness
+		Lighting.OutdoorAmbient = _G.oldLighting.Outdoor
+		_G.oldLighting = nil -- 清除緩存
+	else
+		-- 萬一緩存丟失，恢復默認值
+		Lighting.ClockTime = 14
+		Lighting.Brightness = 2
+		Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+	end
 	return 
 else
+	-- 開啟木星邏輯
 	_G.jupiterActive = true
+	
+	-- 儲存當前天空狀態以便稍後恢復
+	_G.oldLighting = {
+		Time = Lighting.ClockTime,
+		Brightness = Lighting.Brightness,
+		Outdoor = Lighting.OutdoorAmbient
+	}
+
+	-- 進入宇宙模式：全黑
 	Lighting.ClockTime = 0
 	Lighting.Brightness = 0
 	Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
@@ -18,14 +42,13 @@ else
 	container.Name = jupiterTag
 
 	local jupiterRadius = 250
-	local bodyCount = 10000 -- 增加本體粒子數以填補移除核心後的空隙
+	local bodyCount = 10000 
 	local ringCount = 3500 
 	local bodyParts, ringParts, moons = {}, {}, {}
 
-	-- 1. 木星本體生成 (純粒子填滿邏輯)
+	-- 1. 木星本體生成 (Tab 縮進)
 	for i = 1, bodyCount do
 		local prt = Instance.new("Part", container)
-		-- 使用較大的粒子（18~22）來徹底封鎖間隙
 		local isDetail = (i % 2 == 0)
 		prt.Size = isDetail and Vector3.new(10, 10, 10) or Vector3.new(22, 22, 22)
 		prt.Material, prt.Anchored, prt.CanCollide = Enum.Material.Neon, true, false
@@ -45,7 +68,7 @@ else
 		})
 	end
 
-	-- 2. 黑色隕石環 (Basalt 材質)
+	-- 2. 黑色隕石環 (Tab 縮進)
 	for i = 1, ringCount do
 		local prt = Instance.new("Part", container)
 		prt.Shape, prt.Size = Enum.PartType.Ball, Vector3.new(1,1,1) * (math.random()*6+2)
@@ -61,7 +84,7 @@ else
 		})
 	end
 
-	-- 3. 衛星系統
+	-- 3. 衛星系統 (Tab 縮進)
 	local moonData = {
 		{Name = "Io", Col = Color3.fromRGB(255, 220, 50), Rad = 600, Spd = 0.012, Size = 15},
 		{Name = "Europa", Col = Color3.fromRGB(160, 200, 255), Rad = 900, Spd = 0.009, Size = 12},
@@ -81,6 +104,7 @@ else
 		table.insert(moons, {Parts = g, Config = m, Angle = math.random()*6})
 	end
 
+	-- 渲染主循環
 	task.spawn(function()
 		local t = 0
 		local tilt = CFrame.Angles(math.rad(20), 0, math.rad(10))
@@ -90,7 +114,7 @@ else
 			if root then
 				local center = root.Position + Vector3.new(1200, 500, -1200)
 				
-				-- 木星差異自轉與 Shadertoy 變色
+				-- 木星差異自轉
 				for _, d in ipairs(bodyParts) do
 					local diffSpd = (1 - math.abs(d.Lat) * 0.4) * t * 0.2
 					local currentPhi = d.InitialPhi + diffSpd
