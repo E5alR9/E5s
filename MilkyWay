@@ -1,0 +1,98 @@
+-- [[ 🌌 銀河系 7.0 - 15,000 顆 真實宇宙配色 ]]
+local Lighting = game:GetService("Lighting")
+local p = game:GetService("Players").LocalPlayer
+local galaxyTag = "E5_Galaxy_RealUniverse"
+
+local existing = workspace:FindFirstChild(galaxyTag)
+if existing then
+    _G.galaxyActive = false
+    existing:Destroy()
+    
+    if _G.oldLighting then
+        Lighting.ClockTime = _G.oldLighting.Time
+        Lighting.Brightness = _G.oldLighting.Brightness
+        Lighting.OutdoorAmbient = _G.oldLighting.Outdoor
+        if _G.oldAtmosphere then _G.oldAtmosphere.Parent = Lighting end
+    end
+    print("Environment Restored.")
+    return 
+else
+    _G.galaxyActive = true
+    _G.oldLighting = {
+        Time = Lighting.ClockTime,
+        Brightness = Lighting.Brightness,
+        Outdoor = Lighting.OutdoorAmbient
+    }
+    _G.oldAtmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+    if _G.oldAtmosphere then _G.oldAtmosphere.Parent = nil end
+
+    -- 宇宙黑化環境
+    Lighting.ClockTime = 0
+    Lighting.Brightness = 0
+    Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
+
+    local container = Instance.new("Model", workspace)
+    container.Name = galaxyTag
+
+    local stars = {}
+    local starCount = 15000 
+    
+    -- 【真實宇宙色標】
+    local colorPalette = {
+        Core = Color3.fromRGB(255, 248, 210), -- 鵝黃色（老恆星）
+        Inner = Color3.fromRGB(255, 255, 255), -- 純白（高溫區）
+        Arm = Color3.fromRGB(165, 200, 255),   -- 淡藍色（年輕恆星）
+        Dust = Color3.fromRGB(200, 150, 255)   -- 淺紫色（星雲散射）
+    }
+
+    for i = 1, starCount do
+        local prt = Instance.new("Part", container)
+        prt.Shape, prt.Size = Enum.PartType.Ball, Vector3.new(1.1, 1.1, 1.1)
+        prt.Material, prt.Anchored, prt.CanCollide = Enum.Material.Neon, true, false
+        
+        local ratio = i / starCount
+        local radius = 25 + (math.pow(ratio, 0.8) * 480)
+        local d = radius / 505
+        
+        -- 【真實漸層邏輯】核心黃 -> 中間白 -> 旋臂藍 -> 邊緣紫
+        local finalColor
+        if d < 0.15 then
+            finalColor = colorPalette.Core:lerp(colorPalette.Inner, d/0.15)
+        elseif d < 0.6 then
+            finalColor = colorPalette.Inner:lerp(colorPalette.Arm, (d-0.15)/0.45)
+        else
+            finalColor = colorPalette.Arm:lerp(colorPalette.Dust, (d-0.6)/0.4)
+        end
+        prt.Color = finalColor
+
+        table.insert(stars, {
+            Obj = prt,
+            Rad = radius,
+            Angle = (i % 2) * math.pi + (radius * 0.015),
+            OffX = (math.random() - 0.5) * (radius * 0.25),
+            OffZ = (math.random() - 0.5) * (radius * 0.25),
+            H = (math.random() - 0.5) * (75 * (1 - d)),
+            -- 鎖定開普勒旋轉規律：越內圈越快
+            Speed = (0.22 / (math.sqrt(radius) + 15)) * (0.85 + math.random() * 0.3)
+        })
+    end
+
+    task.spawn(function()
+        local t = 0
+        local tilt = CFrame.Angles(math.rad(18), 0, math.rad(8))
+        while _G.galaxyActive and container.Parent do
+            t = t + 0.35
+            local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local center = root.Position + Vector3.new(0, 260, 0)
+                for _, data in ipairs(stars) do
+                    local curA = data.Angle + (t * data.Speed)
+                    local pos = Vector3.new(math.cos(curA) * data.Rad + data.OffX, data.H, math.sin(curA) * data.Rad + data.OffZ)
+                    data.Obj.Position = center + (tilt * pos)
+                end
+            end
+            task.wait()
+        end
+    end)
+    print("Galaxy V7: Realistic Cosmic Colors Locked.")
+end
