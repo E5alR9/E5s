@@ -363,7 +363,9 @@ local function createUI()
         updateZbStyle()
     end)
 
--- 確保狀態計數器存在 (0=關, 1=黑洞, 2=銀河, 3=木星)
+-- [[ 🔘 宇宙切換核心：V132.0 - 全 Tab 縮進版 / 狀態 0-5 / Universe(4) & SUN(5) ]]
+
+	-- 確保狀態計數器存在 (0=關, 1=黑洞, 2=銀河, 3=木星, 4=Universe, 5=SUN)
 	if _G.skyState == nil then _G.skyState = 0 end
 
 	skyBtn.MouseButton1Click:Connect(function()
@@ -377,10 +379,16 @@ local function createUI()
 		elseif _G.skyState == 3 then
 			-- 執行第二次木星腳本以關閉並恢復 Lighting
 			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Jupiter"))() end)
+		elseif _G.skyState == 4 then
+			-- 執行第二次 Universe 腳本以關閉
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/universe"))() end)
+		elseif _G.skyState == 5 then
+			-- 執行第二次 SUN 腳本以關閉
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/SUN"))() end)
 		end
 
-		-- 2. 切換狀態數值 (0 -> 1 -> 2 -> 3 -> 0)
-		_G.skyState = (_G.skyState + 1) % 4
+		-- 2. 切換狀態數值 (0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 0)
+		_G.skyState = (_G.skyState + 1) % 6
 
 		-- 3. 執行新狀態的開啟邏輯
 		if _G.skyState == 0 then
@@ -395,10 +403,20 @@ local function createUI()
 		elseif _G.skyState == 3 then
 			_G.skyEnabled = true
 			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Jupiter"))() end)
+		elseif _G.skyState == 4 then
+			-- 新增狀態 4：Universe 星海背景
+			_G.skyEnabled = true
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/universe"))() end)
+		elseif _G.skyState == 5 then
+			-- 新增狀態 5：SUN 太陽系核心
+			_G.skyEnabled = true
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/SUN"))() end)
 		end
 
 		-- 4. 同步 UI 外觀
-		updateSkyStyle()
+		if updateSkyStyle then
+			updateSkyStyle()
+		end
 	end)
 
     -- [[ 整合後的最小化邏輯 ]]
