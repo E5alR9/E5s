@@ -1,143 +1,228 @@
--- [[ 🌌 天文光譜 117.0 - 15,000 球 / 500-800碼橫向流星 / 100 FPS / Tab 縮進 ]]
-	local Lighting = game:GetService("Lighting")
-	local RunService = game:GetService("RunService")
-	local p = game:GetService("Players").LocalPlayer
-	local v117Tag = "Universe_Spectra_V117"
+-- [[ 🌌 宇宙系統 183.0 - V179 核心 / 2800 邊界裁剪 / 瞬殺吞噬 / 三特色黑洞 / Tab 縮進 ]]
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local p = game:GetService("Players").LocalPlayer
+local v179Tag = "Universe_BoundaryOpt_V183"
 
-	-- 【1. 環境管理】
-	local existing = workspace:FindFirstChild(v117Tag)
+-- 【1. 環境管理與開關】
+local function toggleSystem()
+	local existing = workspace:FindFirstChild(v179Tag)
 	if existing then
-		_G.v117Active = false; existing:Destroy()
-		if _G.EnvBackupV117 then
-			Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = _G.EnvBackupV117.T, _G.EnvBackupV117.B, _G.EnvBackupV117.O
+		_G.v179Active = false; existing:Destroy()
+		Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = 14, 2, Color3.fromRGB(127, 127, 127)
+		Lighting.GlobalShadows = true
+		return true
+	end
+	return false
+end
+if toggleSystem() then return end
+
+_G.v179Active = true
+local currentSession = tick()
+_G.v179Session = currentSession
+Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient, Lighting.GlobalShadows = 0, 0, Color3.new(0,0,0), false
+
+local container = Instance.new("Model", workspace); container.Name = v179Tag
+
+-- 【2. 留痕與數據系統】
+local remnants = {}
+local function createStellarRemnant(pos, col, bhPos)
+	for i = 1, 4 do
+		local f = Instance.new("Part", container)
+		f.Size, f.Color, f.Material = Vector3.new(1.4, 1.4, 1.4), col, Enum.Material.Neon
+		f.Anchored, f.CanCollide, f.Position = true, false, pos
+		table.insert(remnants, {
+			Obj = f, Life = 1.0, Angle = math.random()*math.pi*2, 
+			OrbitR = (pos - bhPos).Magnitude * 0.8,
+			Speed = 0.04 + math.random()*0.05, Center = bhPos
+		})
+	end
+end
+
+local function getStellarData()
+	local rand = math.random() * 100
+	if rand < 1 then return Color3.fromRGB(155, 176, 255), 7.5 
+	elseif rand < 10 then return Color3.fromRGB(202, 215, 255), 5.0 
+	elseif rand < 40 then return Color3.fromRGB(255, 244, 234), 3.5 
+	elseif rand < 70 then return Color3.fromRGB(255, 210, 161), 2.8 
+	else return Color3.fromRGB(255, 100, 100), 2.2 end
+end
+
+-- 【3. 三大特色黑洞】
+local blackHoles = {}
+local function createBH(hOffset, bhType)
+	local bhData = {Type = bhType, Core = nil, ActiveOrbs = {}, Offset = hOffset, CurrentPos = Vector3.new(), Tilt = CFrame.Angles(math.rad(25), 0, math.rad(15))}
+	local core = Instance.new("Part", container); core.Shape, core.Size, core.Material, core.Color = Enum.PartType.Ball, Vector3.new(50, 50, 50), Enum.Material.Neon, Color3.new(0,0,0)
+	core.Anchored, core.CanCollide = true, false; bhData.Core = core
+	local pCount = (bhType == "Spiral") and 700 or 450
+	for i = 1, pCount do
+		local r, ang, armOff = 0, math.random()*math.pi*2, 0
+		if bhType == "Spiral" then 
+			local arm, prog = (i%2==0) and 0 or math.pi, i/pCount
+			r = 25 + prog*115; ang = arm + prog*5.5; armOff = (math.random()-0.5)*12*(1-prog)
+		elseif bhType == "Cloud" then
+			r = 25 + math.random()*90; ang = math.random()*math.pi*2; armOff = (math.random()-0.5)*15
+		else
+			r = 22 + math.sqrt(i/pCount)*80; ang = math.random()*math.pi*2
 		end
-		return 
+		table.insert(bhData.ActiveOrbs, {BaseRadius = r, Angle = ang, RotSpeed = 0.08/(r^0.3), Part = nil, Seed = math.random(1000), ArmOff = armOff})
 	end
+	return bhData
+end
 
-	_G.EnvBackupV117 = {T = Lighting.ClockTime, B = Lighting.Brightness, O = Lighting.OutdoorAmbient}
-	_G.v117Active = true
-	local currentSession = tick()
-	_G.v117Session = currentSession
+table.insert(blackHoles, createBH(Vector2.new(1250, -850), "Classic"))
+table.insert(blackHoles, createBH(Vector2.new(-1250, 1150), "Spiral"))
+table.insert(blackHoles, createBH(Vector2.new(650, -1650), "Cloud"))
 
-	Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = 0, 0, Color3.new(0,0,0)
-	local container = Instance.new("Model", workspace)
-	container.Name = v117Tag
+-- 【4. 星系生成】
+local systems, roguePlanets = {}, {}
+local function createSolarSystem()
+	local r, p, th = math.random(750, 2800), math.rad(math.random(360)), math.acos(math.random())
+	local col, size = getStellarData()
+	local sun = Instance.new("Part", container); sun.Shape, sun.Size, sun.Material, sun.Color = Enum.PartType.Ball, Vector3.new(size,size,size), Enum.Material.Neon, col
+	sun.Anchored, sun.CanCollide = true, false
+	local sys = {Obj = sun, BaseSize = size, BaseCol = col, Planets = {}, Radius = r, Phi = p, Theta = th, Speed = (math.random()>0.5 and 1 or -1)*0.00018, GravShift = Vector3.new(0,0,0), InterGrav = Vector3.new(0,0,0)}
+	for j = 1, math.random(1, 3) do
+		local pPart = Instance.new("Part", container); pPart.Shape, pPart.Size, pPart.Material = Enum.PartType.Ball, Vector3.new(1.2, 1.2, 1.2), Enum.Material.Neon
+		pPart.Color, pPart.Anchored, pPart.CanCollide = Color3.fromRGB(150, 200, 255), true, false
+		table.insert(sys.Planets, {Obj = pPart, OrbitR = size * 2.6 + math.random()*12, OrbitAngle = math.random()*360, OrbitSpeed = 0.04 + math.random()*0.08})
+	end
+	return sys
+end
 
-	-- 【2. 核心變量】
-	local stars = {}
-	local targetTotalStars = 15000 
-	local currentTotalCount = 0
-	local fps = 144
-	local lastMeteorTime = 0
-	local isStorming = false
-	local nextStormTick = tick() + 30 
+local function createRoguePlanet()
+	local pPart = Instance.new("Part", container); pPart.Shape, pPart.Size, pPart.Material = Enum.PartType.Ball, Vector3.new(1.6, 1.6, 1.6), Enum.Material.Neon
+	pPart.Color, pPart.Anchored, pPart.CanCollide = Color3.fromRGB(70, 50, 130), true, false
+	return {Obj = pPart, Pos = Vector3.new(math.random(-2800, 2800), math.random(150, 650), math.random(-2800, 2800)), Vel = Vector3.new(math.random(-2,2), math.random(-1,1), math.random(-2,2)), BaseCol = pPart.Color}
+end
 
-	-- 【3. 真實橫向流星生成 (高度: 500-800)】
-	local function spawnHorizontalMeteor(rp, customColor)
-		local meteor = Instance.new("Part", container)
-		meteor.Shape, meteor.Size, meteor.Material = Enum.PartType.Ball, Vector3.new(2.5, 2.5, 2.5), Enum.Material.Neon
-		meteor.Color, meteor.Anchored, meteor.CanCollide = Color3.new(1,1,1), true, false
-		
-		local att0 = Instance.new("Attachment", meteor)
-		local att1 = Instance.new("Attachment", meteor)
-		att1.Position = Vector3.new(0, 0, 18) -- 強化低空掠過的拖尾感
-		
-		local trail = Instance.new("Trail", meteor)
-		trail.Attachment0, trail.Attachment1 = att0, att1
-		trail.Color = ColorSequence.new(customColor or Color3.fromRGB(255, 255, 255), Color3.fromRGB(180, 230, 255))
-		trail.Lifetime, trail.Transparency = 0.4, NumberSequence.new(0, 1)
+-- 【5. 核心循環】
+task.spawn(function()
+	local t, updateStep = 0, 0
+	for i = 1, 750 do table.insert(systems, createSolarSystem()) end
+	for i = 1, 50 do table.insert(roguePlanets, createRoguePlanet()) end
 
-		-- 【物理軌跡：500-800 碼低空橫向】
-		local height = math.random(500, 800) 
-		local angle = math.rad(math.random(360)) 
-		local distance = 3000 -- 延長飛行路徑確保橫跨整個天際
-		
-		local startOffset = Vector3.new(math.cos(angle) * -distance, height, math.sin(angle) * -distance)
-		local endOffset = Vector3.new(math.cos(angle) * distance, height + math.random(-30, 30), math.sin(angle) * distance)
-		
-		local startPos = rp + startOffset
-		local endPos = rp + endOffset
-		
-		task.spawn(function()
-			local alpha = 0
-			-- 稍微增加速度以補償更近的視覺距離
-			local speed = 0.025 + (math.random() * 0.015) 
-			while alpha < 1 and _G.v117Active do
-				alpha = alpha + speed
-				meteor.Position = startPos:Lerp(endPos, alpha)
-				RunService.RenderStepped:Wait()
+	while _G.v179Active and _G.v179Session == currentSession do
+		local dt = RunService.RenderStepped:Wait()
+		t, updateStep = t + 0.04, updateStep + 1
+		local rp = (p.Character and p.Character:FindFirstChild("HumanoidRootPart")) and p.Character.HumanoidRootPart.Position or Vector3.new(0,0,0)
+
+		-- 黑洞渲染
+		for idx, bh in ipairs(blackHoles) do
+			bh.CurrentPos = rp + Vector3.new(math.cos(t*0.005+idx)*bh.Offset.X, 350+math.sin(t*0.02)*40, math.sin(t*0.005+idx)*bh.Offset.Y)
+			if bh.Core then bh.Core.Position = bh.CurrentPos end
+			for _, d in ipairs(bh.ActiveOrbs) do
+				if not d.Part then d.Part = Instance.new("Part", container); d.Part.Shape, d.Part.Size, d.Part.Material, d.Part.Anchored, d.Part.CanCollide = Enum.PartType.Ball, Vector3.new(1.2,1.2,1.2), Enum.Material.Neon, true, false end
+				d.Angle = d.Angle + d.RotSpeed
+				local yOff = (bh.Type == "Cloud") and math.sin(t + d.Seed)*15 or math.sin(t*0.5 + d.Seed)*0.5
+				d.Part.Position = bh.CurrentPos + (bh.Tilt * Vector3.new(math.cos(d.Angle)*d.BaseRadius + d.ArmOff, yOff, math.sin(d.Angle)*d.BaseRadius + d.ArmOff))
+				d.Part.Color = (bh.Type == "Spiral") and Color3.fromRGB(100, 160, 255) or (bh.Type == "Cloud" and Color3.fromRGB(255, 180, 50) or Color3.fromRGB(255, 90, 40))
 			end
-			meteor:Destroy()
-		end)
-	end
+		end
 
-	-- 【4. 星球生成函數】
-	local function createStar()
-		local radius = math.random(600, 1800)
-		local phi = math.rad(math.random(360))
-		local theta = math.acos(2 * math.random() - 1)
-		local rand = math.random()
-		local size, color
-		if rand > 0.95 then size = 4.5+math.random()*3; color = Color3.fromRGB(180,220,255)
-		elseif rand > 0.7 then size = 2.5+math.random()*2; color = Color3.fromRGB(255,255,230)
-		else size = 1.2+math.random()*1; color = Color3.fromRGB(255,120,60) end
-		
-		local s = Instance.new("Part", container)
-		s.Shape, s.Anchored, s.CanCollide, s.Material = Enum.PartType.Ball, true, false, Enum.Material.Neon
-		s.Size = Vector3.new(size, size, size); s.Color = color
-		currentTotalCount = currentTotalCount + 1
-		return {Obj = s, Radius = radius, Phi = phi, Theta = theta, Speed = (math.random()>0.5 and 1 or -1)*(math.random(15, 50)*0.00001)}
-	end
+		-- 流浪行星物理 (加上 2800 邊界裁剪)
+		for i = #roguePlanets, 1, -1 do
+			local rP = roguePlanets[i]
+			local distToPlayer = (rP.Pos - rp).Magnitude
+			if not rP.Obj or not rP.Obj.Parent or rP.Pos.Y < -100 or distToPlayer > 3000 then 
+				if rP.Obj then rP.Obj:Destroy() end
+				table.remove(roguePlanets, i); table.insert(roguePlanets, createRoguePlanet()) continue 
+			end
+			local targetBH = blackHoles[1]; local dMin = (rP.Pos - targetBH.CurrentPos).Magnitude
+			for j=2, #blackHoles do
+				local d = (rP.Pos - blackHoles[j].CurrentPos).Magnitude
+				if d < dMin then dMin = d; targetBH = blackHoles[j] end
+			end
+			if dMin < 40 then 
+				createStellarRemnant(rP.Pos, rP.BaseCol, targetBH.CurrentPos)
+				rP.Obj:Destroy(); table.remove(roguePlanets, i); table.insert(roguePlanets, createRoguePlanet())
+				continue
+			end
+			local f = (dMin < 700) and (1-(dMin/700))^2 or 0
+			rP.Vel = rP.Vel + (targetBH.CurrentPos - rP.Pos).Unit * f * 2
+			rP.Pos = rP.Pos + rP.Vel; rP.Obj.Position = rP.Pos
+		end
 
-	-- 【5. 核心渲染與調度循環】
-	task.spawn(function()
-		for i = 1, 1000 do table.insert(stars, createStar()) end
+		-- 恆星與行星 (加上 2800 邊界裁剪)
+		for i = #systems, 1, -1 do
+			local s1 = systems[i]
+			-- 如果座標距離玩家超過 2800，直接刪除
+			local distToPlayer = s1.Obj and (s1.Obj.Position - rp).Magnitude or 0
+			if not s1.Obj or not s1.Obj.Parent or s1.Obj.Position.Y < -100 or distToPlayer > 2900 then 
+				if s1.Obj then s1.Obj:Destroy() end
+				for _,pd in ipairs(s1.Planets) do if pd.Obj then pd.Obj:Destroy() end end
+				table.remove(systems, i); continue 
+			end
 
-		while _G.v117Active and _G.v117Session == currentSession do
-			local dt = RunService.RenderStepped:Wait()
-			fps = 0.9 * fps + 0.1 * (1 / dt)
-			local char = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-			if not char then continue end
-			local rp = char.Position
+			s1.Phi = s1.Phi + s1.Speed
+			local oPos = rp + Vector3.new(s1.Radius * math.sin(s1.Theta) * math.cos(s1.Phi), s1.Radius * math.cos(s1.Theta), s1.Radius * math.sin(s1.Theta) * math.sin(s1.Phi))
+			local targetBH = blackHoles[1]; local dMin = (s1.Obj.Position - targetBH.CurrentPos).Magnitude
+			for j=2, #blackHoles do
+				local d = (s1.Obj.Position - blackHoles[j].CurrentPos).Magnitude
+				if d < dMin then dMin = d; targetBH = blackHoles[j] end
+			end
 
-			-- 流星雨循環邏輯
-			local now = tick()
-			if now > nextStormTick then
-				isStorming = true
-				if now > nextStormTick + 10 then 
-					isStorming = false
-					nextStormTick = now + math.random(80, 150)
+			-- 瞬殺判定
+			if dMin < 40 then 
+				createStellarRemnant(s1.Obj.Position, s1.BaseCol, targetBH.CurrentPos)
+				s1.Obj:Destroy(); for _,pd in ipairs(s1.Planets) do if pd.Obj then pd.Obj:Destroy() end end
+				table.remove(systems, i); continue
+			end
+
+			local f = (dMin < 650) and (1-(dMin/650))^2 or 0
+			s1.GravShift = s1.GravShift:Lerp((targetBH.CurrentPos - oPos).Unit * (f * 230), 0.05)
+			
+			-- 互吸邏輯 (保留 V179)
+			if (i + updateStep) % 4 == 0 then
+				local starGrav = Vector3.new(0,0,0)
+				for j = 1, 5 do
+					local s2 = systems[math.random(1, #systems)]
+					if s2 and s1 ~= s2 and s2.Obj.Parent then
+						local dS = (s1.Obj.Position - s2.Obj.Position).Magnitude
+						if dS < 150 then starGrav = starGrav + (s2.Obj.Position - s1.Obj.Position).Unit * (1-dS/150)*14 end
+					end
+				end
+				s1.InterGrav = s1.InterGrav:Lerp(starGrav, 0.1)
+			end
+			
+			local finalPos = oPos + s1.GravShift + s1.InterGrav
+			s1.Obj.Position = finalPos
+			
+			-- 麵條化
+			if f > 0.05 then
+				s1.Obj.Size = Vector3.new(s1.BaseSize, s1.BaseSize + f*80, s1.BaseSize)
+				s1.Obj.CFrame = CFrame.new(finalPos, targetBH.CurrentPos) * CFrame.Angles(math.pi/2, 0, 0)
+			else s1.Obj.Size = Vector3.new(s1.BaseSize, s1.BaseSize, s1.BaseSize) end
+
+			-- 行星更新 (保留 V179)
+			for _, pData in ipairs(s1.Planets) do
+				if pData.Obj and pData.Obj.Parent then
+					pData.OrbitAngle = pData.OrbitAngle + pData.OrbitSpeed
+					local relPos = Vector3.new(math.cos(pData.OrbitAngle)*pData.OrbitR, 0, math.sin(pData.OrbitAngle)*pData.OrbitR)
+					local pPos = finalPos + relPos
+					if f > 0.05 then
+						pData.Obj.Position = pPos:Lerp(targetBH.CurrentPos, f * 0.9)
+						pData.Obj.Size = Vector3.new(1.2, 1.2 + f*35, 1.2)
+						pData.Obj.CFrame = CFrame.new(pData.Obj.Position, targetBH.CurrentPos) * CFrame.Angles(math.pi/2, 0, 0)
+					else
+						pData.Obj.Position = pPos; pData.Obj.Size = Vector3.new(1.2, 1.2, 1.2)
+					end
 				end
 			end
-
-			if isStorming then
-				if math.random() > 0.80 then spawnHorizontalMeteor(rp, Color3.fromRGB(220, 255, 255)) end
+		end
+		
+		-- 痕跡清理
+		for i = #remnants, 1, -1 do
+			local rem = remnants[i]
+			rem.Life = rem.Life - 0.005
+			if rem.Life <= 0 or not rem.Obj.Parent then rem.Obj:Destroy(); table.remove(remnants, i)
 			else
-				if now - lastMeteorTime > math.random(12, 25) then
-					spawnHorizontalMeteor(rp); lastMeteorTime = now
-				end
-			end
-
-			-- 100 FPS 守護邏輯
-			if fps < 100 and #stars > 100 then
-				for k = 1, 30 do
-					local s = table.remove(stars, math.random(#stars))
-					if s then s.Obj:Destroy() end
-					currentTotalCount = currentTotalCount - 1
-				end
-			elseif fps > 112 and currentTotalCount < targetTotalStars then
-				for k = 1, 25 do
-					if currentTotalCount < targetTotalStars then table.insert(stars, createStar()) end
-				end
-			end
-
-			-- 星球旋轉運算
-			for i = #stars, 1, -1 do
-				local s = stars[i]
-				s.Phi = s.Phi + s.Speed
-				local starPos = rp + Vector3.new(s.Radius * math.sin(s.Theta) * math.cos(s.Phi), s.Radius * math.cos(s.Theta), s.Radius * math.sin(s.Theta) * math.sin(s.Phi))
-				s.Obj.Position = starPos
-				s.Obj.Transparency = (starPos.Y < rp.Y - 5) and 1 or 0
+				rem.Angle = rem.Angle + rem.Speed
+				rem.Obj.Position = rem.Center + Vector3.new(math.cos(rem.Angle)*rem.OrbitR, math.sin(t+rem.Angle), math.sin(rem.Angle)*rem.OrbitR)
+				rem.Obj.Transparency = 1 - rem.Life
 			end
 		end
-	end)
+
+		if #systems < 650 then table.insert(systems, createSolarSystem()) end
+	end
+end)
