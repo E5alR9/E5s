@@ -216,54 +216,53 @@ local function buildAdminPanel()
     end)
 end
 
--- [[ 🚀 啟動與同步 ]]
+-- [[ 🚀 啟動與同步 (已修改為每次重置在線時間) ]]
 local function startCloudSync()
-    local cloudTime = nil
-    for i = 1, 3 do
-        local res = httpRequest("GET", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json")
-        if res and res.Body and res.Body ~= "null" then
-            cloudTime = tonumber(res.Body)
-            break
-        end
-        task.wait(0.5)
-    end
-    if cloudTime then finalJoinTime = cloudTime else httpRequest("PUT", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json", finalJoinTime) end
-    task.spawn(function()
-        while true do
-            pcall(function()
-                httpRequest("PUT", myDBURL .. "users/" .. lp.UserId .. ".json", {
-                    ["displayName"] = lp.DisplayName, ["username"] = lp.Name,
-                    ["lastSeen"] = os.time(), ["joinTime"] = finalJoinTime,
-                    ["status"] = (lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.Health > 0) and "ALIVE" or "DEAD",
-                    ["jobId"] = game.JobId, ["userId"] = lp.UserId
-                })
-            end)
-            task.wait(1)
-        end
-    end)
-    task.spawn(function()
-        local lastG, lastP = "", ""
-        while true do
-            pcall(function()
-                local resG = httpRequest("GET", myDBURL .. "announcement.json")
-                if resG and resG.Body then
-                    local data = HttpService:JSONDecode(resG.Body)
-                    if data and data.msg and data.msg ~= "" and data.msg ~= lastG then
-                        lastG = data.msg; showNotice(data.msg, false)
-                    end
-                end
-                local resP = httpRequest("GET", myDBURL .. "private/" .. lp.UserId .. ".json")
-                if resP and resP.Body then
-                    local data = HttpService:JSONDecode(resP.Body)
-                    if data and data.msg and data.msg ~= "" and data.msg ~= lastP then
-                        lastP = data.msg; showNotice(data.msg, true)
-                        httpRequest("DELETE", myDBURL .. "private/" .. lp.UserId .. ".json")
-                    end
-                end
-            end)
-            task.wait(3)
-        end
-    end)
+	-- 直接重置為當前時間，不讀取雲端舊數據
+	finalJoinTime = os.time() 
+	httpRequest("PUT", myDBURL .. "users/" .. lp.UserId .. "/joinTime.json", finalJoinTime)
+	
+	-- 狀態同步循環
+	task.spawn(function()
+		while true do
+			pcall(function()
+				httpRequest("PUT", myDBURL .. "users/" .. lp.UserId .. ".json", {
+					["displayName"] = lp.DisplayName, ["username"] = lp.Name,
+					["lastSeen"] = os.time(), ["joinTime"] = finalJoinTime,
+					["status"] = (lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.Health > 0) and "ALIVE" or "DEAD",
+					["jobId"] = game.JobId, ["userId"] = lp.UserId
+				})
+			end)
+			task.wait(1)
+		end
+	end)
+
+	-- 公告與私訊監聽
+	task.spawn(function()
+		local lastG, lastP = "", ""
+		while true do
+			pcall(function()
+				-- 公告系統
+				local resG = httpRequest("GET", myDBURL .. "announcement.json")
+				if resG and resG.Body then
+					local data = HttpService:JSONDecode(resG.Body)
+					if data and data.msg and data.msg ~= "" and data.msg ~= lastG then
+						lastG = data.msg; showNotice(data.msg, false)
+					end
+				end
+				-- 私訊系統 (閱後即焚模式)
+				local resP = httpRequest("GET", myDBURL .. "private/" .. lp.UserId .. ".json")
+				if resP and resP.Body then
+					local data = HttpService:JSONDecode(resP.Body)
+					if data and data.msg and data.msg ~= "" and data.msg ~= lastP then
+						lastP = data.msg; showNotice(data.msg, true)
+						httpRequest("DELETE", myDBURL .. "private/" .. lp.UserId .. ".json")
+					end
+				end
+			end)
+			task.wait(3)
+		end
+	end)
 end
 
 local function init()
@@ -322,3 +321,4 @@ lp.CharacterAdded:Connect(function()
         panel.Enabled = false
     end
 end)
+
