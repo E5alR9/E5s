@@ -1,131 +1,141 @@
--- [[ 🪐 宇宙系統 135.0 - 1min=1yr / 掠日流星 / FPS 100 平衡 / 左對齊版 ]]
+-- [[ 🪐 宇宙系統 145.0 - 隕石帶保底 150 顆 / 實心太陽核心 / 資源層次管理 / 左對齊 ]]
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local p = game:GetService("Players").LocalPlayer
-local solarTag = "Universe_System_V135"
+local solarTag = "Universe_System_V145"
 
 -- 【1. 開關核心邏輯】
 local existing = workspace:FindFirstChild(solarTag)
 if existing then
 	_G.solarActive = false; existing:Destroy()
-	if _G.oldEnvV135 then
-		Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = _G.oldEnvV135.T, _G.oldEnvV135.B, _G.oldEnvV135.O
+	if _G.oldEnvV145 then
+		Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = _G.oldEnvV145.T, _G.oldEnvV145.B, _G.oldEnvV145.O
 	end
 	return 
 end
 
-_G.oldEnvV135 = {T = Lighting.ClockTime, B = Lighting.Brightness, O = Lighting.OutdoorAmbient}
+_G.oldEnvV145 = {T = Lighting.ClockTime, B = Lighting.Brightness, O = Lighting.OutdoorAmbient}
 _G.solarActive = true
-local currentSession, lastMeteorTime = tick(), 0
+local currentSession = tick()
 _G.solarSession = currentSession
 
 Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = 0, 0, Color3.new(0, 0, 0)
 local container = Instance.new("Model", workspace)
 container.Name = solarTag
 
--- 【2. 時間與比例設定】
+-- 【2. 配置與比例】
 local YEAR_DURATION = 60 
 local BASE_SPEED = (math.pi * 2) / YEAR_DURATION 
 local pConfigs = {
-	{Name = "Mercury", Col = Color3.fromRGB(170, 170, 170), Rad = 500,  RelSpd = 1/0.24,  Size = 12},
-	{Name = "Venus",   Col = Color3.fromRGB(255, 220, 100), Rad = 750,  RelSpd = 1/0.61,  Size = 22},
-	{Name = "Earth",   Col = Color3.fromRGB(50, 150, 255),  Rad = 1000, RelSpd = 1/1,     Size = 24},
-	{Name = "Mars",    Col = Color3.fromRGB(255, 100, 50),  Rad = 1300, RelSpd = 1/1.88,  Size = 16},
-	{Name = "Jupiter", Col = Color3.fromRGB(220, 180, 140), Rad = 1800, RelSpd = 1/11.86, Size = 55}
+	{Name = "Mercury", Col = Color3.fromRGB(170, 170, 170), Rad = 500,  RelSpd = 1/0.24,  Size = 12, IsGas = false},
+	{Name = "Venus",   Col = Color3.fromRGB(255, 220, 100), Rad = 750,  RelSpd = 1/0.61,  Size = 22, IsGas = false},
+	{Name = "Earth",   Col = Color3.fromRGB(50, 150, 255),  Rad = 1000, RelSpd = 1/1,     Size = 24, IsGas = false},
+	{Name = "Mars",    Col = Color3.fromRGB(255, 100, 50),  Rad = 1300, RelSpd = 1/1.88,  Size = 16, IsGas = false},
+	{Name = "Jupiter", Col = Color3.fromRGB(220, 180, 140), Rad = 1800, RelSpd = 1/11.86, Size = 55, IsGas = true}
 }
 
--- 【3. 掠日流星函數 (鎖定太陽中心)】
-local function spawnSunSkimmer(sunCenter)
-	local m = Instance.new("Part", container)
-	m.Shape, m.Size, m.Material = Enum.PartType.Ball, Vector3.new(3, 3, 3), Enum.Material.Neon
-	m.Color, m.Anchored, m.CanCollide = Color3.new(1,1,1), true, false
-	local att0, att1 = Instance.new("Attachment", m), Instance.new("Attachment", m)
-	att1.Position = Vector3.new(0,0,25) -- 超長拖尾
-	local tr = Instance.new("Trail", m)
-	tr.Attachment0, tr.Attachment1, tr.Lifetime = att0, att1, 0.6
-	tr.Color = ColorSequence.new(Color3.new(1,1,1), Color3.fromRGB(255, 150, 50)) -- 靠近太陽受熱變橘色
-	
-	-- 生成邏輯：從太陽後方射向太陽前方
-	local angle = math.rad(math.random(360))
-	local dist = 3500
-	-- 起點與終點連線會經過太陽中心點附近 (加上隨機偏移以免每次都正中紅心)
-	local offset = Vector3.new(math.random(-150, 150), math.random(-150, 150), math.random(-150, 150))
-	local startPos = sunCenter + Vector3.new(math.cos(angle)*dist, math.random(-200, 200), math.sin(angle)*dist)
-	local endPos = sunCenter - (startPos - sunCenter) + offset -- 對角線發射
-	
-	task.spawn(function()
-		local a = 0
-		local speed = 0.015 + (math.random() * 0.01)
-		while a < 1 and _G.solarActive do
-			a = a + speed
-			m.Position = startPos:Lerp(endPos, a)
-			RunService.RenderStepped:Wait()
-		end
-		m:Destroy()
-	end)
-end
+local moonDefs = {
+	["Earth"] = {{Name = "Moon", Col = Color3.fromRGB(200,200,200), Dist = 42, Spd = 13.3, Sz = 6}},
+	["Jupiter"] = {
+		{Name = "Io", Col = Color3.fromRGB(255,255,100), Dist = 72, Spd = 206, Sz = 5},
+		{Name = "Europa", Col = Color3.fromRGB(150,200,255), Dist = 90, Spd = 102, Sz = 5},
+		{Name = "Ganymede", Col = Color3.fromRGB(180,160,140), Dist = 115, Spd = 51, Sz = 7},
+		{Name = "Callisto", Col = Color3.fromRGB(120,120,130), Dist = 145, Spd = 21, Sz = 6.5}
+	}
+}
 
--- 【4. 太陽與行星初始化】
+-- 【3. 實心核心與太陽粒子初始化】
+local sunCore = Instance.new("Part", container)
+sunCore.Shape, sunCore.Size = Enum.PartType.Ball, Vector3.new(450, 450, 450)
+sunCore.Color, sunCore.Material = Color3.fromRGB(255, 100, 0), Enum.Material.Neon
+sunCore.Anchored, sunCore.CanCollide = true, false
+
 local activeSun, inactiveSun = {}, {}
 for i = 1, 5000 do
 	local offset, inc = 2/5000, math.pi*(3-math.sqrt(5))
 	local y = ((i-1)*offset-1)+(offset/2)
 	local r, phi = math.sqrt(1-y^2), i*inc
 	local d = {Size = (i%2==0) and Vector3.new(12,12,12) or Vector3.new(24,24,24), RY = r*280, Y = y*280, Phi = phi, Lat = y, Obj = nil}
-	local pPart = Instance.new("Part", container)
-	pPart.Size, pPart.Material, pPart.Anchored, pPart.CanCollide = d.Size, Enum.Material.Neon, true, false
+	local pPart = Instance.new("Part", container); pPart.Size, pPart.Material, pPart.Anchored, pPart.CanCollide = d.Size, Enum.Material.Neon, true, false
 	d.Obj = pPart; table.insert(activeSun, d)
 end
 
+-- 【4. 行星與隕石帶初始化】
 local planets = {}
 for _, cfg in ipairs(pConfigs) do
-	local g = {}
-	for j = 1, 300 do
-		local pt = Instance.new("Part", container)
-		pt.Shape, pt.Size, pt.Material, pt.Color = Enum.PartType.Ball, Vector3.new(6,6,6), Enum.Material.Neon, cfg.Col
+	local parts = {}
+	if cfg.IsGas then
+		for j = 1, 200 do
+			local pt = Instance.new("Part", container); pt.Shape, pt.Size, pt.Material, pt.Color = Enum.PartType.Ball, Vector3.new(6,6,6), Enum.Material.Neon, cfg.Col
+			pt.Anchored, pt.CanCollide = true, false
+			table.insert(parts, {Obj = pt, LPos = Vector3.new(math.random()-0.5, math.random()-0.5, math.random()-0.5).Unit * cfg.Size})
+		end
+	else
+		local pt = Instance.new("Part", container); pt.Shape, pt.Size, pt.Material, pt.Color = Enum.PartType.Ball, Vector3.new(cfg.Size, cfg.Size, cfg.Size), Enum.Material.Neon, cfg.Col
 		pt.Anchored, pt.CanCollide = true, false
-		table.insert(g, {Obj = pt, LPos = Vector3.new(math.random()-0.5, math.random()-0.5, math.random()-0.5).Unit * cfg.Size})
+		table.insert(parts, {Obj = pt, LPos = Vector3.new(0,0,0)})
 	end
-	table.insert(planets, {Parts = g, Config = cfg, Angle = math.random()*6})
+	local moons = {}
+	if moonDefs[cfg.Name] then
+		for _, mInfo in ipairs(moonDefs[cfg.Name]) do
+			local mp = Instance.new("Part", container); mp.Size, mp.Color, mp.Material, mp.Anchored, mp.CanCollide = Vector3.new(mInfo.Sz, mInfo.Sz, mInfo.Sz), mInfo.Col, Enum.Material.Neon, true, false
+			table.insert(moons, {Obj = mp, Dist = mInfo.Dist, Spd = mInfo.Spd, Ang = math.random()*6})
+		end
+	end
+	table.insert(planets, {Parts = parts, Moons = moons, Config = cfg, Angle = math.random()*6})
 end
 
--- 【5. 渲染與 FPS 平衡循環】
-task.spawn(function()
-	local t, fps = 0, 144
-	local tilt = CFrame.Angles(math.rad(10), 0, math.rad(5))
+local activeAsteroids, inactiveAsteroids = {}, {}
+for i = 1, 2000 do
+	local ap = Instance.new("Part", container); ap.Size, ap.Color, ap.Material, ap.Anchored, ap.CanCollide = Vector3.new(3,3,3), Color3.fromRGB(120,110,100), Enum.Material.Slate, true, false
+	table.insert(activeAsteroids, {Obj = ap, Rad = math.random(1450, 1650), Ang = math.random()*6, Spd = (0.3+math.random()*0.2)*BASE_SPEED, Y = math.random(-30,30)})
+end
 
+-- 【5. 渲染與守護循環】
+task.spawn(function()
+	local t, fps, minAsteroids = 0, 144, 150
+	local tilt = CFrame.Angles(math.rad(10), 0, math.rad(5))
 	while _G.solarActive and _G.solarSession == currentSession do
 		local dt = RunService.RenderStepped:Wait()
 		fps = 0.9 * fps + 0.1 * (1 / dt)
 		t = t + dt
-
 		local char = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
 		if char then
 			local rp = char.Position
 			local sunCenter = rp + Vector3.new(1200, 500, -1200)
+			sunCore.Position = sunCenter
+			sunCore.Color = Color3.fromRGB(255, 100, 0):lerp(Color3.fromRGB(255, 150, 0), (math.sin(t*2)+1)/2)
 
-			-- FPS 100 守護
-			if fps < 100 and #activeSun > 200 then
-				for k = 1, 50 do
-					local d = table.remove(activeSun, math.random(#activeSun))
-					if d.Obj then d.Obj:Destroy(); d.Obj = nil; table.insert(inactiveSun, d) end
+			-- 【⚡ 資源管理：設定隕石保底】
+			if fps < 100 then
+				if #activeAsteroids > minAsteroids then -- 砍到剩 150 顆為止
+					for k = 1, 40 do
+						local d = table.remove(activeAsteroids, math.random(#activeAsteroids))
+						if d.Obj then d.Obj:Destroy(); d.Obj = nil; table.insert(inactiveAsteroids, d) end
+					end
+				elseif #activeSun > 200 then -- 隕石保底後，開始砍太陽
+					for k = 1, 50 do
+						local d = table.remove(activeSun, math.random(#activeSun))
+						if d.Obj then d.Obj:Destroy(); d.Obj = nil; table.insert(inactiveSun, d) end
+					end
 				end
-			elseif fps > 115 and #inactiveSun > 0 then
-				for k = 1, 30 do
-					local d = table.remove(inactiveSun, math.random(#inactiveSun))
-					local pPart = Instance.new("Part", container)
-					pPart.Size, pPart.Material, pPart.Anchored, pPart.CanCollide = d.Size, Enum.Material.Neon, true, false
-					d.Obj = pPart; table.insert(activeSun, d)
+			elseif fps > 115 then
+				if #inactiveSun > 0 then
+					for k = 1, 30 do
+						local d = table.remove(inactiveSun, math.random(#inactiveSun))
+						local pPart = Instance.new("Part", container); pPart.Size, pPart.Material, pPart.Anchored, pPart.CanCollide = d.Size, Enum.Material.Neon, true, false
+						d.Obj = pPart; table.insert(activeSun, d)
+					end
+				elseif #inactiveAsteroids > 0 then
+					for k = 1, 30 do
+						local d = table.remove(inactiveAsteroids, math.random(#inactiveAsteroids))
+						local ap = Instance.new("Part", container); ap.Size, ap.Color, ap.Material, ap.Anchored, ap.CanCollide = Vector3.new(3,3,3), Color3.fromRGB(120,110,100), Enum.Material.Slate, true, false
+						d.Obj = ap; table.insert(activeAsteroids, d)
+					end
 				end
 			end
 
-			-- 觸發掠日流星
-			if tick() - lastMeteorTime > math.random(8, 15) then
-				spawnSunSkimmer(sunCenter)
-				lastMeteorTime = tick()
-			end
-
-			-- 太陽渲染
+			-- 太陽表面
 			for _, d in ipairs(activeSun) do
 				if d.Obj then
 					local curPhi = d.Phi + t * 0.1
@@ -134,11 +144,15 @@ task.spawn(function()
 				end
 			end
 
-			-- 行星渲染
+			-- 隕石帶
+			for _, ast in ipairs(activeAsteroids) do if ast.Obj then ast.Ang = ast.Ang + (ast.Spd * dt); ast.Obj.Position = sunCenter + (tilt * Vector3.new(math.cos(ast.Ang)*ast.Rad, ast.Y, math.sin(ast.Ang)*ast.Rad)) end end
+			
+			-- 行星與衛星
 			for _, pl in ipairs(planets) do
 				pl.Angle = pl.Angle + (BASE_SPEED * pl.Config.RelSpd * dt)
 				local pPos = sunCenter + (tilt * Vector3.new(math.cos(pl.Angle)*pl.Config.Rad, 0, math.sin(pl.Angle)*pl.Config.Rad))
 				for _, mp in ipairs(pl.Parts) do mp.Obj.Position = pPos + mp.LPos end
+				for _, mn in ipairs(pl.Moons) do mn.Ang = mn.Ang + (BASE_SPEED * mn.Spd * dt); mn.Obj.Position = pPos + Vector3.new(math.cos(mn.Ang)*mn.Dist, math.sin(mn.Ang)*8, math.sin(mn.Ang)*mn.Dist) end
 			end
 		end
 	end
