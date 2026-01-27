@@ -1,43 +1,45 @@
--- [[ 🌌 宇宙系統 190.1 - 2000界限版：精準自爆回收 / 隨機傾角 / Tab 縮進 ]]
+-- [[ 🌌 宇宙系統 192.25 - 全域隨機傾角版：四段推進 / 循序老死 / 立體恆星軌道 / Tab 縮進 ]]
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local p = game:GetService("Players").LocalPlayer
 local camera = workspace.CurrentCamera
-local v188Tag = "Universe_Limit2000_V190_1"
+local v188Tag = "Universe_FullStereo_V192_25"
 
 -- 【變數設定】
 local isLockedToPlayer = true
 local fixedAnchor = Vector3.new(0, 0, 0)
 local blackHoles = {}
-local zoomOffset = 0 
+local zoomLevel = 0 
+local lerpDolly = 0 
 local systems = {}
 local remnants = {}
-local CLEAN_LIMIT = 2000 -- 嚴格邊界設定
+local CLEAN_LIMIT = 2000 
+local ATTRACT_DIST = 150
 
--- 【Z 鍵循環放大邏輯】
-UserInputService.InputBegan:Connect(function(input, gp)
-	if gp then return end
-	if input.KeyCode == Enum.KeyCode.P then
-		isLockedToPlayer = not isLockedToPlayer
-		if not isLockedToPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-			fixedAnchor = p.Character.HumanoidRootPart.Position
-		end
-	elseif input.KeyCode == Enum.KeyCode.Z then
-		if zoomOffset > 5 then zoomOffset = 0 end
-	end
-end)
-
+-- 【切換與恢復邏輯】
 local function toggleSystem()
 	local existing = workspace:FindFirstChild(v188Tag)
 	if existing then
-		_G.v188Active = false; existing:Destroy()
-		Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient = 14, 2, Color3.fromRGB(127, 127, 127)
+		_G.v188Active = false
+		existing:Destroy()
+		Lighting.ClockTime, Lighting.Brightness = 14, 2
+		Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+		Lighting.GlobalShadows = true
 		return true
 	end
 	return false
 end
 if toggleSystem() then return end
+
+-- 【快捷鍵偵測】
+UserInputService.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	if input.KeyCode == Enum.KeyCode.P then isLockedToPlayer = not isLockedToPlayer
+	elseif input.KeyCode == Enum.KeyCode.Z then 
+		zoomLevel = (zoomLevel + 1) % 4 
+	end
+end)
 
 _G.v188Active = true
 local currentSession = tick()
@@ -45,7 +47,7 @@ _G.v188Session = currentSession
 Lighting.ClockTime, Lighting.Brightness, Lighting.OutdoorAmbient, Lighting.GlobalShadows = 0, 0, Color3.new(0,0,0), false
 local container = Instance.new("Model", workspace); container.Name = v188Tag
 
--- 【核心碎片系統：2000界限自爆】
+-- 【核心碎片系統：隨機傾角螺旋】
 local function createStellarRemnant(pos, col, isExpelling)
 	local nearestBH = blackHoles[1]
 	for i = 2, #blackHoles do
@@ -53,65 +55,63 @@ local function createStellarRemnant(pos, col, isExpelling)
 			nearestBH = blackHoles[i]
 		end
 	end
-
-	local count = isExpelling and 4 or 12 -- 自爆碎片更精簡
+	
+	local randomUp = Vector3.new(math.random()-0.5, math.random()-0.5, math.random()-0.5).Unit
+	local count = isExpelling and 4 or 7 
+	
 	for i = 1, count do
 		local f = Instance.new("Part", container)
-		f.Size, f.Color, f.Material = Vector3.new(0.4, 0.4, 1.8), col, Enum.Material.Neon
+		f.Size, f.Color, f.Material = Vector3.new(0.3, 0.3, 1.5), col, Enum.Material.Neon
 		f.Anchored, f.CanCollide = true, false; f.Position = pos
-		local trail = Instance.new("Trail", f)
-		local a0 = Instance.new("Attachment", f); a0.Position = Vector3.new(0, 0.2, 0)
-		local a1 = Instance.new("Attachment", f); a1.Position = Vector3.new(0, -0.2, 0)
-		trail.Attachment0, trail.Attachment1, trail.Lifetime = a0, a1, 0.4
-		trail.Color = ColorSequence.new(col)
+		local a0 = Instance.new("Attachment", f); a0.Position = Vector3.new(0, 0.15, 0)
+		local a1 = Instance.new("Attachment", f); a1.Position = Vector3.new(0, -0.15, 0)
+		local tr = Instance.new("Trail", f); tr.Attachment0, tr.Attachment1, tr.Lifetime = a0, a1, 0.3; tr.Color = ColorSequence.new(col)
 		
 		local vecToBH = (nearestBH.CurrentPos - pos)
-		local vel
-		if isExpelling then
-			-- 向外噴發：隨機高速
-			vel = Vector3.new(math.random(-60, 60), math.random(-60, 60), math.random(-60, 60))
-		else
-			-- 吸積繞行
-			local tangent = Vector3.new(-vecToBH.Z, 0, vecToBH.X).Unit
-			local dir = (math.random() > 0.5 and 1 or -1)
-			vel = (tangent * dir * (10 + math.random()*4))
-		end
+		local orbitDir = (math.random() > 0.5 and 1 or -1)
+		local tangent = vecToBH.Unit:Cross(randomUp).Unit
+		local vel = isExpelling and Vector3.new(math.random(-50, 50), math.random(-50, 50), math.random(-50, 50)) 
+					or (tangent * orbitDir * (12 + math.random() * 6))
 
 		table.insert(remnants, {
-			Obj = f, 
-			Life = 1.0, 
-			Decay = isExpelling and 0.03 or 0.0008, 
-			Velocity = vel, 
-			TargetBH = nearestBH,
-			OrbitDir = 1,
-			ChaosFactor = isExpelling and 1.02 or 0.98,
-			IsExpelling = isExpelling
+			Obj = f, Life = 1.0, Decay = isExpelling and 0.03 or 0.0004, 
+			Velocity = vel, TargetBH = nearestBH, InwardBias = 0.1, 
+			IsExpelling = isExpelling, OrbitDir = orbitDir, OrbitUp = randomUp,
+			IsCaptured = false, OrbitTimer = 0, MaxOrbitTime = 60 + math.random(-2, 10),
+			CaptureStartDist = 0
 		})
 	end
 end
 
--- 【天體生成】
-local function createPlanet()
-	local pCol = (math.random() > 0.5 and Color3.fromRGB(130, 130, 130) or Color3.fromRGB(160, 110, 70))
-	local pObj = Instance.new("Part", container)
-	pObj.Shape, pObj.Size, pObj.Color, pObj.Material = Enum.PartType.Ball, Vector3.new(0.8, 0.8, 0.8), pCol, Enum.Material.Plastic
-	pObj.Anchored, pObj.CanCollide = true, false
-	return {Obj = pObj, OrbitR = 18 + math.random() * 25, Angle = math.random() * 6.2, RotSpeed = 0.015, BaseCol = pCol}
-end
-
-local function createSolarSystem()
+-- 【天體生成：加入隨機軌道平面】
+local function createSolarSystem(rp)
 	local r = math.random(500, CLEAN_LIMIT)
-	local sys = {Stars = {}, Planets = {}, Radius = r, Phi = math.rad(math.random(360)), Theta = math.acos(math.random()), Speed = 0.00015, GravShift = Vector3.new(0,0,0), randomTilt = CFrame.Angles(math.rad(math.random(360)), math.rad(math.random(360)), math.rad(math.random(360)))}
+	-- 生成一個隨機的系統向上向量，決定該星系的軌道平面
+	local systemUp = Vector3.new(math.random()-0.5, math.random()-0.5, math.random()-0.5).Unit
+	local sys = {
+		Stars = {}, Planets = {}, Radius = r, Phi = math.rad(math.random(360)), 
+		Speed = 0.0001 + math.random() * 0.0002, 
+		SystemUp = systemUp, 
+		GravShift = Vector3.new(0,0,0),
+		randomTilt = CFrame.lookAt(Vector3.zero, systemUp) -- 用於行星軌道對齊
+	}
+	
 	local rV = math.random()*100
 	local col, sz = Color3.fromRGB(255,255,255), 4.5
 	if rV<5 then col, sz = Color3.fromRGB(155,176,255), 9 elseif rV<15 then col, sz = Color3.fromRGB(202,215,255), 6.5 elseif rV<75 then col, sz = Color3.fromRGB(255,245,180), 3.5 else col, sz = Color3.fromRGB(255,100,100), 2.5 end
+	
 	local s = Instance.new("Part", container); s.Shape, s.Size, s.Material, s.Color = Enum.PartType.Ball, Vector3.new(sz,sz,sz), Enum.Material.Neon, col; s.Anchored, s.CanCollide = true, false
-	table.insert(sys.Stars, {Obj = s, BaseCol = col})
-	for i = 1, math.random(1, 4) do table.insert(sys.Planets, createPlanet()) end
+	table.insert(sys.Stars, {Obj = s, BaseCol = col, Radius = sz/2})
+	
+	for i = 1, math.random(1, 4) do
+		local pCol = (math.random()>0.5 and Color3.fromRGB(130,130,130) or Color3.fromRGB(160,110,70))
+		local pObj = Instance.new("Part", container); pObj.Shape, pObj.Size, pObj.Color, pObj.Material = Enum.PartType.Ball, Vector3.new(0.8,0.8,0.8), pCol, Enum.Material.Plastic; pObj.Anchored, pObj.CanCollide = true, false
+		table.insert(sys.Planets, {Obj = pObj, OrbitR = 18+math.random()*25, Angle = math.random()*6, RotSpeed = 0.015, BaseCol = pCol})
+	end
 	return sys
 end
 
--- 【初始化黑洞】
+-- 【黑洞初始化】
 local function createBH(hOffset)
 	local core = Instance.new("Part", container); core.Shape, core.Size, core.Material, core.Color = Enum.PartType.Ball, Vector3.new(45,45,45), Enum.Material.Neon, Color3.new(0,0,0); core.Anchored, core.CanCollide = true, false
 	return {Core = core, Offset = hOffset, CurrentPos = Vector3.new()}
@@ -119,7 +119,7 @@ end
 table.insert(blackHoles, createBH(Vector2.new(-1200, 1100)))
 table.insert(blackHoles, createBH(Vector2.new(800, -1500)))
 
--- 【核心循環】
+-- 【主循環】
 task.spawn(function()
 	local t = 0
 	while _G.v188Active and _G.v188Session == currentSession do
@@ -128,89 +128,76 @@ task.spawn(function()
 		local fps = 1/dt
 		local rp = isLockedToPlayer and ((p.Character and p.Character:FindFirstChild("HumanoidRootPart")) and p.Character.HumanoidRootPart.Position or Vector3.new(0,0,0)) or fixedAnchor
 
-		if UserInputService:IsKeyDown(Enum.KeyCode.Z) then zoomOffset = zoomOffset + 10 end
-		if zoomOffset > 0.5 then camera.CFrame = camera.CFrame * CFrame.new(0, 0, -zoomOffset) end
+		-- 四段推進
+		local targetDolly = (zoomLevel == 0 and 0) or (zoomLevel == 1 and 400) or (zoomLevel == 2 and 800) or 1200
+		lerpDolly = lerpDolly + (targetDolly - lerpDolly) * 0.1
+		if lerpDolly > 1 then camera.CFrame = camera.CFrame * CFrame.new(0, 0, -lerpDolly) end
 		
-		-- 維持 2000 範圍內的星系數量
-		if fps >= 60 or #systems < 350 then table.insert(systems, createSolarSystem()) end
+		if fps >= 60 and #systems < 350 then table.insert(systems, createSolarSystem(rp)) end
 
 		for idx, bh in ipairs(blackHoles) do
 			bh.CurrentPos = rp + Vector3.new(math.cos(t*0.005+idx)*bh.Offset.X, 400, math.sin(t*0.005+idx)*bh.Offset.Y)
 			bh.Core.Position = bh.CurrentPos
 		end
 
+		-- 恆星運動：立體軌道
+		local hasAged = false
 		for i = #systems, 1, -1 do
-			local s1 = systems[i]
-			local starObj = s1.Stars[1].Obj
-			local starPos = starObj.Position
-			local distFromCenter = (starPos - rp).Magnitude
-			
-			local inBHRange = false
-			for _, bh in ipairs(blackHoles) do
-				if (starPos - bh.CurrentPos).Magnitude < 500 then inBHRange = true; break end
-			end
-
-			-- 【2000 界限清理邏輯】
-			local isOutOfBounds = distFromCenter > CLEAN_LIMIT
-			local shouldSelfDestruct = (fps < 60 and isOutOfBounds and not inBHRange)
-
-			if isOutOfBounds or shouldSelfDestruct then 
-				createStellarRemnant(starPos, s1.Stars[1].BaseCol, shouldSelfDestruct)
-				starObj:Destroy()
-				for _, pl in ipairs(s1.Planets) do pl.Obj:Destroy() end
-				table.remove(systems, i) continue 
-			end
-
-			-- 正常運動邏輯...
-			s1.Phi = s1.Phi + s1.Speed
-			local bP = rp + Vector3.new(s1.Radius * math.sin(s1.Theta) * math.cos(s1.Phi), s1.Radius * math.cos(s1.Theta), s1.Radius * math.sin(s1.Theta) * math.sin(s1.Phi))
+			local s1 = systems[i]; local starObj = s1.Stars[1].Obj; local starPos = starObj.Position
 			local tbh = (starPos - blackHoles[1].CurrentPos).Magnitude < (starPos - blackHoles[2].CurrentPos).Magnitude and blackHoles[1] or blackHoles[2]
-			local dist = (starPos - tbh.CurrentPos).Magnitude
+			local distBH = (starPos - tbh.CurrentPos).Magnitude
 			
-			s1.GravShift = s1.GravShift:Lerp((tbh.CurrentPos - bP).Unit * ((dist < 400 and (1-dist/400)*3 or 0) * 400), 0.05)
+			if (fps < 60 and not hasAged and distBH > 500 and #systems > 50) or (starPos-rp).Magnitude > CLEAN_LIMIT then
+				hasAged = true
+				createStellarRemnant(starPos, s1.Stars[1].BaseCol, true)
+				starObj:Destroy(); for _, pl in ipairs(s1.Planets) do pl.Obj:Destroy() end
+				table.remove(systems, i) continue
+			end
+
+			s1.Phi = s1.Phi + s1.Speed
+			-- 在隨機傾斜的軌道平面上計算位置
+			local right = s1.SystemUp:Cross(Vector3.new(0,1,0)).Magnitude > 0.1 and s1.SystemUp:Cross(Vector3.new(0,1,0)).Unit or s1.SystemUp:Cross(Vector3.new(1,0,0)).Unit
+			local forward = s1.SystemUp:Cross(right).Unit
+			local bP = rp + (right * math.cos(s1.Phi) * s1.Radius) + (forward * math.sin(s1.Phi) * s1.Radius)
+			
+			s1.GravShift = s1.GravShift:Lerp((tbh.CurrentPos - bP).Unit * ((distBH < 400 and (1-distBH/400)*3 or 0) * 400), 0.05)
 			local curSysPos = bP + s1.GravShift
 			starObj.Position = curSysPos
 			
-			local exploded = (dist < 45)
 			for _, pl in ipairs(s1.Planets) do
 				pl.Angle = pl.Angle + pl.RotSpeed
 				pl.Obj.Position = curSysPos + s1.randomTilt:VectorToWorldSpace(Vector3.new(math.cos(pl.Angle)*pl.OrbitR, 0, math.sin(pl.Angle)*pl.OrbitR))
-				if exploded or (pl.Obj.Position - tbh.CurrentPos).Magnitude < 45 then 
-					createStellarRemnant(pl.Obj.Position, pl.BaseCol, false)
-					pl.Obj:Destroy()
-				end
 			end
-			if exploded then 
+
+			if distBH < 45 then 
 				createStellarRemnant(curSysPos, s1.Stars[1].BaseCol, false)
-				starObj:Destroy()
-				for _, pl in ipairs(s1.Planets) do if pl.Obj.Parent then pl.Obj:Destroy() end end
+				starObj:Destroy(); for _, pl in ipairs(s1.Planets) do pl.Obj:Destroy() end
 				table.remove(systems, i) 
 			end
 		end
 
-		-- 碎片 2000 界限回收
+		-- 碎片螺旋
 		for i = #remnants, 1, -1 do
 			local r = remnants[i]
-			r.Life = r.Life - r.Decay
-			local bhPos = r.TargetBH.CurrentPos
-			local vecToBH = bhPos - r.Obj.Position
+			local vecToBH = r.TargetBH.CurrentPos - r.Obj.Position
 			local dist = vecToBH.Magnitude
 			
-			-- 任何物體只要離開玩家 2000 單位就刪除
-			local outOfLimit = (r.Obj.Position - rp).Magnitude > CLEAN_LIMIT
-
-			if r.Life <= 0 or dist < 22 or outOfLimit then 
-				r.Obj:Destroy(); table.remove(remnants, i)
+			if not r.IsCaptured then
+				r.Life = r.Life - r.Decay
+				if r.Life <= 0 or (r.Obj.Position - rp).Magnitude > CLEAN_LIMIT then r.Obj:Destroy(); table.remove(remnants, i); continue end
+				if dist < 50 then r.IsCaptured = true; r.CaptureStartDist = dist; r.Velocity = r.Velocity * 0.5
+				else r.Velocity = r.Velocity:Lerp(vecToBH.Unit * 6, 0.05) end
 			else
-				if r.IsExpelling then
-					r.Velocity = r.Velocity * r.ChaosFactor
-				else
-					local targetVel = (vecToBH.Unit * (10 + (dist * 0.06)) + Vector3.new(-vecToBH.Z, 0, vecToBH.X).Unit * (r.OrbitDir * 8.5))
-					r.Velocity = r.Velocity:Lerp(targetVel, 0.12) * r.ChaosFactor
-				end
-				r.Obj.Position = r.Obj.Position + r.Velocity
-				r.Obj.Transparency = 1 - r.Life
-				r.Obj.CFrame = CFrame.new(r.Obj.Position, r.Obj.Position + r.Velocity)
+				r.OrbitTimer = r.OrbitTimer + (1/60)
+				local progress = math.min(r.OrbitTimer / r.MaxOrbitTime, 1)
+				local targetRadius = r.CaptureStartDist * (1 - progress) + (10 * progress)
+				local orbitTangent = vecToBH.Unit:Cross(r.OrbitUp).Unit * r.OrbitDir * (16 + progress * 10)
+				r.Velocity = r.Velocity:Lerp(orbitTangent + vecToBH.Unit * (dist - targetRadius) * 2, 0.1)
+				r.Obj.Transparency = progress * 0.8
+				if progress >= 1 then r.Obj:Destroy(); table.remove(remnants, i) end
+			end
+			if r.Obj.Parent then
+				r.Obj.Position = r.Obj.Position + r.Velocity; r.Obj.CFrame = CFrame.new(r.Obj.Position, r.Obj.Position + r.Velocity)
 			end
 		end
 	end
