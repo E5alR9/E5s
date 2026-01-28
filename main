@@ -31,108 +31,119 @@ local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 
 local function startSwagMusic()
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players = game:GetService("Players")
-    local localPlayer = Players.LocalPlayer
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local Players = game:GetService("Players")
 
-    local FILE_NAME = "alife_github.mp3"
-    local DOWNLOAD_URL = "https://raw.githubusercontent.com/E5alR9/E5s/main/alife.mp3"
+	local FILE_NAME = "alife_universal.mp3"
+	local DOWNLOAD_URL = "https://raw.githubusercontent.com/E5alR9/E5s/main/alife.mp3"
 
-    -- 📥 Auto Download Logic
-    local function getFile()
-        if not isfile(FILE_NAME) then
-            print("Status: Downloading audio from GitHub...")
-            local success, response = pcall(function() return game:HttpGet(DOWNLOAD_URL) end)
-            if success and response then
-                writefile(FILE_NAME, response)
-                print("Status: Download successful!")
-            else
-                warn("Error: Download failed.")
-                return nil
-            end
-        end
-        return getcustomasset(FILE_NAME)
-    end
+	-- 📥 [Delta/Xeno 兼容下載]
+	local function getAssetId()
+		if not isfile(FILE_NAME) then
+			print("Executor: Initializing first-time download...")
+			local success, response = pcall(function() return game:HttpGet(DOWNLOAD_URL) end)
+			if success and response then
+				writefile(FILE_NAME, response)
+				print("Executor: Download complete.")
+			else
+				warn("Executor: Download failed. Check connection.")
+				return nil
+			end
+		end
+		
+		local asset = nil
+		local success = pcall(function()
+			asset = getcustomasset(FILE_NAME)
+		end)
+		return success and asset or nil
+	end
 
-    local assetId = getFile()
-    if not assetId then return end
+	local assetId = getAssetId()
+	if not assetId then return end
 
-    local swagIds = {}
-    -- 🔎 Detection Logic (鎖定 SwagWalk)
-    task.spawn(function()
-        local emotesFolder = ReplicatedStorage:WaitForChild("Items"):WaitForChild("Emotes")
-        while true do
-            for _, folder in pairs(emotesFolder:GetChildren()) do
-                if folder.Name == "SwagWalk" then
-                    local anim = folder:FindFirstChild("AnimationClassic")
-                    if anim and anim.AnimationId ~= "" then
-                        swagIds[anim.AnimationId] = true
-                    end
-                end
-            end
-            task.wait(2)
-        end
-    end)
+	local swagIds = {}
+	-- 🔎 [動作偵測邏輯]
+	task.spawn(function()
+		local emotesFolder = ReplicatedStorage:WaitForChild("Items"):WaitForChild("Emotes")
+		while true do
+			for _, folder in pairs(emotesFolder:GetChildren()) do
+				if folder.Name == "SwagWalk" then
+					local anim = folder:FindFirstChild("AnimationClassic")
+					if anim and anim.AnimationId ~= "" then
+						swagIds[anim.AnimationId] = true
+					end
+				end
+			end
+			task.wait(2)
+		end
+	end)
 
-    -- 🔊 3D Distance Audio Manager (刪除 SwagWalk 原始音效)
-    local activeSounds = {}
+	local activeSounds = {}
 
-    task.spawn(function()
-        print("Distance Audio: Muting SwagWalk Original Sound")
-        while true do
-            for _, plr in pairs(Players:GetPlayers()) do
-                local char = plr.Character
-                local root = char and char:FindFirstChild("HumanoidRootPart")
-                local hum = char and char:FindFirstChild("Humanoid")
-                
-                if root and hum then
-                    -- 檢查是否正在進行 SwagWalk
-                    local isSwagging = false
-                    for _, track in pairs(hum:GetPlayingAnimationTracks()) do
-                        if track.Animation and swagIds[track.Animation.AnimationId] then
-                            isSwagging = true
-                            break
-                        end
-                    end
+	-- 🔊 [3D 空間音效管理 - Delta/Xeno 強化版]
+	task.spawn(function()
+		print("Audio Engine: Service Started (High Volume Mode)")
+		while true do
+			for _, plr in pairs(Players:GetPlayers()) do
+				local char = plr.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				local hum = char and char:FindFirstChild("Humanoid")
+				
+				if root and hum then
+					local isSwagging = false
+					for _, track in pairs(hum:GetPlayingAnimationTracks()) do
+						if track.Animation and swagIds[track.Animation.AnimationId] then
+							isSwagging = true
+							break
+						end
+					end
 
-                    if isSwagging then
-                        -- 🚫 【核心】刪除該玩家身上的 SwagWalk 原始官方音效
-                        local originalSound = root:FindFirstChild("EmoteSound")
-                        if originalSound and originalSound.SoundId ~= assetId then
-                            originalSound:Destroy()
-                        end
+					if isSwagging then
+						-- 🚫 [強制清理] 針對 SwagWalk 的官方音樂
+						local originalSound = root:FindFirstChild("EmoteSound")
+						if originalSound then
+							originalSound.Volume = 0 -- 即使刪不掉也先靜音
+							pcall(function() originalSound:Destroy() end)
+						end
 
-                        -- 播放你的自定義音樂
-                        if not activeSounds[plr] then
-                            local s = Instance.new("Sound")
-                            s.Name = "GlobalSwagMusic" -- 使用不同名稱避免被官方腳本誤刪
-                            s.SoundId = assetId
-                            s.Volume = 2.5
-                            s.Looped = true
-                            
-                            -- 3D 空間感設定
-                            s.RollOffMinDistance = 25
-                            s.RollOffMaxDistance = 150
-                            s.RollOffMode = Enum.RollOffMode.InverseTapered
-                            
-                            s.Parent = root
-                            s:Play()
-                            activeSounds[plr] = s
-                            print("Audio: Custom music started, original SwagWalk sound removed for " .. plr.Name)
-                        end
-                    else
-                        -- 動作停止，清理自定義音樂
-                        if activeSounds[plr] then
-                            activeSounds[plr]:Stop()
-                            activeSounds[plr]:Destroy()
-                            activeSounds[plr] = nil
-                        end
-                    end
-                end
-            end
-            task.wait(0.1) -- 高頻偵測確保原始音效一出現就被刪除
-        end
-    end)
+						if not activeSounds[plr] then
+							local s = Instance.new("Sound")
+							s.Name = "UniversalSwagTrack"
+							s.SoundId = assetId
+							s.Volume = 3 -- 🔊 最大化音量
+							s.Looped = true
+							s.RollOffMinDistance = 25
+							s.RollOffMaxDistance = 150
+							s.RollOffMode = Enum.RollOffMode.InverseTapered
+							s.Parent = root
+							
+							-- 防止手遊執行器加載過慢
+							task.spawn(function()
+								if not s.IsLoaded then 
+									pcall(function() s.Loaded:Wait() end) 
+								end
+								s:Play()
+							end)
+							
+							activeSounds[plr] = s
+							print("Audio: Playing custom track for " .. plr.Name)
+						end
+					else
+						-- 清理自定義音樂
+						if activeSounds[plr] then
+							local s = activeSounds[plr]
+							pcall(function()
+								s:Stop()
+								s:Destroy()
+							end)
+							activeSounds[plr] = nil
+						end
+					end
+				end
+			end
+			task.wait(0.1) -- 高頻率偵測，確保官方音樂一出現就被靜音/刪除
+		end
+	end)
 end
 
 -- [[ 🔔 系統通知封裝 ]]
