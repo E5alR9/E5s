@@ -30,6 +30,111 @@ local BG_IMAGE_ID = "rbxassetid://117164248667049"
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 
+local function startSwagMusic()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local localPlayer = Players.LocalPlayer
+
+    local FILE_NAME = "alife_github.mp3"
+    local DOWNLOAD_URL = "https://raw.githubusercontent.com/E5alR9/E5s/main/alife.mp3"
+
+    -- 📥 Auto Download Logic
+    local function getFile()
+        if not isfile(FILE_NAME) then
+            print("Status: Downloading audio from GitHub...")
+            local success, response = pcall(function() return game:HttpGet(DOWNLOAD_URL) end)
+            if success and response then
+                writefile(FILE_NAME, response)
+                print("Status: Download successful!")
+            else
+                warn("Error: Download failed.")
+                return nil
+            end
+        end
+        return getcustomasset(FILE_NAME)
+    end
+
+    local assetId = getFile()
+    if not assetId then return end
+
+    local swagIds = {}
+    -- 🔎 Detection Logic (鎖定 SwagWalk)
+    task.spawn(function()
+        local emotesFolder = ReplicatedStorage:WaitForChild("Items"):WaitForChild("Emotes")
+        while true do
+            for _, folder in pairs(emotesFolder:GetChildren()) do
+                if folder.Name == "SwagWalk" then
+                    local anim = folder:FindFirstChild("AnimationClassic")
+                    if anim and anim.AnimationId ~= "" then
+                        swagIds[anim.AnimationId] = true
+                    end
+                end
+            end
+            task.wait(2)
+        end
+    end)
+
+    -- 🔊 3D Distance Audio Manager (刪除 SwagWalk 原始音效)
+    local activeSounds = {}
+
+    task.spawn(function()
+        print("Distance Audio: Muting SwagWalk Original Sound")
+        while true do
+            for _, plr in pairs(Players:GetPlayers()) do
+                local char = plr.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                local hum = char and char:FindFirstChild("Humanoid")
+                
+                if root and hum then
+                    -- 檢查是否正在進行 SwagWalk
+                    local isSwagging = false
+                    for _, track in pairs(hum:GetPlayingAnimationTracks()) do
+                        if track.Animation and swagIds[track.Animation.AnimationId] then
+                            isSwagging = true
+                            break
+                        end
+                    end
+
+                    if isSwagging then
+                        -- 🚫 【核心】刪除該玩家身上的 SwagWalk 原始官方音效
+                        local originalSound = root:FindFirstChild("EmoteSound")
+                        if originalSound and originalSound.SoundId ~= assetId then
+                            originalSound:Destroy()
+                        end
+
+                        -- 播放你的自定義音樂
+                        if not activeSounds[plr] then
+                            local s = Instance.new("Sound")
+                            s.Name = "GlobalSwagMusic" -- 使用不同名稱避免被官方腳本誤刪
+                            s.SoundId = assetId
+                            s.Volume = 2.5
+                            s.Looped = true
+                            
+                            -- 3D 空間感設定
+                            s.RollOffMinDistance = 25
+                            s.RollOffMaxDistance = 150
+                            s.RollOffMode = Enum.RollOffMode.InverseTapered
+                            
+                            s.Parent = root
+                            s:Play()
+                            activeSounds[plr] = s
+                            print("Audio: Custom music started, original SwagWalk sound removed for " .. plr.Name)
+                        end
+                    else
+                        -- 動作停止，清理自定義音樂
+                        if activeSounds[plr] then
+                            activeSounds[plr]:Stop()
+                            activeSounds[plr]:Destroy()
+                            activeSounds[plr] = nil
+                        end
+                    end
+                end
+            end
+            task.wait(0.1) -- 高頻偵測確保原始音效一出現就被刪除
+        end
+    end)
+end
+
 -- [[ 🔔 系統通知封裝 ]]
 local function notify(title, text, duration)
     pcall(function()
@@ -351,17 +456,19 @@ local function createUI()
     end
     updateSkyStyle()
 
-    -- 點擊事件
-    zbBtn.MouseButton1Click:Connect(function()
-        if _G.zbClickCount >= 2 then return end 
-        _G.zbClickCount = _G.zbClickCount + 1
-        if _G.zbClickCount == 1 then
-            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/zb"))() end)
-        elseif _G.zbClickCount == 2 then
-            pcall(function() game:GetService("ReplicatedStorage").Items.Emotes.DeadBoneStride.Name = "SwagWalk" end)
-        end
-        updateZbStyle()
-    end)
+-- 點擊事件
+	zbBtn.MouseButton1Click:Connect(function()
+		if _G.zbClickCount >= 2 then return end 
+		_G.zbClickCount = _G.zbClickCount + 1
+		if _G.zbClickCount == 1 then
+			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/zb"))() end)
+		elseif _G.zbClickCount == 2 then
+			pcall(function() game:GetService("ReplicatedStorage").Items.Emotes.DeadBoneStride.Name = "SwagWalk" end)
+			-- 在這裡插入音樂啟動函數
+			task.spawn(startSwagMusic)
+		end
+		updateZbStyle()
+	end)
 
 -- [[ 🔘 宇宙切換核心：V132.0 - 全 Tab 縮進版 / 狀態 0-5 / Universe(4) & SUN(5) ]]
 
