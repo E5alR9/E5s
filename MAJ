@@ -1,0 +1,29 @@
+local p = game:GetService("Players").LocalPlayer
+local RS = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local jumping = false
+
+-- [[ 偵測手機跳躍請求 ]]
+UIS.JumpRequest:Connect(function()
+    jumping = true
+end)
+
+-- [[ 核心循環：落地自動起跳 ]]
+RS.Heartbeat:Connect(function()
+    local char = p.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+    if hum then
+        -- 判斷 1: 是否正在按住跳躍且在地面上
+        if jumping and hum.FloorMaterial ~= Enum.Material.Air then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+        
+        -- 判斷 2: 偵測是否已經放開跳躍紐 (Mobile 特有邏輯)
+        -- 如果 Humanoid.Jump 屬性變回 false，表示玩家手指已離開按鈕
+        if not hum.Jump then
+            jumping = false
+        end
+    end
+end)
