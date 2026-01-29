@@ -10,18 +10,22 @@ RS.Heartbeat:Connect(function()
     local c = p.Character
     local hum = c and c:FindFirstChildOfClass("Humanoid")
 
-    -- 只有當 _G.bhop 為 true 且人不在空中時起跳
     if _G.bhop and hum then
-        if hum.FloorMaterial ~= Enum.Material.Air then
-            hum:ChangeState(3) -- 使用你指定的 ChangeState(3)
+        -- 移除原本嚴格的 FloorMaterial 判斷
+        -- 改用狀態檢查：只要不是正在跳躍中 (State 3)，就強制起跳
+        -- 這樣撞牆時，即使系統判定你在「空中」，也會因為持續觸發而立刻再次起跳
+        local state = hum:GetState()
+        
+        -- 如果人在地面，或是處於「自由落體」狀態（撞牆常觸發這個）
+        if hum.FloorMaterial ~= Enum.Material.Air or state == Enum.HumanoidStateType.Freefall then
+            hum:ChangeState(3)
         end
     end
 end)
 
--- [[ 手機跳躍按鈕精準偵測 ]]
+-- [[ 手機跳躍按鈕偵測 ]]
 UIS.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then
-        -- 取得手機官方跳躍按鈕
         local touchGui = p:FindFirstChild("PlayerGui") and p.PlayerGui:FindFirstChild("TouchGui")
         local jumpBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
         
@@ -30,9 +34,9 @@ UIS.InputBegan:Connect(function(input)
             local absPos = jumpBtn.AbsolutePosition
             local absSize = jumpBtn.AbsoluteSize
             
-            -- 判斷手指是否按在按鈕範圍內
-            if pos.X >= absPos.X and pos.X <= (absPos.X + absSize.X) and
-               pos.Y >= absPos.Y and pos.Y <= (absPos.Y + absSize.Y) then
+            -- 增加 5 像素的緩衝範圍，防止手指邊緣滑出
+            if pos.X >= absPos.X - 5 and pos.X <= (absPos.X + absSize.X + 5) and
+               pos.Y >= absPos.Y - 5 and pos.Y <= (absPos.Y + absSize.Y + 5) then
                 _G.bhop = true
             end
         end
@@ -41,7 +45,6 @@ end)
 
 UIS.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then
-        -- 只要手指離開螢幕，就停止 Bhop
         _G.bhop = false
     end
 end)
