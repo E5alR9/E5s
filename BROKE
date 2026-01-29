@@ -4,20 +4,21 @@ _G.bhop = false
 local p = game:GetService("Players").LocalPlayer
 local RS = game:GetService("RunService")
 
--- [[ 獲取並綁定 UI 事件 ]]
-local function bindJumpButton()
-    local touchGui = p:WaitForChild("PlayerGui"):WaitForChild("TouchGui", 10)
-    local jumpBtn = touchGui and touchGui:WaitForChild("JumpButton", 10)
+-- [[ 綁定 UI 事件：直接抓取官方跳躍按鈕 ]]
+local function setupBhop()
+    local playerGui = p:WaitForChild("PlayerGui")
+    local touchGui = playerGui:WaitForChild("TouchGui", 5)
+    local jumpBtn = touchGui and touchGui:WaitForChild("JumpButton", 5)
 
     if jumpBtn then
-        -- 當手指壓下按鈕
+        -- 當手指「壓住」按鈕，無視遊戲原本的 Jump 邏輯，強制開啟我們的開關
         jumpBtn.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Touch then
                 _G.bhop = true
             end
         end)
 
-        -- 當手指離開按鈕
+        -- 當手指「放開」按鈕，關閉開關
         jumpBtn.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Touch then
                 _G.bhop = false
@@ -26,24 +27,32 @@ local function bindJumpButton()
     end
 end
 
--- 執行綁定
-bindJumpButton()
-
--- 如果角色重生，UI 會重置，所以要重新綁定
+-- 啟動與重生重新綁定
+setupBhop()
 p.CharacterAdded:Connect(function()
-    task.wait(1) -- 等待 UI 加載
-    bindJumpButton()
+    task.wait(1)
+    setupBhop()
 end)
 
--- [[ 核心 Bhop 物理循環 ]]
+-- [[ 核心循環：繞過遊戲限制的物理強制跳 ]]
 RS.Heartbeat:Connect(function()
-    local c = p.Character
-    local hum = c and c:FindFirstChildOfClass("Humanoid")
+    local char = p.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
 
-    if _G.bhop and hum then
-        -- 判斷：在地上 或 撞牆中的墜落狀態
+    if _G.bhop and hum and root then
+        -- 判斷：只要不是在上升（Y 速度 <= 0），且在地板或撞牆（Freefall）
+        -- 這能確保在「按住」時，一落地立刻彈起，解決「跳一下就停」的問題
         if hum.FloorMaterial ~= Enum.Material.Air or hum:GetState() == Enum.HumanoidStateType.Freefall then
-            hum:ChangeState(3) -- 強制起跳
+            
+            -- 1. 強制切換狀態 (繞過遊戲內部冷卻)
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            
+            -- 2. 暴力補強：如果 ChangeState 被遊戲阻擋，直接給予向上的力
+            -- 如果你覺得跳太高或太低，可以調整 50 這個數值
+            if root.AssemblyLinearVelocity.Y < 5 then
+                root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 50, root.AssemblyLinearVelocity.Z)
+            end
         end
     end
 end)
