@@ -3,37 +3,47 @@ _G.bhop = false
 
 local p = game:GetService("Players").LocalPlayer
 local RS = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 
--- 取得官方跳躍按鈕
-local function getJumpButton()
-    local touchGui = p:FindFirstChild("PlayerGui") and p.PlayerGui:FindFirstChild("TouchGui")
-    return touchGui and touchGui:FindFirstChild("JumpButton", true)
+-- [[ 獲取並綁定 UI 事件 ]]
+local function bindJumpButton()
+    local touchGui = p:WaitForChild("PlayerGui"):WaitForChild("TouchGui", 10)
+    local jumpBtn = touchGui and touchGui:WaitForChild("JumpButton", 10)
+
+    if jumpBtn then
+        -- 當手指壓下按鈕
+        jumpBtn.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                _G.bhop = true
+            end
+        end)
+
+        -- 當手指離開按鈕
+        jumpBtn.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                _G.bhop = false
+            end
+        end)
+    end
 end
 
--- [[ 核心循環 ]]
+-- 執行綁定
+bindJumpButton()
+
+-- 如果角色重生，UI 會重置，所以要重新綁定
+p.CharacterAdded:Connect(function()
+    task.wait(1) -- 等待 UI 加載
+    bindJumpButton()
+end)
+
+-- [[ 核心 Bhop 物理循環 ]]
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local hum = c and c:FindFirstChildOfClass("Humanoid")
-    local jumpBtn = getJumpButton()
 
-    if hum and jumpBtn then
-        -- 核心判定：
-        -- 1. 監測 Humanoid.Jump (當你按住官方鈕時，這會反覆閃爍)
-        -- 2. 監測按鈕透明度 (官方按鈕按下時會變深/變淺，通常從 0.5 變動)
-        if hum.Jump or jumpBtn.ImageTransparency ~= 0.5 then
-            _G.bhop = true
-        else
-            _G.bhop = false
-        end
-
-        -- 執行連跳
-        if _G.bhop then
-            -- 撞牆或在地板都強制起跳
-            local state = hum:GetState()
-            if hum.FloorMaterial ~= Enum.Material.Air or state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Landed then
-                hum:ChangeState(3)
-            end
+    if _G.bhop and hum then
+        -- 判斷：在地上 或 撞牆中的墜落狀態
+        if hum.FloorMaterial ~= Enum.Material.Air or hum:GetState() == Enum.HumanoidStateType.Freefall then
+            hum:ChangeState(3) -- 強制起跳
         end
     end
 end)
