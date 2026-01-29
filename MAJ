@@ -1,39 +1,51 @@
 local p = game:GetService("Players").LocalPlayer
 local RS = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
+local guiService = game:GetService("GuiService")
 
-local isHolding = false
+local isHoldingJumpButton = false
 
--- [[ 偵測觸控開始 ]]
+-- 檢查觸碰位置是否有跳躍按鈕
+local function isTouchingJumpButton(pos)
+    local guis = p.PlayerGui:GetGuiObjectsAtPosition(pos.X, pos.Y)
+    for _, gui in ipairs(guis) do
+        if gui.Name == "JumpButton" then
+            return true
+        end
+    end
+    return false
+end
+
+-- 監控按下的位置
 UIS.InputBegan:Connect(function(input, gpe)
-    -- 判斷是否為觸控動作
-    if input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.Space then
-        -- 如果是按下跳躍按鈕觸發的 (GPE = GameProcessedEvent)
-        -- 或者直接偵測 Humanoid.Jump (最直接的手機端回傳)
-        isHolding = true
+    if input.UserInputType == Enum.UserInputType.Touch then
+        if isTouchingJumpButton(input.Position) then
+            isHoldingJumpButton = true
+        end
     end
 end)
 
--- [[ 偵測觸控結束 ]]
+-- 監控放開
 UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.Space then
-        isHolding = false
+    if input.UserInputType == Enum.UserInputType.Touch then
+        -- 為了保險，放開任何觸控都檢查是否要停止（或可針對特定 InputObject）
+        isHoldingJumpButton = false
     end
 end)
 
--- [[ 核心循環：只要 isHolding 為 true 就無限起跳 ]]
+-- 核心循環
 RS.Heartbeat:Connect(function()
     local char = p.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     
     if hum then
-        -- 核心邏輯：如果偵測到手動跳躍，立刻將狀態設為 Holding
+        -- 額外補險：如果系統偵測到跳躍屬性，也視為按住按鈕
         if hum.Jump then
-            isHolding = true
+            isHoldingJumpButton = true
         end
 
-        -- 只要按住且落地，就強制起跳
-        if isHolding and hum.FloorMaterial ~= Enum.Material.Air then
+        -- 執行連跳
+        if isHoldingJumpButton and hum.FloorMaterial ~= Enum.Material.Air then
             hum:ChangeState(Enum.HumanoidStateType.Jumping)
         end
     end
