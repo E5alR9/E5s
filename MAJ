@@ -1,31 +1,40 @@
 local p = game:GetService("Players").LocalPlayer
 local RS = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
 
--- 取得手機跳躍按鈕的函式
-local function getJumpButton()
-    local touchGui = p:FindFirstChild("PlayerGui") and p.PlayerGui:FindFirstChild("TouchGui")
-    if touchGui then
-        return touchGui:FindFirstChild("JumpButton", true) -- 在 TouchGui 內遞迴尋找按鈕
+local isHolding = false
+
+-- [[ 偵測觸控開始 ]]
+UIS.InputBegan:Connect(function(input, gpe)
+    -- 判斷是否為觸控動作
+    if input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.Space then
+        -- 如果是按下跳躍按鈕觸發的 (GPE = GameProcessedEvent)
+        -- 或者直接偵測 Humanoid.Jump (最直接的手機端回傳)
+        isHolding = true
     end
-    return nil
-end
+end)
 
+-- [[ 偵測觸控結束 ]]
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.Space then
+        isHolding = false
+    end
+end)
+
+-- [[ 核心循環：只要 isHolding 為 true 就無限起跳 ]]
 RS.Heartbeat:Connect(function()
     local char = p.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-    local jumpBtn = getJumpButton()
+    
+    if hum then
+        -- 核心邏輯：如果偵測到手動跳躍，立刻將狀態設為 Holding
+        if hum.Jump then
+            isHolding = true
+        end
 
-    if hum and jumpBtn then
-        -- [[ 核心邏輯 ]]
-        -- 1. 偵測 UI 按鈕是否被按下：
-        -- 手機按鈕被按下時，ImageTransparency 通常會從 0.5 變為 0.8 (依版本而定)
-        -- 最準確的方法是偵測按鈕的內建屬性或 Jump 訊號
-        
-        if hum.Jump or (jumpBtn.Active and jumpBtn.ImageTransparency > 0.5) then
-            -- 如果人在地上，立刻起跳
-            if hum.FloorMaterial ~= Enum.Material.Air then
-                hum:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
+        -- 只要按住且落地，就強制起跳
+        if isHolding and hum.FloorMaterial ~= Enum.Material.Air then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
         end
     end
 end)
