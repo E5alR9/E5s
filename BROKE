@@ -5,48 +5,35 @@ local p = game:GetService("Players").LocalPlayer
 local RS = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 
-local jumpTouchObject = nil -- 用來紀錄按在跳躍鍵上的那隻手指
+-- 取得官方跳躍按鈕
+local function getJumpButton()
+    local touchGui = p:FindFirstChild("PlayerGui") and p.PlayerGui:FindFirstChild("TouchGui")
+    return touchGui and touchGui:FindFirstChild("JumpButton", true)
+end
 
 -- [[ 核心循環 ]]
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local hum = c and c:FindFirstChildOfClass("Humanoid")
+    local jumpBtn = getJumpButton()
 
-    if _G.bhop and hum then
-        -- 為了防止撞牆停下，放寬判定：人在地上 或 正在自由落體 就起跳
-        if hum.FloorMaterial ~= Enum.Material.Air or hum:GetState() == Enum.HumanoidStateType.Freefall then
-            hum:ChangeState(3)
+    if hum and jumpBtn then
+        -- 核心判定：
+        -- 1. 監測 Humanoid.Jump (當你按住官方鈕時，這會反覆閃爍)
+        -- 2. 監測按鈕透明度 (官方按鈕按下時會變深/變淺，通常從 0.5 變動)
+        if hum.Jump or jumpBtn.ImageTransparency ~= 0.5 then
+            _G.bhop = true
+        else
+            _G.bhop = false
         end
-    end
-end)
 
--- [[ 手機跳躍按鈕偵測 ]]
-UIS.InputBegan:Connect(function(input, gpe)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        local touchGui = p:FindFirstChild("PlayerGui") and p.PlayerGui:FindFirstChild("TouchGui")
-        local jumpBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
-        
-        if jumpBtn and jumpBtn.Visible then
-            local pos = input.Position
-            local absPos = jumpBtn.AbsolutePosition
-            local absSize = jumpBtn.AbsoluteSize
-            
-            -- 判定手指是否點在跳躍鍵內
-            if pos.X >= absPos.X and pos.X <= (absPos.X + absSize.X) and
-               pos.Y >= absPos.Y and pos.Y <= (absPos.Y + absSize.Y) then
-                
-                _G.bhop = true
-                jumpTouchObject = input -- 鎖定這隻手指！
+        -- 執行連跳
+        if _G.bhop then
+            -- 撞牆或在地板都強制起跳
+            local state = hum:GetState()
+            if hum.FloorMaterial ~= Enum.Material.Air or state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Landed then
+                hum:ChangeState(3)
             end
         end
-    end
-end)
-
-UIS.InputEnded:Connect(function(input)
-    -- 關鍵：只有當「原本按住跳躍鍵的那隻手指」離開螢幕，才停止 Bhop
-    -- 其他手指（點擊移動、轉視角）放開時，不會影響連跳
-    if input == jumpTouchObject then
-        _G.bhop = false
-        jumpTouchObject = nil
     end
 end)
