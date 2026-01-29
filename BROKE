@@ -5,26 +5,23 @@ local p = game:GetService("Players").LocalPlayer
 local RS = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 
--- [[ 核心循環：處理 Bhop ]]
+local jumpTouchObject = nil -- 用來紀錄按在跳躍鍵上的那隻手指
+
+-- [[ 核心循環 ]]
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local hum = c and c:FindFirstChildOfClass("Humanoid")
 
     if _G.bhop and hum then
-        -- 移除原本嚴格的 FloorMaterial 判斷
-        -- 改用狀態檢查：只要不是正在跳躍中 (State 3)，就強制起跳
-        -- 這樣撞牆時，即使系統判定你在「空中」，也會因為持續觸發而立刻再次起跳
-        local state = hum:GetState()
-        
-        -- 如果人在地面，或是處於「自由落體」狀態（撞牆常觸發這個）
-        if hum.FloorMaterial ~= Enum.Material.Air or state == Enum.HumanoidStateType.Freefall then
+        -- 為了防止撞牆停下，放寬判定：人在地上 或 正在自由落體 就起跳
+        if hum.FloorMaterial ~= Enum.Material.Air or hum:GetState() == Enum.HumanoidStateType.Freefall then
             hum:ChangeState(3)
         end
     end
 end)
 
 -- [[ 手機跳躍按鈕偵測 ]]
-UIS.InputBegan:Connect(function(input)
+UIS.InputBegan:Connect(function(input, gpe)
     if input.UserInputType == Enum.UserInputType.Touch then
         local touchGui = p:FindFirstChild("PlayerGui") and p.PlayerGui:FindFirstChild("TouchGui")
         local jumpBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
@@ -34,17 +31,22 @@ UIS.InputBegan:Connect(function(input)
             local absPos = jumpBtn.AbsolutePosition
             local absSize = jumpBtn.AbsoluteSize
             
-            -- 增加 5 像素的緩衝範圍，防止手指邊緣滑出
-            if pos.X >= absPos.X - 5 and pos.X <= (absPos.X + absSize.X + 5) and
-               pos.Y >= absPos.Y - 5 and pos.Y <= (absPos.Y + absSize.Y + 5) then
+            -- 判定手指是否點在跳躍鍵內
+            if pos.X >= absPos.X and pos.X <= (absPos.X + absSize.X) and
+               pos.Y >= absPos.Y and pos.Y <= (absPos.Y + absSize.Y) then
+                
                 _G.bhop = true
+                jumpTouchObject = input -- 鎖定這隻手指！
             end
         end
     end
 end)
 
 UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
+    -- 關鍵：只有當「原本按住跳躍鍵的那隻手指」離開螢幕，才停止 Bhop
+    -- 其他手指（點擊移動、轉視角）放開時，不會影響連跳
+    if input == jumpTouchObject then
         _G.bhop = false
+        jumpTouchObject = nil
     end
 end)
