@@ -1,88 +1,47 @@
--- [[ 物品名稱修改 - 加入等待機制防止錯誤 ]]
-local items = game:GetService("ReplicatedStorage"):WaitForChild("Items")
-local cosmetics = items:WaitForChild("Cosmetics")
-local emotes = items:WaitForChild("Emotes")
-
--- 檢查並修改名稱
-task.spawn(function()
-	local toxic = cosmetics:FindFirstChild("ToxicInferno", true) -- 使用 true 進行深層搜尋
-	if toxic then
-		toxic.Name = "BorealisAurora"
-	else
-		warn("ToxicInferno 未找到，請檢查路徑或名稱是否正確")
-	end
-
-	local rockin = emotes:FindFirstChild("RockinStride", true)
-	if rockin then
-		rockin.Name = "Stride"
-	end
-
-	local broom = emotes:FindFirstChild("Broom", true)
-	if broom then
-		broom.Name = "SnowmobileCruise"
-	end
-end)
-
--- [[ 載入外部腳本 ]]
-loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/headkorblox"))()
-
 -- [[ 全域變數初始化 ]]
-_G.fKN = _G.fKN or "PageDown"
-_G.freezeMS = _G.freezeMS or 300
 _G.bhop = false
-_G.freeze = false
-_G.toggleKey = _G.toggleKey or Enum.KeyCode.T
 
 local p = game:GetService("Players").LocalPlayer
-local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
 
--- [[ 物理循環：處理 Bhop 與 Freeze ]]
+-- [[ 核心循環：處理 Bhop ]]
 RS.Heartbeat:Connect(function()
-	local c = p.Character
-	local r = c and c:FindFirstChild("HumanoidRootPart")
-	local hum = c and c:FindFirstChildOfClass("Humanoid")
+    local c = p.Character
+    local hum = c and c:FindFirstChildOfClass("Humanoid")
 
-	-- [[ Bhop 邏輯 ]]
-	if _G.bhop and hum and hum.FloorMaterial ~= Enum.Material.Air then 
-		hum:ChangeState(3) 
-	end
-
-	-- [[ Freeze 核心 ]]
-	if _G.freeze and r then
-		local lp_params = RaycastParams.new()
-		lp_params.FilterDescendantsInstances = {c}
-		
-		if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp_params) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp_params) then
-			game:GetService("StarterGui"):SetCore("SendNotification", { 
-				Title = "SYSTEM"; 
-				Text = "Freeze: " .. tostring(_G.freezeMS) .. "ms"; 
-				Duration = 0.5; 
-			})
-			
-			local t = os.clock() 
-			local delayTime = (tonumber(_G.freezeMS) or 300) / 1000
-			while os.clock() - t < delayTime do end 
-		end
-	end
+    -- 只有當 _G.bhop 為 true 且人不在空中時起跳
+    if _G.bhop and hum then
+        if hum.FloorMaterial ~= Enum.Material.Air then
+            hum:ChangeState(3) -- 使用你指定的 ChangeState(3)
+        end
+    end
 end)
 
--- [[ 偵測輸入 ]]
-UIS.InputBegan:Connect(function(i, processed)
-	if processed then return end 
-	if i.KeyCode == Enum.KeyCode.Space then 
-		_G.bhop = true 
-	elseif i.KeyCode.Name == _G.fKN then 
-		_G.freeze = true 
-	elseif i.KeyCode == _G.toggleKey then 
-		activeAD = true
-	end 
+-- [[ 手機跳躍按鈕精準偵測 ]]
+UIS.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        -- 取得手機官方跳躍按鈕
+        local touchGui = p:FindFirstChild("PlayerGui") and p.PlayerGui:FindFirstChild("TouchGui")
+        local jumpBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
+        
+        if jumpBtn and jumpBtn.Visible then
+            local pos = input.Position
+            local absPos = jumpBtn.AbsolutePosition
+            local absSize = jumpBtn.AbsoluteSize
+            
+            -- 判斷手指是否按在按鈕範圍內
+            if pos.X >= absPos.X and pos.X <= (absPos.X + absSize.X) and
+               pos.Y >= absPos.Y and pos.Y <= (absPos.Y + absSize.Y) then
+                _G.bhop = true
+            end
+        end
+    end
 end)
 
-UIS.InputEnded:Connect(function(i) 
-	if i.KeyCode == Enum.KeyCode.Space then 
-		_G.bhop = false 
-	elseif i.KeyCode.Name == _G.fKN then 
-		_G.freeze = false 
-	end 
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        -- 只要手指離開螢幕，就停止 Bhop
+        _G.bhop = false
+    end
 end)
