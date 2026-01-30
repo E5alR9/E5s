@@ -14,30 +14,30 @@ screenGui.Parent = player:WaitForChild("PlayerGui")
 local jumpButton = Instance.new("TextButton")
 jumpButton.Name = "JumpButton"
 
+-- [[ 變圓形邏輯 ]]
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(1, 0) -- 設定為 1 比例，確保永遠是圓形
+uiCorner.Parent = jumpButton
+
 -- [[ 定位邏輯：自動追蹤官方跳躍鈕 ]]
 local function syncPosition()
     local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
     local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
     
     if realBtn then
-        -- 讓你的按鈕位置與大小完全同步官方按鈕
         jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
         jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
     else
-        -- 預設位置（如果找不到官方按鈕）
         jumpButton.Size = UDim2.new(0, 80, 0, 80)
         jumpButton.Position = UDim2.new(1, -120, 1, -90)
     end
 end
 
--- 設定為完全透明
 jumpButton.BackgroundTransparency = 1 
 jumpButton.TextTransparency = 1       
-
 jumpButton.Text = "AUTO JUMP"
 jumpButton.Parent = screenGui
 
--- 每秒自動校準一次位置（應對螢幕旋轉）
 task.spawn(function()
     while true do
         syncPosition()
@@ -45,7 +45,7 @@ task.spawn(function()
     end
 end)
 
--- 3. 偵測按下與放開 (保持原樣)
+-- 3. 偵測按下與放開
 jumpButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = true
@@ -61,7 +61,7 @@ jumpButton.InputEnded:Connect(function(input)
     end
 end)
 
--- 4. 核心連跳邏輯 (保持原樣)
+-- 4. 核心連跳邏輯
 RunService.Heartbeat:Connect(function()
     if isHolding then
         local character = player.Character
