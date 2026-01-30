@@ -1,51 +1,56 @@
--- [[ 全域變數初始化 ]]
+-- [[ 全域變數 ]]
 _G.bhop = false
 
 local p = game:GetService("Players").LocalPlayer
 local RS = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 
--- 取得跳躍按鈕
-local function getJumpButton()
-    local touchGui = p:FindFirstChild("PlayerGui") and p.PlayerGui:FindFirstChild("TouchGui")
-    return touchGui and touchGui:FindFirstChild("JumpButton", true)
-end
+local targetJumpUI = nil
 
--- [[ 核心循環 ]]
+-- [[ 偵測玩家到底在按哪個按鈕 ]]
+UIS.InputBegan:Connect(function(input, gpe)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        -- 如果玩家按下的 UI 觸發了 Jump，我們就鎖定這個 UI
+        task.wait(0.05)
+        if p.Character and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Jump then
+            local guis = p.PlayerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
+            if #guis > 0 then
+                targetJumpUI = guis[1] -- 鎖定目前按下的這個 UI
+                _G.bhop = true
+            end
+        end
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        -- 判斷是否為釋放跳躍 UI
+        _G.bhop = false
+        targetJumpUI = nil
+    end
+end)
+
+-- [[ 核心暴力循環 ]]
 RS.Heartbeat:Connect(function()
     local char = p.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-    local jumpBtn = getJumpButton()
-
-    if hum and jumpBtn and jumpBtn.Visible then
-        local isTouching = false
-        
-        -- 遍歷目前螢幕上所有觸碰點，檢查是否有任何一點在跳躍鈕內
-        local touches = UIS:GetTouches()
-        for _, touch in ipairs(touches) do
-            local pos = touch.Position
-            local absPos = jumpBtn.AbsolutePosition
-            local absSize = jumpBtn.AbsoluteSize
-            
-            if pos.X >= absPos.X and pos.X <= absPos.X + absSize.X and
-               pos.Y >= absPos.Y and pos.Y <= absPos.Y + absSize.Y then
-                isTouching = true
-                break
+    
+    -- 判斷 1: 只要 _G.bhop 是 true
+    -- 判斷 2: 或是玩家目前的人體屬性顯示正在跳躍 (補償按住不放的訊號)
+    if hum then
+        if _G.bhop or hum.Jump then
+            if hum.FloorMaterial ~= Enum.Material.Air then
+                -- 核心：強制刷新狀態
+                hum.Jump = false
+                hum:ChangeState(3)
+                hum.Jump = true
             end
         end
         
-        _G.bhop = isTouching
-
-        -- [[ 執行跳躍邏輯 ]]
-        if _G.bhop then
-            -- 如果人在地上，強制觸發
-            if hum.FloorMaterial ~= Enum.Material.Air then
-                -- 核心：先設為 false 再設為 true，強制刷新遊戲的偵測器
-                hum.Jump = false
-                task.wait() -- 極微小延遲確保系統偵測到狀態改變
-                hum.Jump = true
-                hum:ChangeState(3)
-            end
+        -- 防止「按其他地方會停」：
+        -- 如果 _G.bhop 因為焦點消失變 false，但 Hum.Jump 還是 true (按住狀態)，就強制續航
+        if hum.Jump then
+            _G.bhop = true
         end
     end
 end)
