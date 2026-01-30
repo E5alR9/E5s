@@ -1,117 +1,79 @@
 local Players = game:GetService("Players")
-
 local RunService = game:GetService("RunService")
 
-
-
 local player = Players.LocalPlayer
-
 local isHolding = false
 
-
-
 -- 1. 創建 UI 容器
-
 local screenGui = Instance.new("ScreenGui")
-
 screenGui.Name = "AutoJumpOverlay"
-
 screenGui.ResetOnSpawn = false 
-
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
-
-
 -- 2. 創建透明按鈕
-
 local jumpButton = Instance.new("TextButton")
-
 jumpButton.Name = "JumpButton"
 
-jumpButton.Size = UDim2.new(0,80, 0, 80) 
-
-jumpButton.Position = UDim2.new(1, -120, 1, -90) 
-
-
+-- [[ 定位邏輯：自動追蹤官方跳躍鈕 ]]
+local function syncPosition()
+    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
+    local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
+    
+    if realBtn then
+        -- 讓你的按鈕位置與大小完全同步官方按鈕
+        jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
+        jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
+    else
+        -- 預設位置（如果找不到官方按鈕）
+        jumpButton.Size = UDim2.new(0, 80, 0, 80)
+        jumpButton.Position = UDim2.new(1, -120, 1, -90)
+    end
+end
 
 -- 設定為完全透明
-
-jumpButton.BackgroundTransparency = 1 -- 1 代表 100% 透明
-
-jumpButton.TextTransparency = 1       -- 1 代表文字也隱藏（如果你想看文字，改回 0）
-
-
+jumpButton.BackgroundTransparency = 1 
+jumpButton.TextTransparency = 1       
 
 jumpButton.Text = "AUTO JUMP"
-
 jumpButton.Parent = screenGui
 
-
-
--- 3. 偵測按下與放開
-
-jumpButton.InputBegan:Connect(function(input)
-
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-
-        isHolding = true
-
-        -- 按住時可以給一點點淡淡的反饋（0.8 透明度），方便確認有按到
-
-        jumpButton.BackgroundTransparency = 0.8
-
-        jumpButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-
+-- 每秒自動校準一次位置（應對螢幕旋轉）
+task.spawn(function()
+    while true do
+        syncPosition()
+        task.wait(1)
     end
-
 end)
 
-
+-- 3. 偵測按下與放開 (保持原樣)
+jumpButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isHolding = true
+        jumpButton.BackgroundTransparency = 0.8
+        jumpButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
 
 jumpButton.InputEnded:Connect(function(input)
-
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-
         isHolding = false
-
-        -- 放開後回到全透明
-
         jumpButton.BackgroundTransparency = 1
-
     end
-
 end)
 
-
-
--- 4. 核心連跳邏輯 (保持不變)
-
+-- 4. 核心連跳邏輯 (保持原樣)
 RunService.Heartbeat:Connect(function()
-
     if isHolding then
-
         local character = player.Character
-
         if character then
-
             local humanoid = character:FindFirstChildOfClass("Humanoid")
-
             if humanoid and humanoid.Health > 0 then
-
                 humanoid.Jump = true
-
                 
-
                 if humanoid:GetState() == Enum.HumanoidStateType.Landed or humanoid.FloorMaterial ~= Enum.Material.Air then
-
                     humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-
                 end
-
             end
-
         end
-
     end
-
 end)
