@@ -1,8 +1,10 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local isHolding = false
+local isAutoJumpEnabled = true
 
 -- 1. 創建 UI 容器
 local screenGui = Instance.new("ScreenGui")
@@ -10,33 +12,91 @@ screenGui.Name = "AutoJumpOverlay"
 screenGui.ResetOnSpawn = false 
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
--- 2. 創建透明按鈕
+-- 2. 創建透明自動跳按鈕 (右下角覆蓋用)
 local jumpButton = Instance.new("TextButton")
-jumpButton.Name = "JumpButton"
+jumpButton.Name = "JumpButtonOverlay"
+jumpButton.BackgroundTransparency = 1 
+jumpButton.TextTransparency = 1       
+jumpButton.Parent = screenGui
 
--- [[ 變圓形邏輯 ]]
 local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(1, 0) -- 設定為 1 比例，確保永遠是圓形
+uiCorner.CornerRadius = UDim.new(1, 0)
 uiCorner.Parent = jumpButton
 
--- [[ 定位邏輯：自動追蹤官方跳躍鈕 ]]
+-- 3. 創建懸浮開關按鈕
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.new(0, 60, 0, 60)
+toggleButton.Position = UDim2.new(0, 20, 0.5, -30)
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
+toggleButton.Text = "ON"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.TextSize = 20
+toggleButton.Parent = screenGui
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(1, 0)
+toggleCorner.Parent = toggleButton
+
+-- [[ 拖曳與長按邏輯 ]]
+local dragging = false
+local dragStart = nil
+local startPos = nil
+local longPressTimer = 0
+local isLongPressing = false
+
+toggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local pressTime = os.clock()
+        isLongPressing = true
+        
+        -- 偵測長按 2 秒
+        task.delay(2, function()
+            if isLongPressing and (os.clock() - pressTime >= 2) then
+                dragging = true
+                dragStart = input.Position
+                startPos = toggleButton.Position
+                toggleButton.BackgroundColor3 = Color3.fromRGB(255, 215, 0) -- 變成金色代表可拖動
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        toggleButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+toggleButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isLongPressing = false
+        if dragging then
+            dragging = false
+            -- 恢復顏色
+            toggleButton.BackgroundColor3 = isAutoJumpEnabled and Color3.fromRGB(0, 255, 127) or Color3.fromRGB(255, 69, 0)
+        else
+            -- 如果不是拖動，則是正常點擊開關
+            isAutoJumpEnabled = not isAutoJumpEnabled
+            toggleButton.Text = isAutoJumpEnabled and "ON" or "OFF"
+            toggleButton.BackgroundColor3 = isAutoJumpEnabled and Color3.fromRGB(0, 255, 127) or Color3.fromRGB(255, 69, 0)
+            jumpButton.Visible = isAutoJumpEnabled
+            if not isAutoJumpEnabled then isHolding = false end
+        end
+    end
+end)
+
+-- [[ 定位邏輯 ]]
 local function syncPosition()
     local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
     local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
-    
     if realBtn then
         jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
         jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
-    else
-        jumpButton.Size = UDim2.new(0, 80, 0, 80)
-        jumpButton.Position = UDim2.new(1, -120, 1, -90)
     end
 end
-
-jumpButton.BackgroundTransparency = 1 
-jumpButton.TextTransparency = 1       
-jumpButton.Text = "AUTO JUMP"
-jumpButton.Parent = screenGui
 
 task.spawn(function()
     while true do
@@ -45,8 +105,9 @@ task.spawn(function()
     end
 end)
 
--- 3. 偵測按下與放開
+-- [[ 跳躍按鈕輸入 ]]
 jumpButton.InputBegan:Connect(function(input)
+    if not isAutoJumpEnabled then return end
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = true
         jumpButton.BackgroundTransparency = 0.8
@@ -61,15 +122,14 @@ jumpButton.InputEnded:Connect(function(input)
     end
 end)
 
--- 4. 核心連跳邏輯
+-- [[ 核心物理循環 ]]
 RunService.Heartbeat:Connect(function()
-    if isHolding then
+    if isHolding and isAutoJumpEnabled then
         local character = player.Character
         if character then
             local humanoid = character:FindFirstChildOfClass("Humanoid")
             if humanoid and humanoid.Health > 0 then
                 humanoid.Jump = true
-                
                 if humanoid:GetState() == Enum.HumanoidStateType.Landed or humanoid.FloorMaterial ~= Enum.Material.Air then
                     humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                 end
