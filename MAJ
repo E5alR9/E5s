@@ -8,33 +8,36 @@ local isHolding = false
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoJumpOverlay"
 screenGui.ResetOnSpawn = false 
-screenGui.DisplayOrder = 999 -- 確保在最上層
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
--- 2. 創建覆蓋用的按鈕
-local overlayBtn = Instance.new("TextButton")
-overlayBtn.Name = "JumpOverlay"
-overlayBtn.BackgroundTransparency = 1 -- 預設全透明
-overlayBtn.Text = ""
-overlayBtn.Parent = screenGui
+-- 2. 創建透明按鈕
+local jumpButton = Instance.new("TextButton")
+jumpButton.Name = "JumpButton"
 
--- [[ 自動定位邏輯 ]]
+-- [[ 定位邏輯：自動追蹤官方跳躍鈕 ]]
 local function syncPosition()
     local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
-    local realJumpBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
+    local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
     
-    if realJumpBtn and realJumpBtn.Visible then
-        -- 同步位置與大小
-        overlayBtn.Position = UDim2.new(0, realJumpBtn.AbsolutePosition.X, 0, realJumpBtn.AbsolutePosition.Y)
-        overlayBtn.Size = UDim2.new(0, realJumpBtn.AbsoluteSize.X, 0, realJumpBtn.AbsoluteSize.Y)
-        overlayBtn.Visible = true
+    if realBtn then
+        -- 讓你的按鈕位置與大小完全同步官方按鈕
+        jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
+        jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
     else
-        -- 如果沒偵測到官方按鈕，就稍微隱藏或放在預設位置
-        overlayBtn.Visible = false
+        -- 預設位置（如果找不到官方按鈕）
+        jumpButton.Size = UDim2.new(0, 80, 0, 80)
+        jumpButton.Position = UDim2.new(1, -120, 1, -90)
     end
 end
 
--- 每秒更新一次位置，防止螢幕旋轉或 UI 縮放
+-- 設定為完全透明
+jumpButton.BackgroundTransparency = 1 
+jumpButton.TextTransparency = 1       
+
+jumpButton.Text = "AUTO JUMP"
+jumpButton.Parent = screenGui
+
+-- 每秒自動校準一次位置（應對螢幕旋轉）
 task.spawn(function()
     while true do
         syncPosition()
@@ -42,34 +45,34 @@ task.spawn(function()
     end
 end)
 
--- 3. 偵測按下與放開
-overlayBtn.InputBegan:Connect(function(input)
+-- 3. 偵測按下與放開 (保持原樣)
+jumpButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = true
-        overlayBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        overlayBtn.BackgroundTransparency = 0.9 -- 按住時淡淡的視覺反饋
+        jumpButton.BackgroundTransparency = 0.8
+        jumpButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     end
 end)
 
-overlayBtn.InputEnded:Connect(function(input)
+jumpButton.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = false
-        overlayBtn.BackgroundTransparency = 1
+        jumpButton.BackgroundTransparency = 1
     end
 end)
 
--- 4. 核心連跳邏輯 (暴力刷新版)
+-- 4. 核心連跳邏輯 (保持原樣)
 RunService.Heartbeat:Connect(function()
     if isHolding then
         local character = player.Character
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        
-        if humanoid and humanoid.Health > 0 then
-            -- 這裡使用你提供的邏輯，並加強落地判定
-            if humanoid.FloorMaterial ~= Enum.Material.Air or humanoid:GetState() == Enum.HumanoidStateType.Landed then
-                humanoid.Jump = false -- 先關
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                humanoid.Jump = true -- 再開，強制刷新遊戲偵測
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                humanoid.Jump = true
+                
+                if humanoid:GetState() == Enum.HumanoidStateType.Landed or humanoid.FloorMaterial ~= Enum.Material.Air then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
             end
         end
     end
