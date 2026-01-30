@@ -3,45 +3,49 @@ _G.bhop = false
 
 local p = game:GetService("Players").LocalPlayer
 local RS = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
 
--- [[ 綁定 UI 事件 ]]
-local function setupBhop()
-    local touchGui = p:WaitForChild("PlayerGui"):WaitForChild("TouchGui", 10)
-    local jumpBtn = touchGui and touchGui:WaitForChild("JumpButton", 10)
-
-    if jumpBtn then
-        -- 使用底層事件判定按下
-        jumpBtn.MouseButton1Down:Connect(function()
-            _G.bhop = true
-        end)
-
-        -- 使用底層事件判定放開
-        jumpBtn.MouseButton1Up:Connect(function()
-            _G.bhop = false
-        end)
-        
-        -- 額外保險：如果手指滑出按鈕範圍也要停止
-        jumpBtn.MouseLeave:Connect(function()
-            _G.bhop = false
-        end)
-    end
+-- 取得跳躍按鈕
+local function getJumpButton()
+    local touchGui = p:FindFirstChild("PlayerGui") and p.PlayerGui:FindFirstChild("TouchGui")
+    return touchGui and touchGui:FindFirstChild("JumpButton", true)
 end
-
-setupBhop()
-p.CharacterAdded:Connect(function() task.wait(1) setupBhop() end)
 
 -- [[ 核心循環 ]]
 RS.Heartbeat:Connect(function()
     local char = p.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local jumpBtn = getJumpButton()
 
-    if _G.bhop and hum then
-        -- 判斷：人在地上時才執行
-        if hum.FloorMaterial ~= Enum.Material.Air then
-            -- 暴力法：先關再開，強制刷新遊戲的跳躍偵測
-            hum.Jump = false
-            hum.Jump = true
-            hum:ChangeState(3)
+    if hum and jumpBtn and jumpBtn.Visible then
+        local isTouching = false
+        
+        -- 遍歷目前螢幕上所有觸碰點，檢查是否有任何一點在跳躍鈕內
+        local touches = UIS:GetTouches()
+        for _, touch in ipairs(touches) do
+            local pos = touch.Position
+            local absPos = jumpBtn.AbsolutePosition
+            local absSize = jumpBtn.AbsoluteSize
+            
+            if pos.X >= absPos.X and pos.X <= absPos.X + absSize.X and
+               pos.Y >= absPos.Y and pos.Y <= absPos.Y + absSize.Y then
+                isTouching = true
+                break
+            end
+        end
+        
+        _G.bhop = isTouching
+
+        -- [[ 執行跳躍邏輯 ]]
+        if _G.bhop then
+            -- 如果人在地上，強制觸發
+            if hum.FloorMaterial ~= Enum.Material.Air then
+                -- 核心：先設為 false 再設為 true，強制刷新遊戲的偵測器
+                hum.Jump = false
+                task.wait() -- 極微小延遲確保系統偵測到狀態改變
+                hum.Jump = true
+                hum:ChangeState(3)
+            end
         end
     end
 end)
