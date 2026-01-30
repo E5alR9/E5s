@@ -3,54 +3,53 @@ _G.bhop = false
 
 local p = game:GetService("Players").LocalPlayer
 local RS = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 
-local activeJumpTouch = nil -- 專門追蹤按在跳躍鍵上的手指
+-- [[ 獲取跳躍按鈕並綁定邏輯 ]]
+local function setupJumpBtn()
+    local playerGui = p:WaitForChild("PlayerGui")
+    local touchGui = playerGui:WaitForChild("TouchGui", 5)
+    local jumpBtn = touchGui and touchGui:WaitForChild("JumpButton", 5)
 
--- [[ 綁定函數 ]]
-local function setupJumpDetection()
-	local touchGui = p:WaitForChild("PlayerGui"):WaitForChild("TouchGui", 10)
-	local jumpBtn = touchGui and touchGui:WaitForChild("JumpButton", 10)
+    if jumpBtn then
+        -- 當手指「壓住」跳躍按鈕
+        jumpBtn.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                _G.bhop = true
+            end
+        end)
 
-	if jumpBtn then
-		-- 當手指點下跳躍鍵
-		jumpBtn.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.Touch then
-				activeJumpTouch = input
-				_G.bhop = true
-			end
-		end)
-
-		-- 當手指離開（無論是滑開還是抬起）
-		jumpBtn.InputEnded:Connect(function(input)
-			if input == activeJumpTouch then
-				activeJumpTouch = nil
-				_G.bhop = false
-			end
-		end)
-	end
+        -- 當手指「離開」跳躍按鈕 (無論是抬起還是滑開)
+        jumpBtn.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                _G.bhop = false
+            end
+        end)
+    end
 end
 
-setupJumpDetection()
-p.CharacterAdded:Connect(function() task.wait(1) setupJumpDetection() end)
+-- 初始化與重生自動重新綁定
+setupJumpBtn()
+p.CharacterAdded:Connect(function()
+    task.wait(1)
+    setupJumpBtn()
+end)
 
--- [[ 核心循環 ]]
+-- [[ 核心物理循環 ]]
 RS.Heartbeat:Connect(function()
-	local char = p.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	local root = char and char:FindFirstChild("HumanoidRootPart")
+    local char = p.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
 
-	if _G.bhop and hum and root then
-		-- 只有在接近地面或撞牆時才觸發，防止在天上飛
-		local state = hum:GetState()
-		local isOnGround = hum.FloorMaterial ~= Enum.Material.Air
-		
-		if isOnGround or state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Landed then
-			-- 檢查 Y 速度，避免在空中連續疊加力量
-			if root.AssemblyLinearVelocity.Y < 1 then
-				hum:ChangeState(3)
-				root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 50, root.AssemblyLinearVelocity.Z)
-			end
-		end
-	end
+    -- 只有當按住 UI (_G.bhop) 且 角色在地面或撞牆墜落時才起跳
+    if _G.bhop and hum and root then
+        -- 偵測是否在地上或正在墜落 (解決撞牆停下的問題)
+        if hum.FloorMaterial ~= Enum.Material.Air or hum:GetState() == Enum.HumanoidStateType.Freefall then
+            -- 為了防止在天上連跳，我們檢查 Y 軸速度。只有快落地或已落地才起跳
+            if root.AssemblyLinearVelocity.Y <= 0.1 then
+                hum:ChangeState(3)
+                -- 物理補強：確保能跳起來 (50 為標準跳躍力，可視需求調整)
+                root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 50, root.AssemblyLinearVelocity.Z)
+            end
+        end
+    end
 end)
