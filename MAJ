@@ -1,56 +1,76 @@
--- [[ 全域變數 ]]
-_G.bhop = false
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
-local p = game:GetService("Players").LocalPlayer
-local RS = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local isHolding = false
 
-local targetJumpUI = nil
+-- 1. 創建 UI 容器
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoJumpOverlay"
+screenGui.ResetOnSpawn = false 
+screenGui.DisplayOrder = 999 -- 確保在最上層
+screenGui.Parent = player:WaitForChild("PlayerGui")
 
--- [[ 偵測玩家到底在按哪個按鈕 ]]
-UIS.InputBegan:Connect(function(input, gpe)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        -- 如果玩家按下的 UI 觸發了 Jump，我們就鎖定這個 UI
-        task.wait(0.05)
-        if p.Character and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Jump then
-            local guis = p.PlayerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
-            if #guis > 0 then
-                targetJumpUI = guis[1] -- 鎖定目前按下的這個 UI
-                _G.bhop = true
-            end
-        end
-    end
-end)
+-- 2. 創建覆蓋用的按鈕
+local overlayBtn = Instance.new("TextButton")
+overlayBtn.Name = "JumpOverlay"
+overlayBtn.BackgroundTransparency = 1 -- 預設全透明
+overlayBtn.Text = ""
+overlayBtn.Parent = screenGui
 
-UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        -- 判斷是否為釋放跳躍 UI
-        _G.bhop = false
-        targetJumpUI = nil
-    end
-end)
-
--- [[ 核心暴力循環 ]]
-RS.Heartbeat:Connect(function()
-    local char = p.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
+-- [[ 自動定位邏輯 ]]
+local function syncPosition()
+    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
+    local realJumpBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
     
-    -- 判斷 1: 只要 _G.bhop 是 true
-    -- 判斷 2: 或是玩家目前的人體屬性顯示正在跳躍 (補償按住不放的訊號)
-    if hum then
-        if _G.bhop or hum.Jump then
-            if hum.FloorMaterial ~= Enum.Material.Air then
-                -- 核心：強制刷新狀態
-                hum.Jump = false
-                hum:ChangeState(3)
-                hum.Jump = true
-            end
-        end
+    if realJumpBtn and realJumpBtn.Visible then
+        -- 同步位置與大小
+        overlayBtn.Position = UDim2.new(0, realJumpBtn.AbsolutePosition.X, 0, realJumpBtn.AbsolutePosition.Y)
+        overlayBtn.Size = UDim2.new(0, realJumpBtn.AbsoluteSize.X, 0, realJumpBtn.AbsoluteSize.Y)
+        overlayBtn.Visible = true
+    else
+        -- 如果沒偵測到官方按鈕，就稍微隱藏或放在預設位置
+        overlayBtn.Visible = false
+    end
+end
+
+-- 每秒更新一次位置，防止螢幕旋轉或 UI 縮放
+task.spawn(function()
+    while true do
+        syncPosition()
+        task.wait(1)
+    end
+end)
+
+-- 3. 偵測按下與放開
+overlayBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isHolding = true
+        overlayBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        overlayBtn.BackgroundTransparency = 0.9 -- 按住時淡淡的視覺反饋
+    end
+end)
+
+overlayBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isHolding = false
+        overlayBtn.BackgroundTransparency = 1
+    end
+end)
+
+-- 4. 核心連跳邏輯 (暴力刷新版)
+RunService.Heartbeat:Connect(function()
+    if isHolding then
+        local character = player.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         
-        -- 防止「按其他地方會停」：
-        -- 如果 _G.bhop 因為焦點消失變 false，但 Hum.Jump 還是 true (按住狀態)，就強制續航
-        if hum.Jump then
-            _G.bhop = true
+        if humanoid and humanoid.Health > 0 then
+            -- 這裡使用你提供的邏輯，並加強落地判定
+            if humanoid.FloorMaterial ~= Enum.Material.Air or humanoid:GetState() == Enum.HumanoidStateType.Landed then
+                humanoid.Jump = false -- 先關
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                humanoid.Jump = true -- 再開，強制刷新遊戲偵測
+            end
         end
     end
 end)
