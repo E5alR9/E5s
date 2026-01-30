@@ -1,52 +1,44 @@
+-- [[ 全域變數初始化 ]]
+_G.bhop = false
+
 local p = game:GetService("Players").LocalPlayer
 local RS = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
-local guiService = game:GetService("GuiService")
 
-local isHoldingJumpButton = false
-
--- 檢查觸碰位置是否有跳躍按鈕
-local function isTouchingJumpButton(pos)
-    local guis = p.PlayerGui:GetGuiObjectsAtPosition(pos.X, pos.Y)
-    for _, gui in ipairs(guis) do
-        if gui.Name == "JumpButton" then
-            return true
-        end
-    end
-    return false
+-- 取得跳躍按鈕
+local function getJumpButton()
+    local touchGui = p:FindFirstChild("PlayerGui") and p.PlayerGui:FindFirstChild("TouchGui")
+    return touchGui and touchGui:FindFirstChild("JumpButton", true)
 end
 
--- 監控按下的位置
-UIS.InputBegan:Connect(function(input, gpe)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        if isTouchingJumpButton(input.Position) then
-            isHoldingJumpButton = true
-        end
-    end
-end)
+-- 記錄按鈕原始的透明度 (通常是 0.5)
+local originalTransparency = 0.5
 
--- 監控放開
-UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        -- 為了保險，放開任何觸控都檢查是否要停止（或可針對特定 InputObject）
-        isHoldingJumpButton = false
-    end
-end)
-
--- 核心循環
+-- [[ 核心物理循環 ]]
 RS.Heartbeat:Connect(function()
     local char = p.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-    
-    if hum then
-        -- 額外補險：如果系統偵測到跳躍屬性，也視為按住按鈕
-        if hum.Jump then
-            isHoldingJumpButton = true
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local jumpBtn = getJumpButton()
+
+    if hum and root and jumpBtn then
+        -- [[ 核心判斷：監控按鈕是否「看起來」被按住 ]]
+        -- 官方按鈕被按下時，ImageTransparency 會改變 (通常會變為 0.8 或其他數值)
+        if jumpBtn.ImageTransparency ~= originalTransparency then
+            _G.bhop = true
+        else
+            _G.bhop = false
         end
 
-        -- 執行連跳
-        if isHoldingJumpButton and hum.FloorMaterial ~= Enum.Material.Air then
-            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        -- [[ 執行連跳 ]]
+        if _G.bhop then
+            -- 只要在地板或撞牆(Freefall)，且向上速度不足時起跳
+            if (hum.FloorMaterial ~= Enum.Material.Air or hum:GetState() == Enum.HumanoidStateType.Freefall) then
+                if root.AssemblyLinearVelocity.Y < 5 then
+                    -- 強制改變狀態 + 物理推力 (雙重保障)
+                    hum:ChangeState(3)
+                    root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 50, root.AssemblyLinearVelocity.Z)
+                end
+            end
         end
     end
 end)
