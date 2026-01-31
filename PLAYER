@@ -39,7 +39,7 @@ if _G.E5_Volume == nil then _G.E5_Volume = 3 end
 local activeSound = SoundService:FindFirstChild("E5_Music_Source")
 local currentSongIndex = activeSound and activeSound:GetAttribute("SongIndex") or 1
 local isDraggingTime, isDraggingVol = false, false
-
+local isSwitching = false -- 防止連續切換的鎖定變數
 -- ======================================================
 -- 🏗️ UI 架構
 -- ======================================================
@@ -105,16 +105,26 @@ Instance.new("UIPadding", ListPage).PaddingLeft, Instance.new("UIPadding", ListP
 -- 🎮 控制與邏輯
 -- ======================================================
 function playSong(idx)
+    if isSwitching then return end -- 如果正在切換中，則不執行
+    isSwitching = true
+    
     idx = (idx - 1) % #SongLibrary + 1
     currentSongIndex = idx
     local d = SongLibrary[idx]
+    
     if activeSound then activeSound:Destroy() end
     if not isfile(d.File) then writefile(d.File, game:HttpGet(d.URL)) end
+    
     activeSound = Instance.new("Sound", SoundService)
     activeSound.Name, activeSound.SoundId = "E5_Music_Source", getcustomasset(d.File)
     activeSound.Volume, activeSound.Looped = _G.E5_Volume, _G.E5_Looping
-    activeSound:SetAttribute("SongName", d.Name:upper()); activeSound:Play()
+    activeSound:SetAttribute("SongName", d.Name:upper())
+    activeSound:Play()
+    
     SongNameLabel.Text = d.Name:upper()
+    
+    -- 等待一小段時間確保 SoundId 已加載，再解除鎖定
+    task.delay(0.5, function() isSwitching = false end)
 end
 
 -- 渲染控制按鈕 (省略重複部分，與你原代碼一致)
@@ -173,8 +183,8 @@ RunService.RenderStepped:Connect(function()
     if not _G.E5_Music_Instance then return end
     local isPlaying = activeSound and activeSound.IsPlaying
     
-    -- 🟢 自動播放下一首邏輯
-    if activeSound and activeSound.TimePosition >= activeSound.TimeLength - 0.1 and not _G.E5_Looping then
+    -- 🟢 自動播放下一首邏輯 (增加 isSwitching 判斷)
+    if activeSound and activeSound.TimePosition >= (activeSound.TimeLength - 0.2) and not _G.E5_Looping and not isSwitching then
         playSong(currentSongIndex + 1)
     end
 
