@@ -27,6 +27,10 @@ end
 local SongLibrary = {
     {Name = "Fleeting Frozen Heart", File = "frozen_heart.mp3", URL = "https://github.com/E5alR9/E5s/raw/main/Xxtarlit-FleetingFrozenHeart.mp3"},
     {Name = "A LiFE", File = "alife.mp3", URL = "https://github.com/E5alR9/E5s/raw/main/alife.mp3"},
+    {Name = "Die For You (Sped Up)", File = "die_for_you.mp3", URL = "https://github.com/E5alR9/E5s/raw/main/DieForYou(spedup).mp3"},
+    {Name = "Cry For Me", File = "cry_for_me.mp3", URL = "https://github.com/E5alR9/E5s/raw/main/CryForMe-Ironmouse.mp3"},
+    {Name = "Call Me Now", File = "call_me_now.mp3", URL = "https://github.com/E5alR9/E5s/raw/main/MichaelCalfanxINNA-CallMeNow(Lyrics).mp3"},
+    {Name = "Mad Love (Sped Up)", File = "mad_love.mp3", URL = "https://github.com/E5alR9/E5s/raw/main/Mabel-MadLove(spedupTikTokRemix)Lyrics.mp3"},
 }
 
 -- 初始化持久化全域變數
