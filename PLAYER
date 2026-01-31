@@ -5,12 +5,11 @@ local UserInputService = game:GetService("UserInputService")
 local ACCENT_COLOR = Color3.fromHex("D656FF")
 
 -- ======================================================
--- 🛑 [核心修改] 開關邏輯：再次執行即關閉
+-- 🛑 [核心修改] 開關邏輯
 -- ======================================================
 if _G.E5_Music_Instance then 
     local target = _G.E5_Music_Instance:FindFirstChild("CanvasGroup")
     if target then
-        -- 播放一個淡出動畫後刪除
         local closeTween = TS:Create(target, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {GroupTransparency = 1, Size = UDim2.new(0, 480, 0, 320)})
         closeTween:Play()
         closeTween.Completed:Connect(function()
@@ -21,7 +20,7 @@ if _G.E5_Music_Instance then
         _G.E5_Music_Instance:Destroy()
         _G.E5_Music_Instance = nil
     end
-    return -- 終止執行，達到關閉效果
+    return 
 end
 
 local SongLibrary = {
@@ -33,7 +32,6 @@ local SongLibrary = {
     {Name = "Mad Love (Sped Up)", File = "mad_love.mp3", URL = "https://github.com/E5alR9/E5s/raw/main/Mabel-MadLove(spedupTikTokRemix)Lyrics.mp3"},
 }
 
--- 初始化持久化全域變數
 if _G.E5_Looping == nil then _G.E5_Looping = false end
 if _G.E5_Volume == nil then _G.E5_Volume = 3 end
 
@@ -63,7 +61,7 @@ local PageLayout = Instance.new("UIPageLayout", Container)
 PageLayout.Padding, PageLayout.TweenTime = UDim.new(0, 50), 0.6
 PageLayout.EasingStyle, PageLayout.EasingDirection = Enum.EasingStyle.Back, Enum.EasingDirection.Out
 
--- ---------------- [ 頁面 1: PLAYER ] ----------------
+-- ---------------- [ PLAYER ] ----------------
 local PlayerPage = Instance.new("Frame", Container)
 PlayerPage.LayoutOrder, PlayerPage.Size, PlayerPage.BackgroundTransparency = 1, UDim2.new(1, 0, 1, 0), 1
 
@@ -73,7 +71,6 @@ SongNameLabel.Size, SongNameLabel.Position = UDim2.new(0.8, 0, 0, 60), UDim2.new
 SongNameLabel.BackgroundTransparency, SongNameLabel.TextColor3, SongNameLabel.Font, SongNameLabel.TextSize = 1, Color3.new(1,1,1), Enum.Font.GothamBold, 26
 SongNameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- 動態音柱
 local VizFrame = Instance.new("Frame", PlayerPage)
 VizFrame.Size, VizFrame.Position, VizFrame.BackgroundTransparency = UDim2.new(0.6, 0, 0, 40), UDim2.new(0, 40, 0.38, 0), 1
 local bars = {}
@@ -84,7 +81,6 @@ for i = 1, 20 do
     bar.BackgroundTransparency = 0.4; Instance.new("UICorner", bar); table.insert(bars, bar)
 end
 
--- 時間軸
 local TimeBarBG = Instance.new("TextButton", PlayerPage)
 TimeBarBG.Text, TimeBarBG.Size, TimeBarBG.Position, TimeBarBG.BackgroundColor3 = "", UDim2.new(0.5, 0, 0, 8), UDim2.new(0, 40, 0.52, 0), Color3.fromRGB(45, 45, 45)
 Instance.new("UICorner", TimeBarBG)
@@ -97,15 +93,30 @@ TimeText.Text, TimeText.Size, TimeText.Position = "00:00 / 00:00", UDim2.new(0.5
 TimeText.BackgroundTransparency, TimeText.TextColor3, TimeText.Font, TimeText.TextSize = 1, Color3.fromRGB(180, 180, 180), Enum.Font.Code, 12
 TimeText.TextXAlignment = Enum.TextXAlignment.Left
 
--- ---------------- [ 頁面 2: LIST ] ----------------
+-- ---------------- [ LIST ] ----------------
 local ListPage = Instance.new("ScrollingFrame", Container)
 ListPage.LayoutOrder, ListPage.Size, ListPage.BackgroundTransparency, ListPage.ScrollBarThickness = 2, UDim2.new(1, 0, 0.9, 0), 1, 0
+ListPage.AutomaticCanvasSize = Enum.AutomaticSize.Y -- 自動調整滾動範圍
 Instance.new("UIListLayout", ListPage).Padding = UDim.new(0, 10)
 Instance.new("UIPadding", ListPage).PaddingLeft, Instance.new("UIPadding", ListPage).PaddingTop = UDim.new(0, 40), UDim.new(0, 20)
 
 -- ======================================================
--- 🎮 控制按鈕與音量
+-- 🎮 控制與邏輯
 -- ======================================================
+function playSong(idx)
+    idx = (idx - 1) % #SongLibrary + 1
+    currentSongIndex = idx
+    local d = SongLibrary[idx]
+    if activeSound then activeSound:Destroy() end
+    if not isfile(d.File) then writefile(d.File, game:HttpGet(d.URL)) end
+    activeSound = Instance.new("Sound", SoundService)
+    activeSound.Name, activeSound.SoundId = "E5_Music_Source", getcustomasset(d.File)
+    activeSound.Volume, activeSound.Looped = _G.E5_Volume, _G.E5_Looping
+    activeSound:SetAttribute("SongName", d.Name:upper()); activeSound:Play()
+    SongNameLabel.Text = d.Name:upper()
+end
+
+-- 渲染控制按鈕 (省略重複部分，與你原代碼一致)
 local ControlFrame = Instance.new("Frame", PlayerPage)
 ControlFrame.Size, ControlFrame.Position, ControlFrame.BackgroundTransparency = UDim2.new(0.8, 0, 0, 40), UDim2.new(0, 40, 0.65, 0), 1
 local cl = Instance.new("UIListLayout", ControlFrame)
@@ -132,7 +143,6 @@ local VolBarFill = Instance.new("Frame", VolBarBG)
 VolBarFill.Size, VolBarFill.BackgroundColor3, VolBarFill.BorderSizePixel = UDim2.new(_G.E5_Volume/10, 0, 1, 0), ACCENT_COLOR, 0
 Instance.new("UICorner", VolBarFill)
 
--- 🟢 升級後的播放按鈕視覺元件
 local PlayBtn = Instance.new("TextButton", PlayerPage)
 PlayBtn.Size, PlayBtn.Position = UDim2.new(0, 90, 0, 90), UDim2.new(0.75, -20, 0.45, -10)
 PlayBtn.BackgroundColor3, PlayBtn.BackgroundTransparency, PlayBtn.Text = Color3.new(0,0,0), 0.5, ""
@@ -142,37 +152,56 @@ Instance.new("UIStroke", PlayBtn).Color = ACCENT_COLOR
 local PlayIcon = Instance.new("TextLabel", PlayBtn)
 PlayIcon.Text, PlayIcon.Size, PlayIcon.BackgroundTransparency, PlayIcon.TextColor3, PlayIcon.TextSize, PlayIcon.Font = "▶", UDim2.new(1,0,1,0), 1, Color3.new(1,1,1), 36, Enum.Font.GothamBold
 
--- 🟢 新增的精緻暫停圖標 (兩條槓)
 local PauseIconFrame = Instance.new("Frame", PlayBtn)
 PauseIconFrame.Size, PauseIconFrame.Position, PauseIconFrame.BackgroundTransparency = UDim2.new(0.3, 0, 0.35, 0), UDim2.new(0.5, 0, 0.5, 0), 1
 PauseIconFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 PauseIconFrame.Visible = false
-
 local function createPauseBar(pos)
     local bar = Instance.new("Frame", PauseIconFrame)
     bar.Size, bar.Position = UDim2.new(0.3, 0, 1, 0), pos
     bar.BackgroundColor3, bar.BorderSizePixel = Color3.new(1,1,1), 0
     Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 4)
 end
-createPauseBar(UDim2.new(0, 0, 0, 0))   -- 左槓
-createPauseBar(UDim2.new(0.7, 0, 0, 0)) -- 右槓
+createPauseBar(UDim2.new(0, 0, 0, 0))
+createPauseBar(UDim2.new(0.7, 0, 0, 0))
 
 -- ======================================================
--- ⚙️ 系統邏輯
+-- 🔄 更新循環
 -- ======================================================
-function playSong(idx)
-    idx = (idx - 1) % #SongLibrary + 1
-    currentSongIndex = idx
-    local d = SongLibrary[idx]
-    if activeSound then activeSound:Destroy() end
-    if not isfile(d.File) then writefile(d.File, game:HttpGet(d.URL)) end
-    activeSound = Instance.new("Sound", SoundService)
-    activeSound.Name, activeSound.SoundId = "E5_Music_Source", getcustomasset(d.File)
-    activeSound.Volume, activeSound.Looped = _G.E5_Volume, _G.E5_Looping
-    activeSound:SetAttribute("SongName", d.Name:upper()); activeSound:Play()
-    SongNameLabel.Text = d.Name:upper()
-end
+RunService.RenderStepped:Connect(function()
+    if not _G.E5_Music_Instance then return end
+    local isPlaying = activeSound and activeSound.IsPlaying
+    
+    -- 🟢 自動播放下一首邏輯
+    if activeSound and activeSound.TimePosition >= activeSound.TimeLength - 0.1 and not _G.E5_Looping then
+        playSong(currentSongIndex + 1)
+    end
 
+    PlayIcon.Visible = not isPlaying
+    PauseIconFrame.Visible = isPlaying
+
+    for i, bar in ipairs(bars) do
+        local target = isPlaying and (math.random(20, 100)/100) or 0.1
+        bar.Size = bar.Size:Lerp(UDim2.new(1/20, -2, target, 0), 0.2)
+    end
+
+    if isDraggingTime then
+        local x = math.clamp((UserInputService:GetMouseLocation().X - TimeBarBG.AbsolutePosition.X) / TimeBarBG.AbsoluteSize.X, 0, 1)
+        if activeSound then activeSound.TimePosition = x * activeSound.TimeLength end
+    elseif isDraggingVol then
+        local x = math.clamp((UserInputService:GetMouseLocation().X - VolBarBG.AbsolutePosition.X) / VolBarBG.AbsoluteSize.X, 0, 1)
+        _G.E5_Volume = x * 10
+        VolBarFill.Size = UDim2.new(x, 0, 1, 0)
+        if activeSound then activeSound.Volume = _G.E5_Volume end
+    end
+
+    if activeSound and activeSound.TimeLength > 0 then
+        if not isDraggingTime then TimeBarFill.Size = UDim2.new(activeSound.TimePosition / activeSound.TimeLength, 0, 1, 0) end
+        TimeText.Text = string.format("%02d:%02d / %02d:%02d", math.floor(activeSound.TimePosition/60), activeSound.TimePosition%60, math.floor(activeSound.TimeLength/60), activeSound.TimeLength%60)
+    end
+end)
+
+-- 補齊清單與導航按鈕
 for i, s in ipairs(SongLibrary) do
     local b = Instance.new("TextButton", ListPage)
     b.Size, b.BackgroundColor3, b.BackgroundTransparency, b.Text = UDim2.new(0.9, 0, 0, 45), Color3.new(0,0,0), 0.7, "    " .. s.Name
@@ -191,35 +220,7 @@ end
 nav("PLAYER", UDim2.new(0.35, -50, 0.9, -10), PlayerPage)
 nav("LIST", UDim2.new(0.65, -50, 0.9, -10), ListPage)
 
--- 更新循環
-RunService.RenderStepped:Connect(function()
-    if not _G.E5_Music_Instance then return end
-    local isPlaying = activeSound and activeSound.IsPlaying
-    
-    -- 🟢 更新播放/暫停圖標顯示
-    PlayIcon.Visible = not isPlaying
-    PauseIconFrame.Visible = isPlaying
-
-    for i, bar in ipairs(bars) do
-        local target = isPlaying and (math.random(20, 100)/100) or 0.1
-        bar.Size = bar.Size:Lerp(UDim2.new(1/20, -2, target, 0), 0.2)
-    end
-    if isDraggingTime then
-        local x = math.clamp((UserInputService:GetMouseLocation().X - TimeBarBG.AbsolutePosition.X) / TimeBarBG.AbsoluteSize.X, 0, 1)
-        if activeSound then activeSound.TimePosition = x * activeSound.TimeLength end
-    elseif isDraggingVol then
-        local x = math.clamp((UserInputService:GetMouseLocation().X - VolBarBG.AbsolutePosition.X) / VolBarBG.AbsoluteSize.X, 0, 1)
-        _G.E5_Volume = x * 10
-        VolBarFill.Size = UDim2.new(x, 0, 1, 0)
-        if activeSound then activeSound.Volume = _G.E5_Volume end
-    end
-    if activeSound and activeSound.TimeLength > 0 then
-        if not isDraggingTime then TimeBarFill.Size = UDim2.new(activeSound.TimePosition / activeSound.TimeLength, 0, 1, 0) end
-        TimeText.Text = string.format("%02d:%02d / %02d:%02d", math.floor(activeSound.TimePosition/60), activeSound.TimePosition%60, math.floor(activeSound.TimeLength/60), activeSound.TimeLength%60)
-    end
-end)
-
--- 事件
+-- 事件綁定 (Play, Next, Prev...)
 TimeBarBG.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then isDraggingTime = true end end)
 VolBarBG.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then isDraggingVol = true end end)
 UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then isDraggingTime, isDraggingVol = false, false end end)
@@ -230,6 +231,5 @@ NextBtn.MouseButton1Click:Connect(function() playSong(currentSongIndex + 1) end)
 RewBtn.MouseButton1Click:Connect(function() if activeSound then activeSound.TimePosition -= 10 end end)
 FwdBtn.MouseButton1Click:Connect(function() if activeSound then activeSound.TimePosition += 10 end end)
 
--- 入場動畫
 mainFrame.Active, mainFrame.Draggable = true, true
 TS:Create(mainFrame, TweenInfo.new(0.5), {GroupTransparency = 0}):Play()
