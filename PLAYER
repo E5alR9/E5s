@@ -35,6 +35,10 @@ local SongLibrary = {
     {Name = "Call Me Now", File = "call_me_now.mp3", URL = "https://github.com/E5alR9/E5s/raw/main/MichaelCalfanxINNA-CallMeNow(Lyrics).mp3"},
     {Name = "Mad Love (Sped Up)", File = "mad_love.mp3", URL = "https://github.com/E5alR9/E5s/raw/main/Mabel-MadLove(spedupTikTokRemix)Lyrics.mp3"},
     {Name = "Blood Drain (Breakcore)", File = "blood_drain.mp3", URL = "https://github.com/E5alR9/E5s/raw/main/BLOODDRAINBREAKCORE.mp3"},
+    {Name = "It Can't Come Quickly Enough", File = "quickly_enough.mp3", URL = "https://github.com/E5alR9/list/raw/main/ItCan'tComeQuicklyEnough.mp3"},
+    {Name = "Love Me Not", File = "love_me_not.mp3", URL = "https://github.com/E5alR9/list/raw/main/RavynLenae-LoveMeNot(Lyrics).mp3"},
+    {Name = "EEEEA", File = "eeeea.mp3", URL = "https://github.com/E5alR9/list/raw/main/dia-EEEEA(LyricVideo).mp3"},
+    {Name = "You Broke My Heart", File = "broke_heart.mp3", URL = "https://github.com/E5alR9/list/raw/main/youbrokemyheart-kobzx2z%2CMyla(Lyrics).mp3"},
 }
 
 if _G.E5_Looping == nil then _G.E5_Looping = false end
