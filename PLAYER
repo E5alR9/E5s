@@ -2,10 +2,6 @@
 -- 🎵 E5 MUSIC PLAYER - ULTIMATE INTEGRATION
 -- ======================================================
 
--- 清理舊的 UI
-local oldUI = game:GetService("CoreGui"):FindFirstChild("E5_Music_Panel")
-if oldUI then oldUI:Destroy() end
-
 local SoundService = game:GetService("SoundService")
 local TS = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -14,29 +10,28 @@ local HttpService = game:GetService("HttpService")
 local ACCENT_COLOR = Color3.fromHex("D656FF")
 
 -- ======================================================
--- 🛑 [核心修改] 開關邏輯
+-- 🛑 [核心修改] 開關邏輯 (展開/合併動畫版)
 -- ======================================================
 if _G.E5_Music_Instance then 
-    local existingUI = _G.E5_Music_Instance
-    local target = existingUI:FindFirstChild("CanvasGroup")
-    
+    local target = _G.E5_Music_Instance:FindFirstChildWhichIsA("CanvasGroup")
     if target then
-        -- 播放關閉動畫：縮小並變透明
-        local closeTween = TS:Create(target, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            GroupTransparency = 1, 
-            Size = UDim2.new(0, 450, 0, 300), -- 稍微縮小一點的視覺效果
-            Position = target.Position + UDim2.new(0, 0, 0, 20) -- 向下位移一點
-        })
+        -- 1. 先讓文字和內容變透明 (類似 Notice 的收縮前置)
+        TS:Create(target, TweenInfo.new(0.2), {GroupTransparency = 1}):Play()
         
-        closeTween:Play()
-        closeTween.Completed:Connect(function()
-            existingUI:Destroy()
+        -- 2. 執行橫向收縮動畫
+        local shrink = TS:Create(target, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 360), 
+            Position = UDim2.new(0.5, 0, 0.5, -180)
+        })
+        shrink:Play()
+        shrink.Completed:Connect(function()
+            if _G.E5_Music_Instance then _G.E5_Music_Instance:Destroy() end
+            _G.E5_Music_Instance = nil
         end)
     else
-        existingUI:Destroy()
+        _G.E5_Music_Instance:Destroy()
+        _G.E5_Music_Instance = nil
     end
-    
-    _G.E5_Music_Instance = nil
     return 
 end
 
@@ -106,12 +101,18 @@ local sg = Instance.new("ScreenGui", game:GetService("CoreGui"))
 sg.Name = "E5_Music_Panel"
 _G.E5_Music_Instance = sg
 
+-- 在 [🛠️ 狀態與 UI 建立] 區塊中修改：
 local mainFrame = Instance.new("CanvasGroup", sg)
-mainFrame.Size, mainFrame.Position = UDim2.new(0, 520, 0, 360), UDim2.new(0.5, -260, 0.5, -180)
+-- 初始狀態：寬度為 0，位置在中心
+mainFrame.Size = UDim2.new(0, 0, 0, 360) 
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, -180)
 mainFrame.BackgroundColor3, mainFrame.BackgroundTransparency = Color3.fromRGB(15, 15, 15), 0.1
-mainFrame.GroupTransparency = 1 
+mainFrame.GroupTransparency = 1 -- 初始透明
+mainFrame.ClipsDescendants = true -- 確保收縮時內容不會溢出
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 24)
-Instance.new("UIStroke", mainFrame).Color = ACCENT_COLOR
+local mainStroke = Instance.new("UIStroke", mainFrame)
+mainStroke.Color = ACCENT_COLOR
+mainStroke.Transparency = 1 -- 初始描邊透明
 
 local Container = Instance.new("Frame", mainFrame)
 Container.Size, Container.Position, Container.BackgroundTransparency = UDim2.new(1, 0, 0.75, 0), UDim2.new(0, 0, 0.05, 0), 1
@@ -301,4 +302,17 @@ LPBtn.MouseButton1Click:Connect(function() _G.E5_Looping = not _G.E5_Looping; if
 
 updateLPUI()
 mainFrame.Active, mainFrame.Draggable = true, true
-TS:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {GroupTransparency = 0}):Play()
+
+-- 調整後的啟動動畫 (更接近 Notice 的彈性動態)
+local expandTween = TS:Create(mainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    Size = UDim2.new(0, 520, 0, 360), 
+    Position = UDim2.new(0.5, -260, 0.5, -180),
+    GroupTransparency = 0
+})
+
+expandTween:Play()
+
+-- 讓描邊稍晚一點點亮起，增加層次感
+task.delay(0.1, function()
+    TS:Create(mainStroke, TweenInfo.new(0.4), {Transparency = 0}):Play()
+end)
