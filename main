@@ -464,6 +464,13 @@ local function createUI()
     playerBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", playerBtn)
 
+    local bhopBtn = Instance.new("TextButton", m)
+    bhopBtn.Size, bhopBtn.Position = UDim2.new(0.45, 0, 0, 35), UDim2.new(0.03, 0, 0, 75)
+    bhopBtn.ZIndex, bhopBtn.BackgroundColor3, bhopBtn.BackgroundTransparency = 10, Color3.new(0, 0, 0), 0.7
+    bhopBtn.Text, bhopBtn.TextColor3 = "Bhop", Color3.new(1, 1, 1)
+    bhopBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", bhopBtn)
+
     -- 狀態文字初始化
     local function updateZbStyle()
         if _G.zbClickCount == 0 then zbBtn.Text = "Zombie"
@@ -534,6 +541,10 @@ local function createUI()
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/PLAYER"))() end)
     end)
 
+	bhopBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MAJ"))() end)
+    end)
+
     minBtn.MouseButton1Click:Connect(function()
         _G.isMinimized = not _G.isMinimized
         m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
@@ -542,6 +553,7 @@ local function createUI()
         zbBtn.Visible = not _G.isMinimized
         skyBtn.Visible = not _G.isMinimized
         playerBtn.Visible = not _G.isMinimized
+		bhopBtn.Visible = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
     end)
 end
