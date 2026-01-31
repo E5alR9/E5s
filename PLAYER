@@ -10,19 +10,33 @@ local HttpService = game:GetService("HttpService")
 local ACCENT_COLOR = Color3.fromHex("D656FF")
 
 -- ======================================================
--- 🛑 [核心修改] 開關邏輯 (展開/合併動畫版)
+-- 🛑 [核心修改] 開關邏輯 
 -- ======================================================
 if _G.E5_Music_Instance then 
     local target = _G.E5_Music_Instance:FindFirstChildWhichIsA("CanvasGroup")
     if target then
-        -- 1. 先讓文字和內容變透明 (類似 Notice 的收縮前置)
+        -- 1. 先讓內容變透明
         TS:Create(target, TweenInfo.new(0.2), {GroupTransparency = 1}):Play()
         
-        -- 2. 執行橫向收縮動畫
+        -- 💡 核心邏輯：計算原地縮小的位置
+        -- 我們保持 Y 座標不變，但將 X 座標移動到當前寬度的中心，使其看起來是向中心收縮
+        local currentPos = target.Position
+        local currentSize = target.Size
+        
+        -- 計算「原地中心點」的位移：將 X 的 Offset 增加寬度的一半
+        local shrinkPos = UDim2.new(
+            currentPos.X.Scale, 
+            currentPos.X.Offset + (currentSize.X.Offset / 2), 
+            currentPos.Y.Scale, 
+            currentPos.Y.Offset
+        )
+
+        -- 2. 執行原地收縮動畫
         local shrink = TS:Create(target, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 360), 
-            Position = UDim2.new(0.5, 0, 0.5, -180)
+            Size = UDim2.new(0, 0, 0, 360),  -- 寬度變 0
+            Position = shrinkPos            -- 往自己的中心點縮
         })
+        
         shrink:Play()
         shrink.Completed:Connect(function()
             if _G.E5_Music_Instance then _G.E5_Music_Instance:Destroy() end
