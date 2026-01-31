@@ -17,18 +17,26 @@ local ACCENT_COLOR = Color3.fromHex("D656FF")
 -- 🛑 [核心修改] 開關邏輯
 -- ======================================================
 if _G.E5_Music_Instance then 
-    local target = _G.E5_Music_Instance:FindFirstChild("CanvasGroup")
+    local existingUI = _G.E5_Music_Instance
+    local target = existingUI:FindFirstChild("CanvasGroup")
+    
     if target then
-        local closeTween = TS:Create(target, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {GroupTransparency = 1, Size = UDim2.new(0, 480, 0, 320)})
+        -- 播放關閉動畫：縮小並變透明
+        local closeTween = TS:Create(target, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            GroupTransparency = 1, 
+            Size = UDim2.new(0, 450, 0, 300), -- 稍微縮小一點的視覺效果
+            Position = target.Position + UDim2.new(0, 0, 0, 20) -- 向下位移一點
+        })
+        
         closeTween:Play()
         closeTween.Completed:Connect(function()
-            if _G.E5_Music_Instance then _G.E5_Music_Instance:Destroy() end
-            _G.E5_Music_Instance = nil
+            existingUI:Destroy()
         end)
     else
-        _G.E5_Music_Instance:Destroy()
-        _G.E5_Music_Instance = nil
+        existingUI:Destroy()
     end
+    
+    _G.E5_Music_Instance = nil
     return 
 end
 
