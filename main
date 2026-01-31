@@ -453,6 +453,17 @@ local function createUI()
     skyBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", skyBtn)
 
+    local playerBtn = Instance.new("TextButton", m)
+    playerBtn.Size = UDim2.new(0.45, 0, 0, 35)
+    playerBtn.Position = UDim2.new(0.52, 0, 0, 75)
+    playerBtn.ZIndex = 10
+    playerBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    playerBtn.BackgroundTransparency = 0.7
+    playerBtn.Text = "Player"
+    playerBtn.TextColor3 = Color3.new(1, 1, 1)
+    playerBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", playerBtn)
+
     -- 狀態文字初始化
     local function updateZbStyle()
         if _G.zbClickCount == 0 then zbBtn.Text = "Zombie"
@@ -467,77 +478,62 @@ local function createUI()
     end
     updateSkyStyle()
 
--- 點擊事件
-	zbBtn.MouseButton1Click:Connect(function()
-		if _G.zbClickCount >= 2 then return end 
-		_G.zbClickCount = _G.zbClickCount + 1
-		if _G.zbClickCount == 1 then
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/zb"))() end)
-		elseif _G.zbClickCount == 2 then
-			pcall(function() game:GetService("ReplicatedStorage").Items.Emotes.DeadBoneStride.Name = "SwagWalk" end)
-			-- 在這裡插入音樂啟動函數
-			task.spawn(startSwagMusic)
-		end
-		updateZbStyle()
-	end)
+    -- 點擊事件
+    zbBtn.MouseButton1Click:Connect(function()
+        if _G.zbClickCount >= 2 then return end 
+        _G.zbClickCount = _G.zbClickCount + 1
+        if _G.zbClickCount == 1 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/zb"))() end)
+        elseif _G.zbClickCount == 2 then
+            pcall(function() game:GetService("ReplicatedStorage").Items.Emotes.DeadBoneStride.Name = "SwagWalk" end)
+            task.spawn(startSwagMusic)
+        end
+        updateZbStyle()
+    end)
 
--- [[ 🔘 宇宙切換核心：V132.0 - 全 Tab 縮進版 / 狀態 0-5 / Universe(4) & SUN(5) ]]
+    if _G.skyState == nil then _G.skyState = 0 end
 
-	-- 確保狀態計數器存在 (0=關, 1=黑洞, 2=銀河, 3=木星, 4=Universe, 5=SUN)
-	if _G.skyState == nil then _G.skyState = 0 end
+    skyBtn.MouseButton1Click:Connect(function()
+        if _G.skyState == 1 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/blackhole"))() end)
+        elseif _G.skyState == 2 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MilkyWay"))() end)
+        elseif _G.skyState == 3 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Jupiter"))() end)
+        elseif _G.skyState == 4 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/universe"))() end)
+        elseif _G.skyState == 5 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/SUN"))() end)
+        end
 
-	skyBtn.MouseButton1Click:Connect(function()
-		-- 1. 關閉當前模式 (利用腳本自身的雙擊恢復特性)
-		if _G.skyState == 1 then
-			-- 執行第二次黑洞腳本以關閉並恢復 Lighting
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/blackhole"))() end)
-		elseif _G.skyState == 2 then
-			-- 執行第二次銀河腳本以關閉並恢復 Lighting
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MilkyWay"))() end)
-		elseif _G.skyState == 3 then
-			-- 執行第二次木星腳本以關閉並恢復 Lighting
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Jupiter"))() end)
-		elseif _G.skyState == 4 then
-			-- 執行第二次 Universe 腳本以關閉
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/universe"))() end)
-		elseif _G.skyState == 5 then
-			-- 執行第二次 SUN 腳本以關閉
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/SUN"))() end)
-		end
+        _G.skyState = (_G.skyState + 1) % 6
 
-		-- 2. 切換狀態數值 (0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 0)
-		_G.skyState = (_G.skyState + 1) % 6
+        if _G.skyState == 0 then
+            _G.skyEnabled = false
+        elseif _G.skyState == 1 then
+            _G.skyEnabled = true
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/blackhole"))() end)
+        elseif _G.skyState == 2 then
+            _G.skyEnabled = true
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MilkyWay"))() end)
+        elseif _G.skyState == 3 then
+            _G.skyEnabled = true
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Jupiter"))() end)
+        elseif _G.skyState == 4 then
+            _G.skyEnabled = true
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/universe"))() end)
+        elseif _G.skyState == 5 then
+            _G.skyEnabled = true
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/SUN"))() end)
+        end
 
-		-- 3. 執行新狀態的開啟邏輯
-		if _G.skyState == 0 then
-			_G.skyEnabled = false
-			-- 這裡已經由上面的「關閉邏輯」復原了
-		elseif _G.skyState == 1 then
-			_G.skyEnabled = true
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/blackhole"))() end)
-		elseif _G.skyState == 2 then
-			_G.skyEnabled = true
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MilkyWay"))() end)
-		elseif _G.skyState == 3 then
-			_G.skyEnabled = true
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Jupiter"))() end)
-		elseif _G.skyState == 4 then
-			-- 新增狀態 4：Universe 星海背景
-			_G.skyEnabled = true
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/universe"))() end)
-		elseif _G.skyState == 5 then
-			-- 新增狀態 5：SUN 太陽系核心
-			_G.skyEnabled = true
-			pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/SUN"))() end)
-		end
+        if updateSkyStyle then updateSkyStyle() end
+    end)
 
-		-- 4. 同步 UI 外觀
-		if updateSkyStyle then
-			updateSkyStyle()
-		end
-	end)
+    playerBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/PLAYER"))() end)
+    end)
 
-    -- [[ 整合後的最小化邏輯 ]]
     minBtn.MouseButton1Click:Connect(function()
         _G.isMinimized = not _G.isMinimized
         m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
@@ -545,6 +541,7 @@ local function createUI()
         content.Visible = not _G.isMinimized
         zbBtn.Visible = not _G.isMinimized
         skyBtn.Visible = not _G.isMinimized
+        playerBtn.Visible = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
     end)
 end
