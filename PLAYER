@@ -128,13 +128,30 @@ local VolBarFill = Instance.new("Frame", VolBarBG)
 VolBarFill.Size, VolBarFill.BackgroundColor3, VolBarFill.BorderSizePixel = UDim2.new(_G.E5_Volume/10, 0, 1, 0), ACCENT_COLOR, 0
 Instance.new("UICorner", VolBarFill)
 
+-- 🟢 升級後的播放按鈕視覺元件
 local PlayBtn = Instance.new("TextButton", PlayerPage)
 PlayBtn.Size, PlayBtn.Position = UDim2.new(0, 90, 0, 90), UDim2.new(0.75, -20, 0.45, -10)
 PlayBtn.BackgroundColor3, PlayBtn.BackgroundTransparency, PlayBtn.Text = Color3.new(0,0,0), 0.5, ""
 Instance.new("UICorner", PlayBtn).CornerRadius = UDim.new(1, 0)
 Instance.new("UIStroke", PlayBtn).Color = ACCENT_COLOR
+
 local PlayIcon = Instance.new("TextLabel", PlayBtn)
 PlayIcon.Text, PlayIcon.Size, PlayIcon.BackgroundTransparency, PlayIcon.TextColor3, PlayIcon.TextSize, PlayIcon.Font = "▶", UDim2.new(1,0,1,0), 1, Color3.new(1,1,1), 36, Enum.Font.GothamBold
+
+-- 🟢 新增的精緻暫停圖標 (兩條槓)
+local PauseIconFrame = Instance.new("Frame", PlayBtn)
+PauseIconFrame.Size, PauseIconFrame.Position, PauseIconFrame.BackgroundTransparency = UDim2.new(0.3, 0, 0.35, 0), UDim2.new(0.5, 0, 0.5, 0), 1
+PauseIconFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+PauseIconFrame.Visible = false
+
+local function createPauseBar(pos)
+    local bar = Instance.new("Frame", PauseIconFrame)
+    bar.Size, bar.Position = UDim2.new(0.3, 0, 1, 0), pos
+    bar.BackgroundColor3, bar.BorderSizePixel = Color3.new(1,1,1), 0
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 4)
+end
+createPauseBar(UDim2.new(0, 0, 0, 0))   -- 左槓
+createPauseBar(UDim2.new(0.7, 0, 0, 0)) -- 右槓
 
 -- ======================================================
 -- ⚙️ 系統邏輯
@@ -174,6 +191,11 @@ nav("LIST", UDim2.new(0.65, -50, 0.9, -10), ListPage)
 RunService.RenderStepped:Connect(function()
     if not _G.E5_Music_Instance then return end
     local isPlaying = activeSound and activeSound.IsPlaying
+    
+    -- 🟢 更新播放/暫停圖標顯示
+    PlayIcon.Visible = not isPlaying
+    PauseIconFrame.Visible = isPlaying
+
     for i, bar in ipairs(bars) do
         local target = isPlaying and (math.random(20, 100)/100) or 0.1
         bar.Size = bar.Size:Lerp(UDim2.new(1/20, -2, target, 0), 0.2)
@@ -188,7 +210,6 @@ RunService.RenderStepped:Connect(function()
         if activeSound then activeSound.Volume = _G.E5_Volume end
     end
     if activeSound and activeSound.TimeLength > 0 then
-        PlayIcon.Text = isPlaying and "||" or "▶"
         if not isDraggingTime then TimeBarFill.Size = UDim2.new(activeSound.TimePosition / activeSound.TimeLength, 0, 1, 0) end
         TimeText.Text = string.format("%02d:%02d / %02d:%02d", math.floor(activeSound.TimePosition/60), activeSound.TimePosition%60, math.floor(activeSound.TimeLength/60), activeSound.TimeLength%60)
     end
