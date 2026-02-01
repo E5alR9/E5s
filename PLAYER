@@ -1,5 +1,5 @@
 -- ======================================================
--- 🎵 E5 MUSIC PLAYER - ULTIMATE INTEGRATION (QUANTITY FIX)
+-- 🎵 E5 MUSIC PLAYER - ULTIMATE INTEGRATION (FIXED)
 -- ======================================================
 
 local SoundService = game:GetService("SoundService")
@@ -102,22 +102,16 @@ SongNameLabel.Size, SongNameLabel.Position = UDim2.new(0.8, 0, 0, 60), UDim2.new
 SongNameLabel.BackgroundTransparency, SongNameLabel.TextColor3, SongNameLabel.Font, SongNameLabel.TextSize = 1, Color3.new(1,1,1), Enum.Font.GothamBold, 24
 SongNameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- [ ListPage ]
+-- [ LIST PAGE ]
 local ListPage = Instance.new("ScrollingFrame", Container)
 ListPage.Size, ListPage.BackgroundTransparency, ListPage.ScrollBarThickness = UDim2.new(1, 0, 0.85, 0), 1, 0
-ListPage.AutomaticCanvasSize = Enum.AutomaticSize.Y 
-local UIList = Instance.new("UIListLayout", ListPage)
-UIList.Padding = UDim.new(0, 10)
-UIList.SortOrder = Enum.SortOrder.LayoutOrder 
-
-Instance.new("UIPadding", ListPage).PaddingLeft = UDim.new(0, 40)
-Instance.new("UIPadding", ListPage).PaddingTop = UDim.new(0, 20)
+ListPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Instance.new("UIListLayout", ListPage).Padding = UDim.new(0, 10)
+Instance.new("UIPadding", ListPage).PaddingLeft, Instance.new("UIPadding", ListPage).PaddingTop = UDim.new(0, 40), UDim.new(0, 20)
 
 -- ======================================================
 -- 🔄 核心功能函數
 -- ======================================================
-
-local ListNavBtn = nil -- 儲存 LIST 按鈕引用
 
 local function playSong(idx)
     if isSwitching or #SongLibrary == 0 then return end
@@ -152,70 +146,89 @@ local function RefreshUIList()
     end
     for i, s in ipairs(SongLibrary) do
         local b = Instance.new("TextButton", ListPage)
-        b.Name = "Song_" .. i
         b.Size, b.BackgroundColor3, b.BackgroundTransparency = UDim2.new(0.9, 0, 0, 45), Color3.new(0,0,0), 0.7
         b.Text = string.format("    %d. %s", i, s.Name)
         b.TextColor3, b.TextXAlignment, b.Font, b.TextSize = Color3.new(1,1,1), Enum.TextXAlignment.Left, Enum.Font.Gotham, 14
-        b.LayoutOrder = i 
         Instance.new("UICorner", b)
-        
         b.MouseButton1Click:Connect(function() 
             playSong(i) 
             PageLayout:JumpTo(PlayerPage) 
         end)
     end
-    
-    -- 更新 LIST 按鈕上的數量
-    if ListNavBtn then
-        ListNavBtn.Text = string.format("LIST (%d)", #SongLibrary)
-    end
-    
-    ListPage.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y + 40)
 end
 
 local function FetchAndLoop()
-    local ReposToScan = {"E5alR9/E5s", "E5alR9/list"}
+    -- 🔑 設定區
+    local GITHUB_TOKEN = "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" -- 在此填入完整 Token
+    local targetRepo = "E5alR9/list"
+    
     local addedFiles = {}
-    for _, s in ipairs(SongLibrary) do addedFiles[s.URL:lower()] = true end
+    local totalInLibrary = 0
+    
+    -- 紀錄原本預設在 SongLibrary 裡的歌曲
+    for _, s in ipairs(SongLibrary) do 
+        addedFiles[s.File:lower()] = true 
+        totalInLibrary = totalInLibrary + 1
+    end
 
     task.spawn(function()
         while _G.E5_Music_Instance do
-            local foundNew = false
-            for _, repoPath in ipairs(ReposToScan) do
-                local success, result = pcall(function()
-                    return game:HttpGet("https://api.github.com/repos/" .. repoPath .. "/contents/?t=" .. os.time())
-                end)
+            local foundNewCount = 0
+            print("GitHub API loading...")
 
-                if success then
-                    local data = HttpService:JSONDecode(result)
-                    if type(data) == "table" then
-                        for _, item in pairs(data) do
-                            if item.type == "file" and item.name:lower():match("%.mp3$") then
-                                if not addedFiles[item.download_url:lower()] then
-                                    addedFiles[item.download_url:lower()] = true
-                                    foundNew = true
-                                    
-                                    local rawName = item.name:gsub("%.mp3$", "")
-                                    local displayName = rawName:gsub("%%20", " "):gsub("%(Lyrics%)", ""):gsub("[%-_]", " ")
-                                    
-                                    table.insert(SongLibrary, {
-                                        Name = displayName:upper(),
-                                        File = item.name:gsub("[^%w%.]", ""), 
-                                        URL = item.download_url
-                                    })
-                                end
+            -- 使用 HttpGetAsync 並帶入 Headers (這在大多數 Executor 如 Solara, Wave 等都支援)
+            local success, result = pcall(function()
+                return game:HttpGetAsync(
+                    "https://api.github.com/repos/" .. targetRepo .. "/contents/?t=" .. os.time(),
+                    {
+                        ["Authorization"] = "token " .. GITHUB_TOKEN,
+                        ["Accept"] = "application/vnd.github.v3+json"
+                    }
+                )
+            end)
+
+            if success then
+                local data = HttpService:JSONDecode(result)
+                if type(data) == "table" then
+                    -- 打印抓取到的原始文件數量
+                    print(" API list: " .. #data .. " ")
+                    
+                    for _, item in pairs(data) do
+                        if item.type == "file" and item.name:lower():match("%.mp3$") then
+                            local fileID = item.name:lower()
+                            
+                            if not addedFiles[fileID] then
+                                addedFiles[fileID] = true
+                                foundNewCount = foundNewCount + 1
+                                totalInLibrary = totalInLibrary + 1
+                                
+                                local rawName = item.name:gsub("%.mp3$", "")
+                                local displayName = rawName:gsub("%%20", " "):gsub("%(Lyrics%)", ""):gsub("[%-_]", " ")
+                                
+                                table.insert(SongLibrary, {
+                                    Name = displayName:upper(),
+                                    File = item.name:gsub("[^%w%.]", ""), 
+                                    URL = item.download_url
+                                })
+                                print(string.format("add  %d : %s", totalInLibrary, displayName:upper()))
                             end
                         end
                     end
                 end
-                task.wait(0.2)
+            else
+                warn(" API error Token : " .. tostring(result))
             end
 
-            if foundNew then
+            if foundNewCount > 0 then
                 table.sort(SongLibrary, function(a, b) return a.Name:lower() < b.Name:lower() end)
                 RefreshUIList()
+                ListPage.CanvasSize = UDim2.new(0, 0, 0, #SongLibrary * 55)
+                print(" done " .. foundNewCount .. " list: " .. totalInLibrary .. " ")
+            else
+                print("done (list: " .. totalInLibrary .. ")")
             end
-            task.wait(10) 
+            
+            task.wait(60)
         end
     end)
 end
@@ -301,9 +314,6 @@ local function nav(n, p, pg)
     b.TextColor3, b.Font, b.TextSize = Color3.new(1,1,1), Enum.Font.GothamBold, 14
     Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(function() PageLayout:JumpTo(pg) end)
-    
-    if n == "LIST" then ListNavBtn = b end -- 關鍵：記錄 LIST 按鈕
-    return b
 end
 
 nav("PLAYER", UDim2.new(0.35, -50, 0.9, -10), PlayerPage)
@@ -330,39 +340,30 @@ task.delay(0.1, function() TS:Create(mainStroke, TweenInfo.new(0.4), {Transparen
 RunService.RenderStepped:Connect(function()
     if not _G.E5_Music_Instance then return end
     local isPlaying = activeSound and activeSound.IsPlaying
+    if activeSound and activeSound.TimePosition >= (activeSound.TimeLength - 0.2) and not _G.E5_Looping and not isSwitching then
+        playSong(currentSongIndex + 1)
+    end
     PlayIcon.Visible = not isPlaying
     PauseIcon.Visible = isPlaying
     
-    if activeSound and activeSound.TimeLength > 0 then
-        if activeSound.TimePosition >= (activeSound.TimeLength - 0.5) and not _G.E5_Looping and not isSwitching then
-            playSong(currentSongIndex + 1)
-        end
-        local curPos = math.floor(activeSound.TimePosition)
-        local totalLen = math.floor(activeSound.TimeLength)
-        TimeText.Text = string.format("%02d:%02d / %02d:%02d", curPos/60, curPos%60, totalLen/60, totalLen%60)
-
-        if not isDraggingTime then
-            local progress = math.clamp(activeSound.TimePosition / activeSound.TimeLength, 0, 1)
-            TimeBarFill.Size = TimeBarFill.Size:Lerp(UDim2.new(progress, 0, 1, 0), 0.2)
-        end
-    end
-    
     for i, bar in ipairs(bars) do
-        local targetHeight = isPlaying and math.random(15, 100)/100 or 0.1
-        bar.Size = bar.Size:Lerp(UDim2.new(1/#bars, -2, targetHeight, 0), 0.15)
-        bar.BackgroundTransparency = 0.2 + (1 - targetHeight) * 0.5
+        local target = isPlaying and (math.random(20, 100)/100) or 0.1
+        bar.Size = bar.Size:Lerp(UDim2.new(1/25, -2, target, 0), 0.2)
     end
     
-    local mouseX = UserInputService:GetMouseLocation().X
     if isDraggingTime and activeSound then
-        local relativeX = math.clamp((mouseX - TimeBarBG.AbsolutePosition.X) / TimeBarBG.AbsoluteSize.X, 0, 1)
-        TimeBarFill.Size = UDim2.new(relativeX, 0, 1, 0)
-        activeSound.TimePosition = relativeX * activeSound.TimeLength
+        local x = math.clamp((UserInputService:GetMouseLocation().X - TimeBarBG.AbsolutePosition.X) / TimeBarBG.AbsoluteSize.X, 0, 1)
+        activeSound.TimePosition = x * activeSound.TimeLength
     elseif isDraggingVol then
-        local relativeX = math.clamp((mouseX - VolBarBG.AbsolutePosition.X) / VolBarBG.AbsoluteSize.X, 0, 1)
-        _G.E5_Volume = relativeX * 10
-        VolBarFill.Size = UDim2.new(relativeX, 0, 1, 0)
+        local x = math.clamp((UserInputService:GetMouseLocation().X - VolBarBG.AbsolutePosition.X) / VolBarBG.AbsoluteSize.X, 0, 1)
+        _G.E5_Volume = x * 10
+        VolBarFill.Size = UDim2.new(x, 0, 1, 0)
         if activeSound then activeSound.Volume = _G.E5_Volume end
+    end
+    
+    if activeSound and activeSound.TimeLength > 0 then
+        if not isDraggingTime then TimeBarFill.Size = UDim2.new(activeSound.TimePosition / activeSound.TimeLength, 0, 1, 0) end
+        TimeText.Text = string.format("%02d:%02d / %02d:%02d", math.floor(activeSound.TimePosition/60), activeSound.TimePosition%60, math.floor(activeSound.TimeLength/60), activeSound.TimeLength%60)
     end
 end)
 
