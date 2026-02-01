@@ -52,6 +52,9 @@ local SongLibrary = {
     {Name = "Love Me Not", File = "love_me_not.mp3", URL = "https://github.com/E5alR9/list/raw/main/RavynLenae-LoveMeNot(Lyrics).mp3"},
     {Name = "EEEEA", File = "eeeea.mp3", URL = "https://github.com/E5alR9/list/raw/main/dia-EEEEA(LyricVideo).mp3"},
     {Name = "You Broke My Heart", File = "broke_heart.mp3", URL = "https://github.com/E5alR9/list/raw/main/youbrokemyheart-kobzx2z%2CMyla(Lyrics).mp3"},
+    {Name = "Dreamy Cybercore Gaming Mix", File = "dreamy_cybercore.mp3", URL = "https://github.com/E5alR9/list/raw/main/dreamycybercoregamingmix(chillbreakcore).mp3"},
+    {Name = "Heavenly Breakcore Mix", File = "heavenly_break1.mp3", URL = "https://github.com/E5alR9/list/raw/main/heavenlybreakcoremix.mp3"},
+    {Name = "Heavenly Breakcore Mix 2", File = "heavenly_break2.mp3", URL = "https://github.com/E5alR9/list/raw/main/heavenlybreakcoremix2.mp3"},
 }
 
 -- ======================================================
@@ -114,28 +117,72 @@ Instance.new("UIPadding", ListPage).PaddingLeft, Instance.new("UIPadding", ListP
 -- ======================================================
 
 local function playSong(idx)
+    -- 1. 狀態鎖定與索引計算
     if isSwitching or #SongLibrary == 0 then return end
     isSwitching = true
+    
     idx = (idx - 1) % #SongLibrary + 1
     currentSongIndex = idx
     local d = SongLibrary[idx]
+
+    -- 2. 【核心修正】立即停止並清除舊聲音，防止重疊
+    if activeSound then
+        activeSound:Stop()
+        activeSound:Destroy()
+        activeSound = nil
+    end
     
-    if activeSound then activeSound:Destroy() end
     SongNameLabel.Text = "LOADING..."
     
     task.spawn(function()
+        -- 3. 檔案下載檢查
         if not isfile(d.File) then
-            local success, content = pcall(function() return game:HttpGet(d.URL) end)
-            if success then writefile(d.File, content) else isSwitching = false SongNameLabel.Text = "ERROR" return end
+            print("📥 Downloading: " .. d.Name)
+            local getSuccess, content = pcall(function() 
+                return game:HttpGet(d.URL) 
+            end)
+            
+            if not (getSuccess and content) then
+                warn("❌ Download Failed: " .. d.Name)
+                SongNameLabel.Text = "DOWNLOAD ERROR"
+                isSwitching = false
+                return
+            end
+            writefile(d.File, content)
         end
         
-        activeSound = Instance.new("Sound", SoundService)
-        activeSound.Name, activeSound.SoundId = "E5_Music_Source", getcustomasset(d.File)
-        activeSound.Volume, activeSound.Looped = _G.E5_Volume, _G.E5_Looping
-        activeSound:SetAttribute("SongName", d.Name:upper())
-        activeSound:SetAttribute("SongIndex", idx)
-        activeSound:Play()
-        SongNameLabel.Text = d.Name:upper()
+        -- 4. 再次確保清理（防止下載期間點擊多次）
+        if activeSound then activeSound:Destroy() end
+        
+        -- 5. 創建新聲音並播放
+        local loadSuccess, err = pcall(function()
+            local sound = Instance.new("Sound")
+            sound.Name = "E5_Music_Source"
+            sound.SoundId = getcustomasset(d.File)
+            sound.Volume = _G.E5_Volume
+            sound.Looped = _G.E5_Looping
+            sound:SetAttribute("SongName", d.Name:upper())
+            sound:SetAttribute("SongIndex", idx)
+            sound.Parent = SoundService
+            
+            -- 【重要修正】等待音訊加載完成，避免 TimeLength 為 0 導致直接跳歌
+            if not sound.IsLoaded then
+                sound.Loaded:Wait()
+            end
+            
+            activeSound = sound 
+            activeSound:Play()
+        end)
+
+        if loadSuccess then
+            SongNameLabel.Text = d.Name:upper()
+            task.wait(0.5) -- 給予 0.5 秒緩衝確保 RenderStepped 讀取到正確狀態
+        else
+            warn("❌ Playback Error: " .. tostring(err))
+            SongNameLabel.Text = "PLAY ERROR"
+        end
+        
+        -- 6. 解鎖切換狀態
         isSwitching = false
     end)
 end
@@ -340,9 +387,12 @@ task.delay(0.1, function() TS:Create(mainStroke, TweenInfo.new(0.4), {Transparen
 RunService.RenderStepped:Connect(function()
     if not _G.E5_Music_Instance then return end
     local isPlaying = activeSound and activeSound.IsPlaying
-    if activeSound and activeSound.TimePosition >= (activeSound.TimeLength - 0.2) and not _G.E5_Looping and not isSwitching then
+    
+    -- 【邏輯檢查】加入了 activeSound.TimeLength > 0 的判斷，防止加載瞬間跳歌
+    if activeSound and activeSound.TimeLength > 0 and activeSound.TimePosition >= (activeSound.TimeLength - 0.2) and not _G.E5_Looping and not isSwitching then
         playSong(currentSongIndex + 1)
     end
+    
     PlayIcon.Visible = not isPlaying
     PauseIcon.Visible = isPlaying
     
