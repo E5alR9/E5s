@@ -102,12 +102,17 @@ SongNameLabel.Size, SongNameLabel.Position = UDim2.new(0.8, 0, 0, 60), UDim2.new
 SongNameLabel.BackgroundTransparency, SongNameLabel.TextColor3, SongNameLabel.Font, SongNameLabel.TextSize = 1, Color3.new(1,1,1), Enum.Font.GothamBold, 24
 SongNameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- [ LIST PAGE ]
+-- [ 修改後的 ListPage 設定 ]
 local ListPage = Instance.new("ScrollingFrame", Container)
 ListPage.Size, ListPage.BackgroundTransparency, ListPage.ScrollBarThickness = UDim2.new(1, 0, 0.85, 0), 1, 0
-ListPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Instance.new("UIListLayout", ListPage).Padding = UDim.new(0, 10)
-Instance.new("UIPadding", ListPage).PaddingLeft, Instance.new("UIPadding", ListPage).PaddingTop = UDim.new(0, 40), UDim.new(0, 20)
+-- 這裡改用自動調整，非常重要！
+ListPage.AutomaticCanvasSize = Enum.AutomaticSize.Y 
+local UIList = Instance.new("UIListLayout", ListPage)
+UIList.Padding = UDim.new(0, 10)
+UIList.SortOrder = Enum.SortOrder.LayoutOrder -- 讓它按順序排
+
+Instance.new("UIPadding", ListPage).PaddingLeft = UDim.new(0, 40)
+Instance.new("UIPadding", ListPage).PaddingTop = UDim.new(0, 20)
 
 -- ======================================================
 -- 🔄 核心功能函數
@@ -140,35 +145,44 @@ local function playSong(idx)
     end)
 end
 
+-- [ 強化後的重新整理函數 ]
 local function RefreshUIList()
     for _, child in ipairs(ListPage:GetChildren()) do
         if child:IsA("TextButton") then child:Destroy() end
     end
     for i, s in ipairs(SongLibrary) do
         local b = Instance.new("TextButton", ListPage)
+        b.Name = "Song_" .. i
         b.Size, b.BackgroundColor3, b.BackgroundTransparency = UDim2.new(0.9, 0, 0, 45), Color3.new(0,0,0), 0.7
         b.Text = string.format("    %d. %s", i, s.Name)
         b.TextColor3, b.TextXAlignment, b.Font, b.TextSize = Color3.new(1,1,1), Enum.TextXAlignment.Left, Enum.Font.Gotham, 14
+        b.LayoutOrder = i -- 確保排序正確
         Instance.new("UICorner", b)
+        
         b.MouseButton1Click:Connect(function() 
             playSong(i) 
             PageLayout:JumpTo(PlayerPage) 
         end)
     end
+    -- 強制更新畫布大小
+    ListPage.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y + 40)
 end
 
+-- [ 修正後的 FetchAndLoop ]
 local function FetchAndLoop()
     local ReposToScan = {"E5alR9/E5s", "E5alR9/list"}
     local addedFiles = {}
-    -- 初始化已存在的歌曲
-    for _, s in ipairs(SongLibrary) do addedFiles[s.File:lower()] = true end
+    
+    -- 先把原本列表裡的 11 首歌存進去防止重複
+    for _, s in ipairs(SongLibrary) do 
+        addedFiles[s.URL:lower()] = true 
+    end
 
     task.spawn(function()
         while _G.E5_Music_Instance do
             local foundNew = false
             for _, repoPath in ipairs(ReposToScan) do
                 local success, result = pcall(function()
-                    -- 使用 t 參數防止 GitHub Cache
                     return game:HttpGet("https://api.github.com/repos/" .. repoPath .. "/contents/?t=" .. os.time())
                 end)
 
@@ -176,22 +190,17 @@ local function FetchAndLoop()
                     local data = HttpService:JSONDecode(result)
                     if type(data) == "table" then
                         for _, item in pairs(data) do
-                            -- 判斷是否為 mp3 檔案
                             if item.type == "file" and item.name:lower():match("%.mp3$") then
-                                -- 為了防止重複，我們結合 repo 路徑與檔名作為唯一 ID
-                                local uniqueID = (repoPath .. "/" .. item.name):lower()
-                                
-                                if not addedFiles[uniqueID] then
-                                    addedFiles[uniqueID] = true
+                                -- 使用 URL 作為唯一標識
+                                if not addedFiles[item.download_url:lower()] then
+                                    addedFiles[item.download_url:lower()] = true
                                     foundNew = true
                                     
-                                    -- 名稱優化處理
                                     local rawName = item.name:gsub("%.mp3$", "")
                                     local displayName = rawName:gsub("%%20", " "):gsub("%(Lyrics%)", ""):gsub("[%-_]", " ")
                                     
                                     table.insert(SongLibrary, {
                                         Name = displayName:upper(),
-                                        -- 為了避免檔案寫入衝突，檔名加入短 hash 或保持原樣
                                         File = item.name:gsub("[^%w%.]", ""), 
                                         URL = item.download_url
                                     })
@@ -200,19 +209,15 @@ local function FetchAndLoop()
                         end
                     end
                 end
-                task.wait(1) -- 避免請求過快被 GitHub 暫時封鎖
+                task.wait(0.5)
             end
 
             if foundNew then
-                -- 排序並重新生成 UI
+                -- 排序：保持英文 A-Z
                 table.sort(SongLibrary, function(a, b) return a.Name:lower() < b.Name:lower() end)
                 RefreshUIList()
-                
-                -- 【關鍵】強制更新捲動區域高度，每首歌曲高度 55 像素
-                ListPage.CanvasSize = UDim2.new(0, 0, 0, #SongLibrary * 55)
-                print("🎵 歌庫已更新！目前總數: " .. #SongLibrary)
             end
-            task.wait(60) -- 每分鐘檢查一次新歌
+            task.wait(10) -- 縮短檢查時間到 30 秒
         end
     end)
 end
@@ -319,35 +324,61 @@ expandTween:Play()
 task.delay(0.1, function() TS:Create(mainStroke, TweenInfo.new(0.4), {Transparency = 0}):Play() end)
 
 -- ======================================================
--- 🎮 事件綁定與更新
+-- 🎮 事件綁定與更新 (視覺強化版)
 -- ======================================================
 RunService.RenderStepped:Connect(function()
     if not _G.E5_Music_Instance then return end
+    
     local isPlaying = activeSound and activeSound.IsPlaying
-    if activeSound and activeSound.TimePosition >= (activeSound.TimeLength - 0.2) and not _G.E5_Looping and not isSwitching then
-        playSong(currentSongIndex + 1)
-    end
+    
+    -- 1. 圖標切換
     PlayIcon.Visible = not isPlaying
     PauseIcon.Visible = isPlaying
     
-    for i, bar in ipairs(bars) do
-        local target = isPlaying and (math.random(20, 100)/100) or 0.1
-        bar.Size = bar.Size:Lerp(UDim2.new(1/25, -2, target, 0), 0.2)
+    -- 2. 音訊狀態與 UI 更新
+    if activeSound and activeSound.TimeLength > 0 then
+        
+        -- 自動下一首 (判定稍微放寬到 0.5s 避免切換延遲)
+        if activeSound.TimePosition >= (activeSound.TimeLength - 0.5) and not _G.E5_Looping and not isSwitching then
+            playSong(currentSongIndex + 1)
+        end
+        
+        -- 更新時間文字 (修正秒數顯示)
+        local curPos = math.floor(activeSound.TimePosition)
+        local totalLen = math.floor(activeSound.TimeLength)
+        TimeText.Text = string.format("%02d:%02d / %02d:%02d", 
+            curPos/60, curPos%60, 
+            totalLen/60, totalLen%60)
+
+        -- 進度條：沒在拖動時才更新位置
+        if not isDraggingTime then
+            local progress = math.clamp(activeSound.TimePosition / activeSound.TimeLength, 0, 1)
+            TimeBarFill.Size = TimeBarFill.Size:Lerp(UDim2.new(progress, 0, 1, 0), 0.2)
+        end
     end
+    
+    -- 3. 頻譜動畫 (視覺效果精華)
+    -- 當播放時隨機律動，暫停時優雅降下
+    for i, bar in ipairs(bars) do
+        local targetHeight = isPlaying and math.random(15, 100)/100 or 0.1
+        bar.Size = bar.Size:Lerp(UDim2.new(1/#bars, -2, targetHeight, 0), 0.15)
+        -- 順便根據高度改變透明度，越低越透明
+        bar.BackgroundTransparency = 0.2 + (1 - targetHeight) * 0.5
+    end
+    
+    -- 4. 交互邏輯 (拖動處理)
+    local mouseX = UserInputService:GetMouseLocation().X
     
     if isDraggingTime and activeSound then
-        local x = math.clamp((UserInputService:GetMouseLocation().X - TimeBarBG.AbsolutePosition.X) / TimeBarBG.AbsoluteSize.X, 0, 1)
-        activeSound.TimePosition = x * activeSound.TimeLength
+        local relativeX = math.clamp((mouseX - TimeBarBG.AbsolutePosition.X) / TimeBarBG.AbsoluteSize.X, 0, 1)
+        TimeBarFill.Size = UDim2.new(relativeX, 0, 1, 0) -- 拖動時即時反應
+        activeSound.TimePosition = relativeX * activeSound.TimeLength
+        
     elseif isDraggingVol then
-        local x = math.clamp((UserInputService:GetMouseLocation().X - VolBarBG.AbsolutePosition.X) / VolBarBG.AbsoluteSize.X, 0, 1)
-        _G.E5_Volume = x * 10
-        VolBarFill.Size = UDim2.new(x, 0, 1, 0)
+        local relativeX = math.clamp((mouseX - VolBarBG.AbsolutePosition.X) / VolBarBG.AbsoluteSize.X, 0, 1)
+        _G.E5_Volume = relativeX * 10
+        VolBarFill.Size = UDim2.new(relativeX, 0, 1, 0)
         if activeSound then activeSound.Volume = _G.E5_Volume end
-    end
-    
-    if activeSound and activeSound.TimeLength > 0 then
-        if not isDraggingTime then TimeBarFill.Size = UDim2.new(activeSound.TimePosition / activeSound.TimeLength, 0, 1, 0) end
-        TimeText.Text = string.format("%02d:%02d / %02d:%02d", math.floor(activeSound.TimePosition/60), activeSound.TimePosition%60, math.floor(activeSound.TimeLength/60), activeSound.TimeLength%60)
     end
 end)
 
