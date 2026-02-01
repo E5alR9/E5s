@@ -471,6 +471,14 @@ local function createUI()
     bhopBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", bhopBtn)
 
+	-- Edge (左3 - 新增)
+    local edgeBtn = Instance.new("TextButton", m)
+    edgeBtn.Size, edgeBtn.Position = UDim2.new(0.45, 0, 0, 35), UDim2.new(0.03, 0, 0, 115)
+    edgeBtn.ZIndex, edgeBtn.BackgroundColor3, edgeBtn.BackgroundTransparency = 10, Color3.new(0, 0, 0), 0.7
+    edgeBtn.Text, edgeBtn.TextColor3 = "Edge", Color3.new(1, 1, 1)
+    edgeBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", edgeBtn)
+
     -- 狀態文字初始化
     local function updateZbStyle()
         if _G.zbClickCount == 0 then zbBtn.Text = "Zombie"
@@ -545,6 +553,10 @@ local function createUI()
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MAJ"))() end)
     end)
 
+	edgeBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/edge"))() end)
+    end)
+
     minBtn.MouseButton1Click:Connect(function()
         _G.isMinimized = not _G.isMinimized
         m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
@@ -554,6 +566,7 @@ local function createUI()
         skyBtn.Visible = not _G.isMinimized
         playerBtn.Visible = not _G.isMinimized
 		bhopBtn.Visible = not _G.isMinimized
+		edgeBtn.Visible = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
     end)
 end
