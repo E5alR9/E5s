@@ -286,7 +286,8 @@ end)
 for i, s in ipairs(SongLibrary) do
     local b = Instance.new("TextButton", ListPage)
     b.Size, b.BackgroundColor3, b.BackgroundTransparency = UDim2.new(0.9, 0, 0, 45), Color3.new(0,0,0), 0.7
-    b.Text = "    " .. s.Name
+    -- 在這裡修改：加入 i 標記序號
+    b.Text = string.format("    %d. %s", i, s.Name)
     b.TextColor3, b.TextXAlignment, b.Font, b.TextSize = Color3.new(1,1,1), Enum.TextXAlignment.Left, Enum.Font.Gotham, 14
     Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(function() playSong(i) PageLayout:JumpTo(PlayerPage) end)
