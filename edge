@@ -1,0 +1,145 @@
+-- [[ 檢查是否已經在執行 ]]
+if _G.EdgeBoost_Loaded then
+    -- 如果已經執行過，則執行「恢復/關閉」邏輯
+    if _G.EdgeBoost_Connection then _G.EdgeBoost_Connection:Disconnect() end
+    if _G.EdgeBoost_Input then _G.EdgeBoost_Input:Disconnect() end
+    
+    _G.EdgeBoost_Loaded = nil
+    _G.EdgeBoost_Connection = nil
+    _G.EdgeBoost_Input = nil
+    
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "edge",
+        Text = "script clean",
+        Duration = 3
+    })
+    return -- 結束執行，不再往下跑
+end
+
+-- [[ 原代碼邏輯開始 ]]
+_G.EdgeBoost_Loaded = true
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
+
+local BOOST_POWER = 100
+local MIN_Y_VELOCITY_TO_ACTIVATE = 1.0
+local isEnabled = true
+local player = Players.LocalPlayer
+
+local function getCharacterAndHrp()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid")
+    return character, hrp, humanoid
+end
+
+local character, hrp, humanoid = getCharacterAndHrp()
+local UP_VELOCITY = Vector3.new(0, BOOST_POWER, 0)
+
+local function isBouncePart(part)
+    local bounceKeywords = {
+        "bounce", "boost", "launch", "jump", "pad", "ramp", "platform"
+    }
+    
+    local name = string.lower(part.Name)
+    
+    for _, keyword in pairs(bounceKeywords) do
+        if name:find(keyword) then
+            return true
+        end
+    end
+    
+    if part.Parent and (part.Parent:IsA("Model") or part.Parent:IsA("Folder")) then
+        local parentName = string.lower(part.Parent.Name)
+        for _, keyword in pairs(bounceKeywords) do
+            if parentName:find(keyword) then
+                return true
+            end
+        end
+    end
+    
+    return false
+end
+
+local function applyEdgeBoost()
+    if not isEnabled or not hrp or not humanoid or humanoid.Health <= 0 then
+        return
+    end
+
+    local currentYVelocity = hrp.AssemblyLinearVelocity.Y
+    
+    if currentYVelocity < -MIN_Y_VELOCITY_TO_ACTIVATE then
+        
+        local touchingParts = hrp:GetTouchingParts()
+        local isTouchingEdge = false
+        local isTouchingBounce = false
+
+        if #touchingParts > 0 then
+            for _, part in pairs(touchingParts) do
+                if isBouncePart(part) then
+                    isTouchingBounce = true
+                    break
+                end
+            end
+            
+            if not isTouchingBounce then
+                isTouchingEdge = true
+            end
+        end
+
+        if isTouchingEdge then
+            local currentHorizontalVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z)
+            hrp.AssemblyLinearVelocity = currentHorizontalVelocity + UP_VELOCITY
+        end
+    end
+end
+
+local function toggleEdgeBoost()
+    if isEnabled then
+        isEnabled = false
+        StarterGui:SetCore("SendNotification", {
+            Title = "EDGE BOOST OFF",
+            Text = "Edge Boost disabled. Press U to re-enable.",
+            Duration = 3
+        })
+    else
+        local newChar, newHrp, newHum = getCharacterAndHrp()
+        character, hrp, humanoid = newChar, newHrp, newHum
+        isEnabled = true
+        StarterGui:SetCore("SendNotification", {
+            Title = "ULTRA EDGE BOOST V7",
+            Text = "Edge Boost enabled. Power: " .. BOOST_POWER .. ".",
+            Duration = 4
+        })
+    end
+end
+
+-- 將連線保存到全域變數，以便下次執行時可以中斷
+_G.EdgeBoost_Connection = RunService.Stepped:Connect(applyEdgeBoost)
+
+_G.EdgeBoost_Input = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.U then
+        toggleEdgeBoost()
+    end
+end)
+
+-- 原本的初始通知
+task.wait(2)
+pcall(function()
+    StarterGui:SetCore("SendNotification", {
+        Title = "edge",
+        Text = "Enabled (U to toggle/refresh). Power set to 80.",
+        Duration = 6
+    })
+end)
+pcall(function()
+    StarterGui:SetCore("SendNotification", {
+        Title = "final delete",
+        Text = "i said only use it if wanna edge (it fucks up bouncing i think) follow on tiktok @milkanolol or @polishcoloniser btw",
+        Duration = 6
+    })
+end)
