@@ -206,7 +206,7 @@ end
 
 local function FetchAndLoop()
     -- 🔑 設定區
-    local GITHUB_TOKEN = "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" -- 在此填入完整 Token
+    local GITHUB_TOKEN = "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" -- 在此填入完整 Token
     local targetRepo = "E5alR9/list"
     
     local addedFiles = {}
