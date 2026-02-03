@@ -1,21 +1,22 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService") -- 加入輸入服務，電腦版關鍵
 local player = Players.LocalPlayer
 
 -- [[ 1. 開關邏輯：檢查是否已經執行過 ]]
 local existingGui = player.PlayerGui:FindFirstChild("AutoJumpOverlay")
 
 if existingGui then
-    -- 如果 UI 已經存在，表示使用者想「關閉」，直接刪除並停止腳本
     existingGui:Destroy()
     print("Auto Jump: OFF")
-    return -- 結束腳本執行
+    return 
 else
     print("Auto Jump: ON")
 end
 
 -- [[ 2. 初始化變數與 UI ]]
 local isHolding = false
+local spacePressed = false -- 偵測鍵盤空白鍵狀態
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoJumpOverlay"
@@ -35,7 +36,7 @@ uiCorner.Parent = jumpButton
 
 -- [[ 3. 定位邏輯 ]]
 local function syncPosition()
-    if not screenGui.Parent then return end -- 如果 UI 被刪除了就停止同步
+    if not screenGui.Parent then return end 
     local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
     local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
     
@@ -43,12 +44,12 @@ local function syncPosition()
         jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
         jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
     else
+        -- 電腦版預設位置（右下角）
         jumpButton.Size = UDim2.new(0, 80, 0, 80)
         jumpButton.Position = UDim2.new(1, -120, 1, -90)
     end
 end
 
--- 使用 task.spawn 保持位置同步
 task.spawn(function()
     while screenGui.Parent do
         syncPosition()
@@ -57,6 +58,8 @@ task.spawn(function()
 end)
 
 -- [[ 4. 偵測輸入 ]]
+
+-- A. UI 按鈕偵測 (手機/滑鼠)
 jumpButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = true
@@ -72,25 +75,37 @@ jumpButton.InputEnded:Connect(function(input)
     end
 end)
 
+-- B. 鍵盤偵測 (電腦版專用)
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end -- 避免打字時跳躍
+    if input.KeyCode == Enum.KeyCode.Space then
+        spacePressed = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Space then
+        spacePressed = false
+    end
+end)
+
 -- [[ 5. 核心連跳邏輯 ]]
--- 這裡加一個變數儲存連線，以便 UI 刪除時能斷開連線節省效能
 local connection
 connection = RunService.Heartbeat:Connect(function()
     if not screenGui.Parent then 
-        connection:Disconnect() -- 如果 UI 消失了，自動斷開連線
+        connection:Disconnect() 
         return 
     end
 
-    if isHolding then
+    -- 只要「點擊 UI」或是「按住空白鍵」其中一個成立，就觸發
+    if isHolding or spacePressed then
         local character = player.Character
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                humanoid.Jump = true
-                
-                if humanoid:GetState() == Enum.HumanoidStateType.Landed or humanoid.FloorMaterial ~= Enum.Material.Air then
-                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                end
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        
+        if humanoid and humanoid.Health > 0 then
+            -- 強力 Bhop 邏輯
+            if humanoid.FloorMaterial ~= Enum.Material.Air then
+                humanoid:ChangeState(3) 
             end
         end
     end
