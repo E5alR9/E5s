@@ -14,7 +14,6 @@ _G.isMinimized = _G.isMinimized or false
 _G.toggleKey = _G.toggleKey or Enum.KeyCode.T
 _G.switchInterval = _G.switchInterval or 0.08
 _G.sensitivity = _G.sensitivity or 0.087
-_G.bhop = false
 _G.freeze = false
 
 local p = game:GetService("Players").LocalPlayer
@@ -667,9 +666,7 @@ end)
 UIS.InputBegan:Connect(function(i, processed)
     if processed then return end 
     
-    if i.KeyCode == Enum.KeyCode.Space then 
-        _G.bhop = true 
-    elseif i.KeyCode.Name == _G.fKN then 
+    if i.KeyCode.Name == _G.fKN then 
         _G.freeze = true 
     elseif i.KeyCode == _G.toggleKey then 
         activeAD = true
@@ -679,9 +676,7 @@ end)
 
 -- 2. 偵測放開 (包含智能重置檢查)
 UIS.InputEnded:Connect(function(i) 
-    if i.KeyCode == Enum.KeyCode.Space then 
-        _G.bhop = false 
-    elseif i.KeyCode.Name == _G.fKN then 
+	if i.KeyCode.Name == _G.fKN then 
         _G.freeze = false 
     elseif i.KeyCode == _G.toggleKey then 
         -- 呼叫智能重置，會判斷你是否按著 AD
@@ -700,16 +695,11 @@ task.spawn(function()
     end
 end)
 
--- 2. 物理循環：處理 Bhop 與 Freeze
+-- 2. 物理循環： Freeze
 RS.Heartbeat:Connect(function()
     local c = p.Character
     local r = c and c:FindFirstChild("HumanoidRootPart")
     local hum = c and c:FindFirstChildOfClass("Humanoid")
-
-    -- [[ Bhop 邏輯 ]]
-    if _G.bhop and hum and hum.FloorMaterial ~= Enum.Material.Air then 
-        hum:ChangeState(3) 
-    end
 
     -- [[ Freeze 核心 (射線觸發版) ]]
     if _G.freeze and r then
@@ -806,3 +796,4 @@ end)
 task.wait()
 print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ALL SYSTEMS LOADED | @E5ALR9 ////////////////////")
 print("//// [SYSTEM] READY TO OPERATE AT RING-0 ////")
+loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MAJ"))()
