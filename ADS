@@ -1,0 +1,71 @@
+local UIS = game:GetService("UserInputService")
+local VIM = game:GetService("VirtualInputManager")
+
+-- == 參數區 ==
+local TURN_VAL = 0.023    
+local MOVE_VAL = 0.03     
+local AD_GAP   = 0.1      
+local LAST_A_QUICK = 0.01 -- 最後歸位 A 的持續時間
+local isRunning = false
+
+-- ### 核心連續技 ###
+local function performCombo()
+    -- 這裡刪除了原有的 isManualInterrupted 中斷檢查
+
+    -- 【1】右轉啟動
+    VIM:SendKeyEvent(true, Enum.KeyCode.Right, false, game)
+    task.wait(TURN_VAL)
+    
+    -- 【2】右轉中 + D
+    VIM:SendKeyEvent(true, Enum.KeyCode.D, false, game)
+    task.wait(MOVE_VAL)
+    VIM:SendKeyEvent(false, Enum.KeyCode.D, false, game)
+    
+    -- 【3】間隔
+    task.wait(AD_GAP) 
+    VIM:SendKeyEvent(false, Enum.KeyCode.Right, false, game) 
+    
+    -- 【4】第一個 A
+    VIM:SendKeyEvent(true, Enum.KeyCode.A, false, game)
+    task.wait(MOVE_VAL)
+    VIM:SendKeyEvent(false, Enum.KeyCode.A, false, game)
+    
+    -- 【5】左轉回正
+    VIM:SendKeyEvent(true, Enum.KeyCode.Left, false, game)
+    task.wait(TURN_VAL + MOVE_VAL + AD_GAP) 
+    VIM:SendKeyEvent(false, Enum.KeyCode.Left, false, game)
+    
+    -- 【6】最後一刻 A
+    VIM:SendKeyEvent(true, Enum.KeyCode.A, false, game)
+    task.wait(LAST_A_QUICK) 
+    VIM:SendKeyEvent(false, Enum.KeyCode.A, false, game)
+    
+    return true
+end
+
+-- ### 按住 U 重複 ###
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.U then
+        if isRunning then return end
+        isRunning = true
+        
+        while UIS:IsKeyDown(Enum.KeyCode.U) do
+            -- 執行完整的 Combo
+            performCombo()
+            
+            -- 只檢查 U 是否放開，不再檢查 AD 中斷
+            if not UIS:IsKeyDown(Enum.KeyCode.U) then 
+                break 
+            end
+            
+            -- 銜接間隔
+            task.wait(0.047) 
+        end
+        
+        isRunning = false
+        -- 安全釋放
+        local keys = {Enum.KeyCode.Right, Enum.KeyCode.Left, Enum.KeyCode.D, Enum.KeyCode.A}
+        for _, k in pairs(keys) do VIM:SendKeyEvent(false, k, false, game) end
+    end
+end)
