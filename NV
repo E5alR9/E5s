@@ -5,96 +5,164 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
 ------------------------------------------
--- 1. 全圖高亮切換與強制鎖定
+-- 1. 建立 UI 介面
+------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MasterControlUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = game.CoreGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 200, 0, 130) -- 加高一點放按鈕
+mainFrame.Position = UDim2.new(0.8, 0, 0.2, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 2
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Text = "功能控制面板"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.Parent = mainFrame
+
+-- 夜視總開關按鈕
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0.9, 0, 0, 30)
+toggleBtn.Position = UDim2.new(0.05, 0, 0.25, 0)
+toggleBtn.Text = "夜視：開啟中"
+toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleBtn.Parent = mainFrame
+
+-- 拖動條背景
+local sliderBack = Instance.new("Frame")
+sliderBack.Size = UDim2.new(0.8, 0, 0, 8)
+sliderBack.Position = UDim2.new(0.1, 0, 0.65, 0)
+sliderBack.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+sliderBack.Parent = mainFrame
+
+local sliderBtn = Instance.new("TextButton")
+sliderBtn.Size = UDim2.new(0, 16, 0, 16)
+sliderBtn.Position = UDim2.new(0.2, -8, 0.5, -8) -- 預設在 20% 位置
+sliderBtn.Text = ""
+sliderBtn.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+sliderBtn.Parent = sliderBack
+
+local valueDisplay = Instance.new("TextLabel")
+valueDisplay.Size = UDim2.new(1, 0, 0, 20)
+valueDisplay.Position = UDim2.new(0, 0, 0.8, 0)
+valueDisplay.Text = "亮度強度: 2.0"
+valueDisplay.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+valueDisplay.BackgroundTransparency = 1
+valueDisplay.Parent = mainFrame
+
+------------------------------------------
+-- 2. 核心邏輯與開關設定
 ------------------------------------------
 if _G.OriginalSettings == nil then
     _G.OriginalSettings = {
-        Ambient = Lighting.Ambient,
-        OutdoorAmbient = Lighting.OutdoorAmbient,
-        Brightness = Lighting.Brightness,
-        ClockTime = Lighting.ClockTime,
-        FogEnd = Lighting.FogEnd,
-        GlobalShadows = Lighting.GlobalShadows
+        Ambient = Lighting.Ambient, OutdoorAmbient = Lighting.OutdoorAmbient,
+        Brightness = Lighting.Brightness, ClockTime = Lighting.ClockTime,
+        FogEnd = Lighting.FogEnd, GlobalShadows = Lighting.GlobalShadows,
+        ExposureCompensation = Lighting.ExposureCompensation
     }
 end
 
-if _G.NightVisionEnabled == nil then _G.NightVisionEnabled = false end
-_G.NightVisionEnabled = not _G.NightVisionEnabled
+_G.NightVisionEnabled = true
+local brightnessValue = 2.0
+local dragging = false
 
--- 鎖定亮度函數
-local function LockLighting()
+-- 開關按鈕點擊事件
+toggleBtn.MouseButton1Click:Connect(function()
+    _G.NightVisionEnabled = not _G.NightVisionEnabled
+    if _G.NightVisionEnabled then
+        toggleBtn.Text = "夜視：開啟中"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+    else
+        toggleBtn.Text = "夜視：已關閉"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+        -- 還原設定
+        local orig = _G.OriginalSettings
+         Lighting.Ambient = orig.Ambient
+         Lighting.OutdoorAmbient = orig.OutdoorAmbient
+         Lighting.Brightness = orig.Brightness
+         Lighting.ClockTime = orig.ClockTime
+         Lighting.FogEnd = orig.FogEnd
+         Lighting.GlobalShadows = orig.GlobalShadows
+         Lighting.ExposureCompensation = orig.ExposureCompensation
+    end
+end)
+
+-- 拖曳邏輯
+sliderBtn.MouseButton1Down:Connect(function() dragging = true end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local mousePos = UserInputService:GetMouseLocation().X
+        local relativePos = math.clamp((mousePos - sliderBack.AbsolutePosition.X) / sliderBack.AbsoluteSize.X, 0, 1)
+        sliderBtn.Position = UDim2.new(relativePos, -8, 0.5, -8)
+        brightnessValue = relativePos * 10 -- 0 到 10
+        valueDisplay.Text = "亮度強度: " .. string.format("%.1f", brightnessValue)
+    end
+end)
+
+-- 渲染循環
+local brightnessCorrection = Lighting:FindFirstChild("FullBrightCorrection") or Instance.new("ColorCorrectionEffect")
+brightnessCorrection.Name = "FullBrightCorrection"; brightnessCorrection.Parent = Lighting
+
+if _G.LightingLoop then _G.LightingLoop:Disconnect() end
+_G.LightingLoop = RunService.RenderStepped:Connect(function()
     if _G.NightVisionEnabled then
         Lighting.Ambient = Color3.fromRGB(255, 255, 255)
         Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
         Lighting.Brightness = 3
+        Lighting.ExposureCompensation = brightnessValue
         Lighting.ClockTime = 14
-        Lighting.FogEnd = 100000
+        Lighting.FogEnd = 1e6
         Lighting.GlobalShadows = false
-    end
-end
-
--- 建立一個循環，如果遊戲試圖改暗，就立刻改回來
-if _G.LightingLoop then _G.LightingLoop:Disconnect() end
-_G.LightingLoop = RunService.RenderStepped:Connect(function()
-    if _G.NightVisionEnabled then
-        LockLighting()
+        brightnessCorrection.Enabled = true
+        for _, v in pairs(Lighting:GetChildren()) do
+            if v:IsA("Atmosphere") or v:IsA("Clouds") then v.Parent = nil end
+        end
+    else
+        brightnessCorrection.Enabled = false
     end
 end)
 
-if _G.NightVisionEnabled then
-    print("L: ON")
-else
-    -- 關閉時還原一次並停止鎖定
-    local orig = _G.OriginalSettings
-    Lighting.Ambient = orig.Ambient
-    Lighting.OutdoorAmbient = orig.OutdoorAmbient
-    Lighting.Brightness = orig.Brightness
-    Lighting.ClockTime = orig.ClockTime
-    Lighting.FogEnd = orig.FogEnd
-    Lighting.GlobalShadows = orig.GlobalShadows
-    print("L: OFF")
-end
-
 ------------------------------------------
--- 2. 物理控制 (R鍵加速 & 空格升空)
+-- 3. 物理控制 (保持)
 ------------------------------------------
 if _G.MainLoop then _G.MainLoop:Disconnect() end
+local MOVE_SPEED, UP_SPEED = 1.7, 0.3
+local isPressingR, isPressingSpace = false, false
 
-local MOVE_SPEED = 1.7 
-local UP_SPEED = 0.1   
-
-local isPressingR = false
-local isPressingSpace = false
-
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end
-    if input.KeyCode == Enum.KeyCode.R then
-        isPressingR = true
-    elseif input.KeyCode == Enum.KeyCode.Space then
-        isPressingSpace = true
-    end
+UserInputService.InputBegan:Connect(function(input, proc)
+    if proc then return end
+    if input.KeyCode == Enum.KeyCode.R then isPressingR = true
+    elseif input.KeyCode == Enum.KeyCode.Space then isPressingSpace = true end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.R then
-        isPressingR = false
-    elseif input.KeyCode == Enum.KeyCode.Space then
-        isPressingSpace = false
-    end
+    if input.KeyCode == Enum.KeyCode.R then isPressingR = false
+    elseif input.KeyCode == Enum.KeyCode.Space then isPressingSpace = false end
 end)
 
 _G.MainLoop = RunService.Stepped:Connect(function()
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-    
     if hrp and hum then
         if isPressingR and hum.MoveDirection.Magnitude > 0 then
             hrp.CFrame = hrp.CFrame + (hum.MoveDirection * MOVE_SPEED)
         end
-        
         if isPressingSpace then
-            hrp.Velocity = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z) 
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
             hrp.CFrame = hrp.CFrame * CFrame.new(0, UP_SPEED, 0)
         end
     end
