@@ -1,0 +1,120 @@
+-- 防止重複建立 UI
+local oldUI = game.CoreGui:FindFirstChild("TP_Panel")
+if oldUI then oldUI:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local LeftScroll = Instance.new("ScrollingFrame")
+local RightScroll = Instance.new("ScrollingFrame")
+local TPButton = Instance.new("TextButton")
+local RefreshButton = Instance.new("TextButton")
+local Title = Instance.new("TextLabel")
+local LeftLabel = Instance.new("TextLabel")
+local RightLabel = Instance.new("TextLabel")
+
+-- 設定 UI 屬性
+ScreenGui.Name = "TP_Panel"
+ScreenGui.Parent = game.CoreGui
+
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+MainFrame.Size = UDim2.new(0, 400, 0, 300)
+MainFrame.Active = true
+MainFrame.Draggable = true -- 讓你可以拖動視窗
+
+Title.Parent = MainFrame
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Text = "傳送控制面板"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+
+LeftLabel.Parent = MainFrame
+LeftLabel.Position = UDim2.new(0, 10, 0, 35)
+LeftLabel.Size = UDim2.new(0, 180, 0, 20)
+LeftLabel.Text = "選擇：被傳送的人"
+LeftLabel.TextColor3 = Color3.new(1, 1, 0)
+
+RightLabel.Parent = MainFrame
+RightLabel.Position = UDim2.new(0, 210, 0, 35)
+RightLabel.Size = UDim2.new(0, 180, 0, 20)
+RightLabel.Text = "選擇：目的地玩家"
+RightLabel.TextColor3 = Color3.new(0, 1, 1)
+
+LeftScroll.Parent = MainFrame
+LeftScroll.Position = UDim2.new(0, 10, 0, 60)
+LeftScroll.Size = UDim2.new(0, 180, 0, 180)
+LeftScroll.CanvasSize = UDim2.new(0, 0, 5, 0)
+
+RightScroll.Parent = MainFrame
+RightScroll.Position = UDim2.new(0, 210, 0, 60)
+RightScroll.Size = UDim2.new(0, 180, 0, 180)
+RightScroll.CanvasSize = UDim2.new(0, 0, 5, 0)
+
+TPButton.Parent = MainFrame
+TPButton.Position = UDim2.new(0, 210, 0, 250)
+TPButton.Size = UDim2.new(0, 180, 0, 40)
+TPButton.Text = "啟動傳送"
+TPButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+TPButton.TextColor3 = Color3.new(1, 1, 1)
+
+RefreshButton.Parent = MainFrame
+RefreshButton.Position = UDim2.new(0, 10, 0, 250)
+RefreshButton.Size = UDim2.new(0, 180, 0, 40)
+RefreshButton.Text = "刷新玩家列表"
+RefreshButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+RefreshButton.TextColor3 = Color3.new(1, 1, 1)
+
+local selectedSubject = game.Players.LocalPlayer.Name -- 預設被TP的是自己
+local selectedTarget = nil
+
+-- 刷新列表函數
+local function refreshLists()
+    for _, child in pairs(LeftScroll:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+    for _, child in pairs(RightScroll:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+    
+    local players = game.Players:GetPlayers()
+    for i, p in pairs(players) do
+        -- 左側列表按鈕
+        local btnL = Instance.new("TextButton")
+        btnL.Size = UDim2.new(1, -10, 0, 25)
+        btnL.Position = UDim2.new(0, 0, 0, (i-1)*30)
+        btnL.Text = p.Name
+        btnL.Parent = LeftScroll
+        btnL.MouseButton1Click:Connect(function()
+            selectedSubject = p.Name
+            LeftLabel.Text = "被TP: " .. p.Name
+        end)
+
+        -- 右側列表按鈕
+        local btnR = Instance.new("TextButton")
+        btnR.Size = UDim2.new(1, -10, 0, 25)
+        btnR.Position = UDim2.new(0, 0, 0, (i-1)*30)
+        btnR.Text = p.Name
+        btnR.Parent = RightScroll
+        btnR.MouseButton1Click:Connect(function()
+            selectedTarget = p.Name
+            RightLabel.Text = "目的地: " .. p.Name
+        end)
+    end
+end
+
+-- 傳送邏輯
+TPButton.MouseButton1Click:Connect(function()
+    local sub = game.Players:FindFirstChild(selectedSubject)
+    local tar = game.Players:FindFirstChild(selectedTarget)
+    
+    if sub and tar and sub.Character and tar.Character then
+        local subHRP = sub.Character:FindFirstChild("HumanoidRootPart")
+        local tarHRP = tar.Character:FindFirstChild("HumanoidRootPart")
+        
+        if subHRP and tarHRP then
+            subHRP.CFrame = tarHRP.CFrame * CFrame.new(0, 2, 0) -- 傳送到目標上方2格防止卡住
+            print("已將 " .. sub.Name .. " 傳送到 " .. tar.Name)
+        end
+    end
+end)
+
+RefreshButton.MouseButton1Click:Connect(refreshLists)
+refreshLists() -- 初始化
