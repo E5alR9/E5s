@@ -5,7 +5,7 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
 ------------------------------------------
--- 1. 全圖高亮切換
+-- 1. 全圖高亮切換與強制鎖定
 ------------------------------------------
 if _G.OriginalSettings == nil then
     _G.OriginalSettings = {
@@ -21,15 +21,30 @@ end
 if _G.NightVisionEnabled == nil then _G.NightVisionEnabled = false end
 _G.NightVisionEnabled = not _G.NightVisionEnabled
 
+-- 鎖定亮度函數
+local function LockLighting()
+    if _G.NightVisionEnabled then
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+    end
+end
+
+-- 建立一個循環，如果遊戲試圖改暗，就立刻改回來
+if _G.LightingLoop then _G.LightingLoop:Disconnect() end
+_G.LightingLoop = RunService.RenderStepped:Connect(function()
+    if _G.NightVisionEnabled then
+        LockLighting()
+    end
+end)
+
 if _G.NightVisionEnabled then
-    Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-    Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
-    Lighting.Brightness = 3
-    Lighting.ClockTime = 14
-    Lighting.FogEnd = 100000
-    Lighting.GlobalShadows = false
     print("L: ON")
 else
+    -- 關閉時還原一次並停止鎖定
     local orig = _G.OriginalSettings
     Lighting.Ambient = orig.Ambient
     Lighting.OutdoorAmbient = orig.OutdoorAmbient
@@ -45,13 +60,12 @@ end
 ------------------------------------------
 if _G.MainLoop then _G.MainLoop:Disconnect() end
 
-local MOVE_SPEED = 1.5 -- R 鍵位移速度 (覺得太慢可改大)
-local UP_SPEED = 0.1   -- 空格鍵上升速度 (慢慢往上)
+local MOVE_SPEED = 1.7 
+local UP_SPEED = 0.1   
 
 local isPressingR = false
 local isPressingSpace = false
 
--- 監聽按鍵開始
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     if input.KeyCode == Enum.KeyCode.R then
@@ -61,7 +75,6 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
--- 監聽按鍵結束
 UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.R then
         isPressingR = false
@@ -70,25 +83,19 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- 核心物理循環
 _G.MainLoop = RunService.Stepped:Connect(function()
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     
     if hrp and hum then
-        -- 處理 R 鍵位移 (無視蹲下)
         if isPressingR and hum.MoveDirection.Magnitude > 0 then
             hrp.CFrame = hrp.CFrame + (hum.MoveDirection * MOVE_SPEED)
         end
         
-        -- 處理空格鍵慢慢往上 (Fly/Float)
         if isPressingSpace then
-            -- 抵消重力並緩慢向上移動
-            hrp.Velocity = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z) -- 鎖定垂直動量
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z) 
             hrp.CFrame = hrp.CFrame * CFrame.new(0, UP_SPEED, 0)
         end
     end
 end)
-
-print(" R S")
