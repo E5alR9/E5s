@@ -17,7 +17,7 @@ end
 -- 2. 初始化全域參數 (_G)
 ------------------------------------------
 if _G.NightVisionEnabled == nil then _G.NightVisionEnabled = true end
-if _G.BrightnessValue == nil then _G.BrightnessValue = 2.0 end
+if _G.BrightnessValue == nil then _G.BrightnessValue = 0 end
 _G.MoveSpeed = 1.7
 _G.UpSpeed = 0.3
 _G.SelectedSubject = player.Name
