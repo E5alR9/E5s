@@ -5,7 +5,7 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
 ------------------------------------------
--- 1. UI 顯示/隱藏切換邏輯
+-- 1. UI 顯示/隱藏切換
 ------------------------------------------
 local existingUI = game.CoreGui:FindFirstChild("Gemini_Ultimate_UI")
 if existingUI then
@@ -14,11 +14,11 @@ if existingUI then
 end
 
 ------------------------------------------
--- 2. 初始化全域參數 (_G)
+-- 2. 初始化參數
 ------------------------------------------
 if _G.NightVisionEnabled == nil then _G.NightVisionEnabled = true end
 if _G.BrightnessValue == nil then _G.BrightnessValue = 0 end
-_G.MoveSpeed = 1.7
+if _G.MoveSpeed == nil then _G.MoveSpeed = 1.7 end -- 預設速度
 _G.UpSpeed = 0.3
 _G.SelectedSubject = player.Name
 _G.SelectedTarget = nil
@@ -44,125 +44,130 @@ local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "Gemini_Ultimate_UI"; screenGui.ResetOnSpawn = false; screenGui.Parent = game.CoreGui
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 420, 0, 450); mainFrame.Position = UDim2.new(0.5, -210, 0.5, -225)
-mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35); mainFrame.BorderSizePixel = 2; mainFrame.Active = true; mainFrame.Draggable = true; mainFrame.Parent = screenGui
+mainFrame.Size = UDim2.new(0, 420, 0, 480); mainFrame.Position = UDim2.new(0.5, -210, 0.5, -240)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35); mainFrame.Active = true; mainFrame.Draggable = true; mainFrame.Parent = screenGui
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 35); title.Text = "Gemini 控制面板 (手機優化版)"; title.TextColor3 = Color3.new(1, 1, 1); title.BackgroundColor3 = Color3.fromRGB(50, 50, 50); title.Parent = mainFrame
+title.Size = UDim2.new(1, 0, 0, 35); title.Text = "Gemini 控制面板 (速度輸入版)"; title.TextColor3 = Color3.new(1, 1, 1); title.BackgroundColor3 = Color3.fromRGB(50, 50, 50); title.Parent = mainFrame
 
--- [開關按鈕]
+-- [頂部開關]
 local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0.9, 0, 0, 40); toggleBtn.Position = UDim2.new(0.05, 0, 0.1, 0)
+toggleBtn.Size = UDim2.new(0.9, 0, 0, 40); toggleBtn.Position = UDim2.new(0.05, 0, 0.09, 0)
 toggleBtn.Text = "白天夜視：開啟中"; toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 0); toggleBtn.TextColor3 = Color3.new(1, 1, 1); toggleBtn.Parent = mainFrame
 
--- [亮度拉桿背景]
+------------------------------------------
+-- 亮度控制區 (21% - 33%)
+------------------------------------------
 local sliderBack = Instance.new("Frame")
-sliderBack.Size = UDim2.new(0.8, 0, 0, 15); sliderBack.Position = UDim2.new(0.1, 0, 0.23, 0)
+sliderBack.Size = UDim2.new(0.8, 0, 0, 12); sliderBack.Position = UDim2.new(0.1, 0, 0.22, 0)
 sliderBack.BackgroundColor3 = Color3.fromRGB(60, 60, 60); sliderBack.Parent = mainFrame
 
--- [拉桿滑塊 - 加大版]
 local sliderBtn = Instance.new("TextButton")
-sliderBtn.Size = UDim2.new(0, 35, 0, 35); sliderBtn.Position = UDim2.new(_G.BrightnessValue/10, -17, 0.5, -17)
+sliderBtn.Size = UDim2.new(0, 30, 0, 30); sliderBtn.Position = UDim2.new(_G.BrightnessValue/10, -15, 0.5, -15)
 sliderBtn.Text = ""; sliderBtn.BackgroundColor3 = Color3.fromRGB(200, 200, 200); sliderBtn.Parent = sliderBack
 
--- [亮度輸入框區域]
-local valLabel = Instance.new("TextLabel")
-valLabel.Size = UDim2.new(0.3, 0, 0, 30); valLabel.Position = UDim2.new(0.1, 0, 0.3, 0)
-valLabel.Text = "手動輸入亮度:"; valLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8); valLabel.BackgroundTransparency = 1; valLabel.Parent = mainFrame
+local bLabel = Instance.new("TextLabel")
+bLabel.Size = UDim2.new(0.4, 0, 0, 30); bLabel.Position = UDim2.new(0.05, 0, 0.28, 0)
+bLabel.Text = "亮度數值:"; bLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8); bLabel.BackgroundTransparency = 1; bLabel.Parent = mainFrame
 
-local valBox = Instance.new("TextBox")
-valBox.Size = UDim2.new(0, 100, 0, 30); valBox.Position = UDim2.new(0.5, -10, 0.3, 0)
-valBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60); valBox.TextColor3 = Color3.new(1, 1, 1); valBox.BorderSizePixel = 1
-valBox.Text = tostring(_G.BrightnessValue); valBox.Font = Enum.Font.SourceSansBold; valBox.TextSize = 20; valBox.Parent = mainFrame
+local bBox = Instance.new("TextBox")
+bBox.Size = UDim2.new(0, 80, 0, 30); bBox.Position = UDim2.new(0.35, 0, 0.28, 0)
+bBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60); bBox.TextColor3 = Color3.new(1, 1, 1); bBox.Text = tostring(_G.BrightnessValue); bBox.Parent = mainFrame
 
--- [TP 區域元件]
+------------------------------------------
+-- 速度控制區 (新增)
+------------------------------------------
+local sLabel = Instance.new("TextLabel")
+sLabel.Size = UDim2.new(0.4, 0, 0, 30); sLabel.Position = UDim2.new(0.55, 0, 0.28, 0)
+sLabel.Text = "移動速度:"; sLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8); sLabel.BackgroundTransparency = 1; sLabel.Parent = mainFrame
+
+local sBox = Instance.new("TextBox")
+sBox.Size = UDim2.new(0, 80, 0, 30); sBox.Position = UDim2.new(0.8, -10, 0.28, 0)
+sBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60); sBox.TextColor3 = Color3.new(1, 1, 1); sBox.Text = tostring(_G.MoveSpeed); sBox.Parent = mainFrame
+
+------------------------------------------
+-- TP 玩家列表區 (40% - 85%)
+------------------------------------------
 local LeftScroll = Instance.new("ScrollingFrame")
-LeftScroll.Size = UDim2.new(0, 180, 0, 170); LeftScroll.Position = UDim2.new(0.05, 0, 0.43, 0)
+LeftScroll.Size = UDim2.new(0, 185, 0, 180); LeftScroll.Position = UDim2.new(0.05, 0, 0.42, 0)
 LeftScroll.CanvasSize = UDim2.new(0,0,10,0); LeftScroll.BackgroundColor3 = Color3.fromRGB(45, 45, 45); LeftScroll.Parent = mainFrame
 
 local RightScroll = Instance.new("ScrollingFrame")
-RightScroll.Size = UDim2.new(0, 180, 0, 170); RightScroll.Position = UDim2.new(0.53, 0, 0.43, 0)
+RightScroll.Size = UDim2.new(0, 185, 0, 180); RightScroll.Position = UDim2.new(0.52, 0, 0.42, 0)
 RightScroll.CanvasSize = UDim2.new(0,0,10,0); RightScroll.BackgroundColor3 = Color3.fromRGB(45, 45, 45); RightScroll.Parent = mainFrame
 
-local TPButton = Instance.new("TextButton")
-TPButton.Size = UDim2.new(0, 180, 0, 45); TPButton.Position = UDim2.new(0.53, 0, 0.85, 0)
-TPButton.Text = "傳送"; TPButton.BackgroundColor3 = Color3.fromRGB(0, 80, 150); TPButton.TextColor3 = Color3.new(1,1,1); TPButton.Parent = mainFrame
+local RefreshBtn = Instance.new("TextButton")
+RefreshBtn.Size = UDim2.new(0, 185, 0, 45); RefreshBtn.Position = UDim2.new(0.05, 0, 0.85, 0)
+RefreshBtn.Text = "刷新列表"; RefreshBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80); RefreshBtn.TextColor3 = Color3.new(1,1,1); RefreshBtn.Parent = mainFrame
 
-local RefreshButton = Instance.new("TextButton")
-RefreshButton.Size = UDim2.new(0, 180, 0, 45); RefreshButton.Position = UDim2.new(0.05, 0, 0.85, 0)
-RefreshButton.Text = "刷新玩家"; RefreshButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80); RefreshButton.TextColor3 = Color3.new(1,1,1); RefreshButton.Parent = mainFrame
+local TPBtn = Instance.new("TextButton")
+TPBtn.Size = UDim2.new(0, 185, 0, 45); TPBtn.Position = UDim2.new(0.52, 0, 0.85, 0)
+TPBtn.Text = "立即傳送"; TPBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 150); TPBtn.TextColor3 = Color3.new(1,1,1); TPBtn.Parent = mainFrame
 
 ------------------------------------------
--- 4. 核心邏輯處理
+-- 邏輯連動
 ------------------------------------------
+
+-- 亮度輸入邏輯
+bBox.FocusLost:Connect(function()
+    local n = tonumber(bBox.Text)
+    if n then
+        _G.BrightnessValue = math.clamp(n, 0, 20)
+        sliderBtn.Position = UDim2.new(_G.BrightnessValue/10, -15, 0.5, -15)
+    end
+    bBox.Text = string.format("%.1f", _G.BrightnessValue)
+end)
+
+-- 速度輸入邏輯 (新增)
+sBox.FocusLost:Connect(function()
+    local n = tonumber(sBox.Text)
+    if n then
+        _G.MoveSpeed = math.clamp(n, 0, 20) -- 限制最大 20，避免飛太快斷線
+    end
+    sBox.Text = string.format("%.1f", _G.MoveSpeed)
+end)
+
+-- 亮度拉桿連動
+local dragging = false
+sliderBtn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = true end end)
+UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
+UserInputService.InputChanged:Connect(function(i)
+    if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        local delta = math.clamp((i.Position.X - sliderBack.AbsolutePosition.X) / sliderBack.AbsoluteSize.X, 0, 1)
+        sliderBtn.Position = UDim2.new(delta, -15, 0.5, -15)
+        _G.BrightnessValue = math.floor(delta * 100) / 10
+        bBox.Text = string.format("%.1f", _G.BrightnessValue)
+    end
+end)
+
+-- 夜視控制循環
 local bCorr = Lighting:FindFirstChild("FullBrightCorrection") or Instance.new("ColorCorrectionEffect")
 bCorr.Name = "FullBrightCorrection"; bCorr.Parent = Lighting
 
--- 切換開關邏輯
 toggleBtn.MouseButton1Click:Connect(function()
     _G.NightVisionEnabled = not _G.NightVisionEnabled
     toggleBtn.Text = _G.NightVisionEnabled and "白天夜視：開啟中" or "白天夜視：已關閉"
     toggleBtn.BackgroundColor3 = _G.NightVisionEnabled and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(120, 0, 0)
-    
-    if not _G.NightVisionEnabled then
-        local o = _G.OriginalSettings
-        Lighting.Ambient = o.Ambient; Lighting.OutdoorAmbient = o.OutdoorAmbient; Lighting.Brightness = o.Brightness
-        Lighting.ClockTime = o.ClockTime; Lighting.FogEnd = o.FogEnd; Lighting.GlobalShadows = o.GlobalShadows
-        Lighting.ExposureCompensation = o.ExposureCompensation
-    end
 end)
 
--- 輸入框數值連動
-valBox.FocusLost:Connect(function()
-    local val = tonumber(valBox.Text)
-    if val then
-        _G.BrightnessValue = math.clamp(val, 0, 15)
-        sliderBtn.Position = UDim2.new(_G.BrightnessValue / 10, -17, 0.5, -17)
-    end
-    valBox.Text = string.format("%.1f", _G.BrightnessValue)
-end)
-
--- 滑動條連動 (支援 Touch)
-local dragging = false
-sliderBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = math.clamp((input.Position.X - sliderBack.AbsolutePosition.X) / sliderBack.AbsoluteSize.X, 0, 1)
-        sliderBtn.Position = UDim2.new(delta, -17, 0.5, -17)
-        _G.BrightnessValue = math.floor(delta * 100) / 10
-        valBox.Text = string.format("%.1f", _G.BrightnessValue)
-    end
-end)
-
--- 渲染循環 (白天與亮度控制)
 if _G.LightingLoop then _G.LightingLoop:Disconnect() end
 _G.LightingLoop = RunService.RenderStepped:Connect(function()
     if _G.NightVisionEnabled then
-        Lighting.ClockTime = 14
-        Lighting.Ambient = Color3.new(1, 1, 1); Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
-        Lighting.Brightness = 2; Lighting.ExposureCompensation = _G.BrightnessValue
-        Lighting.FogEnd = 100000; Lighting.GlobalShadows = false
+        Lighting.ClockTime = 14; Lighting.Ambient = Color3.new(1, 1, 1); Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2; Lighting.ExposureCompensation = _G.BrightnessValue; Lighting.GlobalShadows = false
         bCorr.Enabled = true
     else
         bCorr.Enabled = false
     end
 end)
 
--- 物理控制 (R加速與空格上升)
+-- 物理控制 (按住 R 加速)
 if _G.MainLoop then _G.MainLoop:Disconnect() end
 _G.MainLoop = RunService.Stepped:Connect(function()
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if hrp and hum then
-        if hum.MoveDirection.Magnitude == 0 and not _G.IsPressingR then
-            hrp.Velocity = Vector3.new(0, hrp.Velocity.Y, 0)
-        end
         if _G.IsPressingR and hum.MoveDirection.Magnitude > 0 then
             hrp.CFrame = hrp.CFrame + (hum.MoveDirection * _G.MoveSpeed)
             hrp.Velocity = Vector3.new(0, hrp.Velocity.Y, 0)
@@ -174,46 +179,32 @@ _G.MainLoop = RunService.Stepped:Connect(function()
     end
 end)
 
--- 鍵盤輸入監測
-UserInputService.InputBegan:Connect(function(i, p) 
-    if p then return end 
-    if i.KeyCode == Enum.KeyCode.R then _G.IsPressingR = true 
-    elseif i.KeyCode == Enum.KeyCode.Space then _G.IsPressingSpace = true end 
-end)
-UserInputService.InputEnded:Connect(function(i) 
-    if i.KeyCode == Enum.KeyCode.R then _G.IsPressingR = false 
-    elseif i.KeyCode == Enum.KeyCode.Space then _G.IsPressingSpace = false end 
-end)
+-- 鍵盤監測
+UserInputService.InputBegan:Connect(function(i, p) if not p then if i.KeyCode == Enum.KeyCode.R then _G.IsPressingR = true elseif i.KeyCode == Enum.KeyCode.Space then _G.IsPressingSpace = true end end end)
+UserInputService.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.R then _G.IsPressingR = false elseif i.KeyCode == Enum.KeyCode.Space then _G.IsPressingSpace = false end end)
 
--- TP 列表刷新邏輯
-local function refreshLists()
+-- TP 列表邏輯
+local function updateLists()
     for _, v in pairs(LeftScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     for _, v in pairs(RightScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-    local list = Players:GetPlayers()
-    for i, p in pairs(list) do
-        -- 左列表 (傳送誰)
+    local ps = Players:GetPlayers()
+    for i, p in pairs(ps) do
         local bL = Instance.new("TextButton")
-        bL.Size = UDim2.new(1,-10,0,35); bL.Position = UDim2.new(0,5,0,(i-1)*40)
-        bL.Text = p.Name; bL.BackgroundColor3 = (_G.SelectedSubject == p.Name) and Color3.fromRGB(0, 100, 200) or Color3.fromRGB(60, 60, 60)
+        bL.Size = UDim2.new(1,-10,0,35); bL.Position = UDim2.new(0,5,0,(i-1)*40); bL.Text = p.Name
+        bL.BackgroundColor3 = (_G.SelectedSubject == p.Name) and Color3.fromRGB(0, 100, 200) or Color3.fromRGB(60, 60, 60)
         bL.TextColor3 = Color3.new(1,1,1); bL.Parent = LeftScroll
-        bL.MouseButton1Click:Connect(function() _G.SelectedSubject = p.Name; refreshLists() end)
-        
-        -- 右列表 (傳送到哪)
+        bL.MouseButton1Click:Connect(function() _G.SelectedSubject = p.Name; updateLists() end)
+
         local bR = Instance.new("TextButton")
-        bR.Size = UDim2.new(1,-10,0,35); bR.Position = UDim2.new(0,5,0,(i-1)*40)
-        bR.Text = p.Name; bR.BackgroundColor3 = (_G.SelectedTarget == p.Name) and Color3.fromRGB(0, 100, 200) or Color3.fromRGB(60, 60, 60)
+        bR.Size = UDim2.new(1,-10,0,35); bR.Position = UDim2.new(0,5,0,(i-1)*40); bR.Text = p.Name
+        bR.BackgroundColor3 = (_G.SelectedTarget == p.Name) and Color3.fromRGB(0, 100, 200) or Color3.fromRGB(60, 60, 60)
         bR.TextColor3 = Color3.new(1,1,1); bR.Parent = RightScroll
-        bR.MouseButton1Click:Connect(function() _G.SelectedTarget = p.Name; refreshLists() end)
+        bR.MouseButton1Click:Connect(function() _G.SelectedTarget = p.Name; updateLists() end)
     end
 end
-
-RefreshButton.MouseButton1Click:Connect(refreshLists)
-TPButton.MouseButton1Click:Connect(function()
-    local s = Players:FindFirstChild(_G.SelectedSubject)
-    local t = Players:FindFirstChild(_G.SelectedTarget)
-    if s and t and s.Character and t.Character then
-        s.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame * CFrame.new(0, 3, 0)
-    end
+RefreshBtn.MouseButton1Click:Connect(updateLists)
+TPBtn.MouseButton1Click:Connect(function()
+    local s = Players:FindFirstChild(_G.SelectedSubject); local t = Players:FindFirstChild(_G.SelectedTarget)
+    if s and t and s.Character and t.Character then s.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame * CFrame.new(0, 3, 0) end
 end)
-
-refreshLists()
+updateLists()
