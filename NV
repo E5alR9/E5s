@@ -25,7 +25,7 @@ _G.AutoClicker = false
 _G.SelectedSubject = player.Name
 _G.SelectedTarget = nil
 _G.IsPressingR = false
-_G.IsPressingSpace = false
+_G.IsUpActive = false -- 統一管理 Space 與 T 的狀態
 
 ------------------------------------------
 -- 3. 建立 UI 介面
@@ -38,7 +38,7 @@ mainFrame.Size = UDim2.new(0, 420, 0, 650); mainFrame.Position = UDim2.new(0.5, 
 mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35); mainFrame.Active = true; mainFrame.Draggable = true; mainFrame.Parent = screenGui
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 35); title.Text = "Gemini 終極整合面板"; title.TextColor3 = Color3.new(1, 1, 1); title.BackgroundColor3 = Color3.fromRGB(50, 50, 50); title.Parent = mainFrame
+title.Size = UDim2.new(1, 0, 0, 35); title.Text = "Gemini 終極整合 (Space+T 上升)"; title.TextColor3 = Color3.new(1, 1, 1); title.BackgroundColor3 = Color3.fromRGB(50, 50, 50); title.Parent = mainFrame
 
 -- [頂部功能按鈕]
 local toggleBtn = Instance.new("TextButton")
@@ -49,7 +49,7 @@ local clickerBtn = Instance.new("TextButton")
 clickerBtn.Size = UDim2.new(0.43, 0, 0, 35); clickerBtn.Position = UDim2.new(0.52, 0, 0.07, 0)
 clickerBtn.Text = "自動連點: 關閉"; clickerBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 0); clickerBtn.TextColor3 = Color3.new(1, 1, 1); clickerBtn.Parent = mainFrame
 
--- [數值輸入區：亮度、水平、上升(高度)]
+-- [數值輸入區：亮度、水平、上升(高度速度)]
 local function createInput(txt, pos, val)
     local lab = Instance.new("TextLabel")
     lab.Text = txt; lab.Size = UDim2.new(0, 40, 0, 25); lab.Position = pos; lab.TextColor3 = Color3.new(1, 1, 1); lab.BackgroundTransparency = 1; lab.Parent = mainFrame
@@ -62,9 +62,9 @@ end
 
 local bBox = createInput("亮度", UDim2.new(0.05, 0, 0.15, 0), _G.BrightnessValue)
 local sBox = createInput("水平", UDim2.new(0.35, 0, 0.15, 0), _G.MoveSpeed)
-local uBox = createInput("上升", UDim2.new(0.65, 0, 0.15, 0), _G.UpSpeed) -- 這裡就是調高度的速度
+local uBox = createInput("上升", UDim2.new(0.65, 0, 0.15, 0), _G.UpSpeed) -- 高度速度調整框
 
--- [玩家列表區]
+-- [玩家列表與傳送功能]
 local LeftScroll = Instance.new("ScrollingFrame")
 LeftScroll.Size = UDim2.new(0, 185, 0, 150); LeftScroll.Position = UDim2.new(0.05, 0, 0.22, 0); LeftScroll.BackgroundColor3 = Color3.fromRGB(45, 45, 45); LeftScroll.Parent = mainFrame
 
@@ -92,18 +92,17 @@ RefreshBtn.Text = "🔄 刷新所有列表 (玩家+物品)"; RefreshBtn.Backgrou
 -- 4. 核心邏輯
 ------------------------------------------
 
--- 輸入監聽
+-- 監聽輸入框數值
 bBox.FocusLost:Connect(function() _G.BrightnessValue = tonumber(bBox.Text) or 0 end)
 sBox.FocusLost:Connect(function() _G.MoveSpeed = tonumber(sBox.Text) or 1.7 end)
 uBox.FocusLost:Connect(function() _G.UpSpeed = tonumber(uBox.Text) or 0.3 end)
 
--- 列表更新 (玩家 + 物品)
+-- 刷新列表
 local function updateLists()
     for _, v in pairs(LeftScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     for _, v in pairs(RightScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     for _, v in pairs(ItemScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
 
-    -- 玩家
     local playersArr = Players:GetPlayers()
     for i, p in pairs(playersArr) do
         local bL = Instance.new("TextButton"); bL.Size = UDim2.new(1,-10,0,30); bL.Position = UDim2.new(0,5,0,(i-1)*35); bL.Text = p.Name; bL.Parent = LeftScroll
@@ -116,7 +115,6 @@ local function updateLists()
     end
     LeftScroll.CanvasSize = UDim2.new(0,0,0,#playersArr*35); RightScroll.CanvasSize = UDim2.new(0,0,0,#playersArr*35)
 
-    -- 物品偵測 (自動過濾無效部件)
     local itemIndex = 0
     for _, v in pairs(workspace:GetDescendants()) do
         if v:IsA("ProximityPrompt") or v:IsA("ClickDetector") or (v:IsA("TouchInterest") and v.Parent.Size.Magnitude < 10) then
@@ -124,11 +122,8 @@ local function updateLists()
             if obj and (obj:IsA("BasePart") or obj:IsA("Model")) then
                 local name = obj.Name
                 if name == "Handle" or name == "Part" then name = obj.Parent.Name end
-                
                 local ibtn = Instance.new("TextButton")
-                ibtn.Size = UDim2.new(1, -20, 0, 30); ibtn.Position = UDim2.new(0, 5, 0, itemIndex * 35)
-                ibtn.Text = "📍 " .. name; ibtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); ibtn.TextColor3 = Color3.new(1, 1, 1); ibtn.Parent = ItemScroll
-                
+                ibtn.Size = UDim2.new(1, -20, 0, 30); ibtn.Position = UDim2.new(0, 5, 0, itemIndex * 35); ibtn.Text = "📍 " .. name; ibtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); ibtn.TextColor3 = Color3.new(1, 1, 1); ibtn.Parent = ItemScroll
                 ibtn.MouseButton1Click:Connect(function()
                     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                         local cf = obj:IsA("Model") and obj:GetModelCFrame() or obj.CFrame
@@ -142,7 +137,22 @@ local function updateLists()
     ItemScroll.CanvasSize = UDim2.new(0, 0, 0, itemIndex * 35)
 end
 
--- 物理與夜視循環 (RenderStepped/Stepped)
+-- 物理更新循環
+RunService.Stepped:Connect(function()
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    if hrp and hum then
+        -- R 鍵水平移動
+        if _G.IsPressingR and hum.MoveDirection.Magnitude > 0 then hrp.CFrame = hrp.CFrame + (hum.MoveDirection * _G.MoveSpeed) end
+        -- 空白鍵或 T 鍵上升 (受 _G.UpSpeed 控制)
+        if _G.IsUpActive then 
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, _G.UpSpeed, 0) 
+        end
+    end
+end)
+
+-- 夜視渲染
 RunService.RenderStepped:Connect(function()
     if _G.NightVisionEnabled then
         Lighting.Ambient = Color3.new(1, 1, 1); Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
@@ -150,19 +160,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-RunService.Stepped:Connect(function()
-    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-    if hrp and hum then
-        if _G.IsPressingR and hum.MoveDirection.Magnitude > 0 then hrp.CFrame = hrp.CFrame + (hum.MoveDirection * _G.MoveSpeed) end
-        if _G.IsPressingSpace then 
-            hrp.Velocity = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
-            hrp.CFrame = hrp.CFrame * CFrame.new(0, _G.UpSpeed, 0) -- 使用上升速度數值
-        end
-    end
-end)
-
--- 按鈕事件
+-- 按鈕綁定
 toggleBtn.MouseButton1Click:Connect(function()
     _G.NightVisionEnabled = not _G.NightVisionEnabled
     toggleBtn.Text = _G.NightVisionEnabled and "夜視: 開啟" or "夜視: 關閉"
@@ -181,11 +179,26 @@ TPBtn.MouseButton1Click:Connect(function()
     if s and t and s.Character and t.Character then s.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame end
 end)
 
--- 鍵盤偵聽
-UserInputService.InputBegan:Connect(function(i, p) if not p then if i.KeyCode == Enum.KeyCode.R then _G.IsPressingR = true elseif i.KeyCode == Enum.KeyCode.Space then _G.IsPressingSpace = true end end end)
-UserInputService.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.R then _G.IsPressingR = false elseif i.KeyCode == Enum.KeyCode.Space then _G.IsPressingSpace = false end end)
+-- 鍵盤偵聽 (新增 T 鍵)
+UserInputService.InputBegan:Connect(function(i, p)
+    if not p then
+        if i.KeyCode == Enum.KeyCode.R then 
+            _G.IsPressingR = true 
+        elseif i.KeyCode == Enum.KeyCode.Space or i.KeyCode == Enum.KeyCode.T then 
+            _G.IsUpActive = true 
+        end
+    end
+end)
 
--- 自動連點 Thread
+UserInputService.InputEnded:Connect(function(i)
+    if i.KeyCode == Enum.KeyCode.R then 
+        _G.IsPressingR = false 
+    elseif i.KeyCode == Enum.KeyCode.Space or i.KeyCode == Enum.KeyCode.T then 
+        _G.IsUpActive = false 
+    end
+end)
+
+-- 自動連點
 spawn(function()
     while true do
         if _G.AutoClicker then
