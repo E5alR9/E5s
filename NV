@@ -2,7 +2,7 @@ local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local VirtualInputManager = game:GetService("VirtualInputManager") -- 用於模擬點擊
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 ------------------------------------------
@@ -17,11 +17,11 @@ end
 ------------------------------------------
 -- 2. 初始化參數
 ------------------------------------------
-_G.NightVisionEnabled = _G.NightVisionEnabled or true
+_G.NightVisionEnabled = true
 _G.BrightnessValue = _G.BrightnessValue or 0
 _G.MoveSpeed = _G.MoveSpeed or 1.7
 _G.UpSpeed = _G.UpSpeed or 0.3
-_G.AutoClicker = false -- 自動連點狀態
+_G.AutoClicker = false
 _G.SelectedSubject = player.Name
 _G.SelectedTarget = nil
 _G.IsPressingR = false
@@ -34,145 +34,78 @@ local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "Gemini_Ultimate_UI"; screenGui.ResetOnSpawn = false; screenGui.Parent = game.CoreGui
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 420, 0, 550); mainFrame.Position = UDim2.new(0.5, -210, 0.5, -275) -- 高度稍微增加
+mainFrame.Size = UDim2.new(0, 420, 0, 650); mainFrame.Position = UDim2.new(0.5, -210, 0.5, -325)
 mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35); mainFrame.Active = true; mainFrame.Draggable = true; mainFrame.Parent = screenGui
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 35); title.Text = "Gemini 控制面板 (連點增強版)"; title.TextColor3 = Color3.new(1, 1, 1); title.BackgroundColor3 = Color3.fromRGB(50, 50, 50); title.Parent = mainFrame
+title.Size = UDim2.new(1, 0, 0, 35); title.Text = "Gemini 終極整合面板"; title.TextColor3 = Color3.new(1, 1, 1); title.BackgroundColor3 = Color3.fromRGB(50, 50, 50); title.Parent = mainFrame
 
--- [頂部按鈕區]
+-- [頂部功能按鈕]
 local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0.43, 0, 0, 40); toggleBtn.Position = UDim2.new(0.05, 0, 0.08, 0)
+toggleBtn.Size = UDim2.new(0.43, 0, 0, 35); toggleBtn.Position = UDim2.new(0.05, 0, 0.07, 0)
 toggleBtn.Text = "夜視: 開啟"; toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 0); toggleBtn.TextColor3 = Color3.new(1, 1, 1); toggleBtn.Parent = mainFrame
 
-local clickerBtn = Instance.new("TextButton") -- 連點按鈕
-clickerBtn.Size = UDim2.new(0.43, 0, 0, 40); clickerBtn.Position = UDim2.new(0.52, 0, 0.08, 0)
+local clickerBtn = Instance.new("TextButton")
+clickerBtn.Size = UDim2.new(0.43, 0, 0, 35); clickerBtn.Position = UDim2.new(0.52, 0, 0.07, 0)
 clickerBtn.Text = "自動連點: 關閉"; clickerBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 0); clickerBtn.TextColor3 = Color3.new(1, 1, 1); clickerBtn.Parent = mainFrame
 
-------------------------------------------
--- 數值輸入區
-------------------------------------------
--- 亮度
-local bBox = Instance.new("TextBox")
-bBox.Size = UDim2.new(0, 50, 0, 25); bBox.Position = UDim2.new(0.15, 0, 0.18, 2)
-bBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60); bBox.TextColor3 = Color3.new(1, 1, 1); bBox.Text = tostring(_G.BrightnessValue); bBox.Parent = mainFrame
-local bLab = Instance.new("TextLabel"); bLab.Text="亮度"; bLab.Size=UDim2.new(0,40,0,25); bLab.Position=UDim2.new(0.05,0,0.18,2); bLab.TextColor3=Color3.new(1,1,1); bLab.BackgroundTransparency=1; bLab.Parent=mainFrame
+-- [數值輸入區：亮度、水平、上升(高度)]
+local function createInput(txt, pos, val)
+    local lab = Instance.new("TextLabel")
+    lab.Text = txt; lab.Size = UDim2.new(0, 40, 0, 25); lab.Position = pos; lab.TextColor3 = Color3.new(1, 1, 1); lab.BackgroundTransparency = 1; lab.Parent = mainFrame
+    
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0, 50, 0, 25); box.Position = pos + UDim2.new(0, 40, 0, 0)
+    box.BackgroundColor3 = Color3.fromRGB(60, 60, 60); box.TextColor3 = Color3.new(1, 1, 1); box.Text = tostring(val); box.Parent = mainFrame
+    return box
+end
 
--- 水平速度
-local sBox = Instance.new("TextBox")
-sBox.Size = UDim2.new(0, 50, 0, 25); sBox.Position = UDim2.new(0.45, 0, 0.18, 2)
-sBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60); sBox.TextColor3 = Color3.new(1, 1, 1); sBox.Text = tostring(_G.MoveSpeed); sBox.Parent = mainFrame
-local sLab = Instance.new("TextLabel"); sLab.Text="水平"; sLab.Size=UDim2.new(0,40,0,25); sLab.Position=UDim2.new(0.35,0,0.18,2); sLab.TextColor3=Color3.new(1,1,1); sLab.BackgroundTransparency=1; sLab.Parent=mainFrame
+local bBox = createInput("亮度", UDim2.new(0.05, 0, 0.15, 0), _G.BrightnessValue)
+local sBox = createInput("水平", UDim2.new(0.35, 0, 0.15, 0), _G.MoveSpeed)
+local uBox = createInput("上升", UDim2.new(0.65, 0, 0.15, 0), _G.UpSpeed) -- 這裡就是調高度的速度
 
--- 上升速度
-local uBox = Instance.new("TextBox")
-uBox.Size = UDim2.new(0, 50, 0, 25); uBox.Position = UDim2.new(0.75, 0, 0.18, 2)
-uBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60); uBox.TextColor3 = Color3.new(1, 1, 1); uBox.Text = tostring(_G.UpSpeed); uBox.Parent = mainFrame
-local uLab = Instance.new("TextLabel"); uLab.Text="上升"; uLab.Size=UDim2.new(0,40,0,25); uLab.Position=UDim2.new(0.65,0,0.18,2); uLab.TextColor3=Color3.new(1,1,1); uLab.BackgroundTransparency=1; uLab.Parent=mainFrame
-
-------------------------------------------
--- 玩家傳送列表
-------------------------------------------
+-- [玩家列表區]
 local LeftScroll = Instance.new("ScrollingFrame")
-LeftScroll.Size = UDim2.new(0, 185, 0, 230); LeftScroll.Position = UDim2.new(0.05, 0, 0.28, 0)
-LeftScroll.CanvasSize = UDim2.new(0,0,10,0); LeftScroll.BackgroundColor3 = Color3.fromRGB(45, 45, 45); LeftScroll.Parent = mainFrame
+LeftScroll.Size = UDim2.new(0, 185, 0, 150); LeftScroll.Position = UDim2.new(0.05, 0, 0.22, 0); LeftScroll.BackgroundColor3 = Color3.fromRGB(45, 45, 45); LeftScroll.Parent = mainFrame
 
 local RightScroll = Instance.new("ScrollingFrame")
-RightScroll.Size = UDim2.new(0, 185, 0, 230); RightScroll.Position = UDim2.new(0.52, 0, 0.28, 0)
-RightScroll.CanvasSize = UDim2.new(0,0,10,0); RightScroll.BackgroundColor3 = Color3.fromRGB(45, 45, 45); RightScroll.Parent = mainFrame
-
-local RefreshBtn = Instance.new("TextButton")
-RefreshBtn.Size = UDim2.new(0, 185, 0, 45); RefreshBtn.Position = UDim2.new(0.05, 0, 0.88, 0)
-RefreshBtn.Text = "刷新列表"; RefreshBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80); RefreshBtn.TextColor3 = Color3.new(1,1,1); RefreshBtn.Parent = mainFrame
+RightScroll.Size = UDim2.new(0, 185, 0, 150); RightScroll.Position = UDim2.new(0.52, 0, 0.22, 0); RightScroll.BackgroundColor3 = Color3.fromRGB(45, 45, 45); RightScroll.Parent = mainFrame
 
 local TPBtn = Instance.new("TextButton")
-TPBtn.Size = UDim2.new(0, 185, 0, 45); TPBtn.Position = UDim2.new(0.52, 0, 0.88, 0)
-TPBtn.Text = "立即傳送"; TPBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 150); TPBtn.TextColor3 = Color3.new(1,1,1); TPBtn.Parent = mainFrame
+TPBtn.Size = UDim2.new(0, 390, 0, 35); TPBtn.Position = UDim2.new(0.05, 0, 0.50, 0)
+TPBtn.Text = "執行玩家傳送"; TPBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 150); TPBtn.TextColor3 = Color3.new(1,1,1); TPBtn.Parent = mainFrame
+
+-- [物品列表區]
+local itemTitle = Instance.new("TextLabel")
+itemTitle.Size = UDim2.new(0, 390, 0, 25); itemTitle.Position = UDim2.new(0.05, 0, 0.58, 0)
+itemTitle.Text = "--- 交互物品列表 (點擊傳送) ---"; itemTitle.TextColor3 = Color3.new(0, 1, 0.5); itemTitle.BackgroundTransparency = 1; itemTitle.Parent = mainFrame
+
+local ItemScroll = Instance.new("ScrollingFrame")
+ItemScroll.Size = UDim2.new(0, 390, 0, 180); ItemScroll.Position = UDim2.new(0.05, 0, 0.63, 0)
+ItemScroll.BackgroundColor3 = Color3.fromRGB(25, 25, 25); ItemScroll.Parent = mainFrame
+
+local RefreshBtn = Instance.new("TextButton")
+RefreshBtn.Size = UDim2.new(0, 390, 0, 40); RefreshBtn.Position = UDim2.new(0.05, 0, 0.92, 0)
+RefreshBtn.Text = "🔄 刷新所有列表 (玩家+物品)"; RefreshBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80); RefreshBtn.TextColor3 = Color3.new(1,1,1); RefreshBtn.Parent = mainFrame
 
 ------------------------------------------
--- 核心邏輯
+-- 4. 核心邏輯
 ------------------------------------------
 
--- 自動連點邏輯
-spawn(function()
-    while true do
-        if _G.AutoClicker then
-            -- 獲取螢幕中心點並模擬滑鼠左鍵點擊
-            local viewportSize = workspace.CurrentCamera.ViewportSize
-            VirtualInputManager:SendMouseButtonEvent(viewportSize.X/2, viewportSize.Y/2, 0, true, game, 1)
-            VirtualInputManager:SendMouseButtonEvent(viewportSize.X/2, viewportSize.Y/2, 0, false, game, 1)
-        end
-        task.wait(1) -- 點擊間隔 (0.1秒一次)
-    end
-end)
-
-clickerBtn.MouseButton1Click:Connect(function()
-    _G.AutoClicker = not _G.AutoClicker
-    clickerBtn.Text = _G.AutoClicker and "自動連點: 開啟" or "自動連點: 關閉"
-    clickerBtn.BackgroundColor3 = _G.AutoClicker and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(120, 0, 0)
-end)
-
--- 速度與亮度輸入偵聽
+-- 輸入監聽
 bBox.FocusLost:Connect(function() _G.BrightnessValue = tonumber(bBox.Text) or 0 end)
 sBox.FocusLost:Connect(function() _G.MoveSpeed = tonumber(sBox.Text) or 1.7 end)
 uBox.FocusLost:Connect(function() _G.UpSpeed = tonumber(uBox.Text) or 0.3 end)
 
--- 夜視控制
-local bCorr = Lighting:FindFirstChild("FullBrightCorrection") or Instance.new("ColorCorrectionEffect")
-bCorr.Name = "FullBrightCorrection"; bCorr.Parent = Lighting
-toggleBtn.MouseButton1Click:Connect(function()
-    _G.NightVisionEnabled = not _G.NightVisionEnabled
-    toggleBtn.Text = _G.NightVisionEnabled and "夜視: 開啟" or "夜視: 關閉"
-    toggleBtn.BackgroundColor3 = _G.NightVisionEnabled and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(120, 0, 0)
-end)
-
--- 增強版全圖夜視/打光邏輯
-if _G.LightingLoop then _G.LightingLoop:Disconnect() end
-_G.LightingLoop = RunService.RenderStepped:Connect(function()
-    if _G.NightVisionEnabled then
-        -- 強制環境光為純白（影響室內與陰影處）
-        Lighting.Ambient = Color3.new(1, 1, 1)
-        -- 強制室外環境光為純白（影響露天區域）
-        Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
-        -- 補償亮度（由 UI 的 bBox 控制）
-        Lighting.ExposureCompensation = _G.BrightnessValue
-        
-        -- 額外優化：消除霧氣與陰影（這能讓遠處看得很清楚）
-        Lighting.GlobalShadows = false -- 關閉陰影
-        Lighting.FogEnd = 9e9         -- 將霧氣推到無限遠
-        Lighting.Brightness = 2        -- 基礎亮度提升
-    else
-        -- 恢復默認（如果需要更精確的還原，建議在開啟前先記錄原始數值）
-        Lighting.GlobalShadows = true
-        Lighting.FogEnd = 100000 
-    end
-end)
-
--- 物理移動控制 (R 與 Space)
-if _G.MainLoop then _G.MainLoop:Disconnect() end
-_G.MainLoop = RunService.Stepped:Connect(function()
-    local char = player.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if hrp and hum then
-        if _G.IsPressingR and hum.MoveDirection.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * _G.MoveSpeed)
-        end
-        if _G.IsPressingSpace then
-            hrp.Velocity = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
-            hrp.CFrame = hrp.CFrame * CFrame.new(0, _G.UpSpeed, 0)
-        end
-    end
-end)
-
-UserInputService.InputBegan:Connect(function(i, p) if not p then if i.KeyCode == Enum.KeyCode.R then _G.IsPressingR = true elseif i.KeyCode == Enum.KeyCode.Space then _G.IsPressingSpace = true end end end)
-UserInputService.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.R then _G.IsPressingR = false elseif i.KeyCode == Enum.KeyCode.Space then _G.IsPressingSpace = false end end)
-
--- 列表更新邏輯
+-- 列表更新 (玩家 + 物品)
 local function updateLists()
     for _, v in pairs(LeftScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     for _, v in pairs(RightScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-    for i, p in pairs(Players:GetPlayers()) do
+    for _, v in pairs(ItemScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+
+    -- 玩家
+    local playersArr = Players:GetPlayers()
+    for i, p in pairs(playersArr) do
         local bL = Instance.new("TextButton"); bL.Size = UDim2.new(1,-10,0,30); bL.Position = UDim2.new(0,5,0,(i-1)*35); bL.Text = p.Name; bL.Parent = LeftScroll
         bL.BackgroundColor3 = (_G.SelectedSubject == p.Name) and Color3.fromRGB(0,100,200) or Color3.fromRGB(60,60,60)
         bL.MouseButton1Click:Connect(function() _G.SelectedSubject = p.Name; updateLists() end)
@@ -181,10 +114,87 @@ local function updateLists()
         bR.BackgroundColor3 = (_G.SelectedTarget == p.Name) and Color3.fromRGB(0,100,200) or Color3.fromRGB(60,60,60)
         bR.MouseButton1Click:Connect(function() _G.SelectedTarget = p.Name; updateLists() end)
     end
+    LeftScroll.CanvasSize = UDim2.new(0,0,0,#playersArr*35); RightScroll.CanvasSize = UDim2.new(0,0,0,#playersArr*35)
+
+    -- 物品偵測 (自動過濾無效部件)
+    local itemIndex = 0
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("ProximityPrompt") or v:IsA("ClickDetector") or (v:IsA("TouchInterest") and v.Parent.Size.Magnitude < 10) then
+            local obj = v.Parent
+            if obj and (obj:IsA("BasePart") or obj:IsA("Model")) then
+                local name = obj.Name
+                if name == "Handle" or name == "Part" then name = obj.Parent.Name end
+                
+                local ibtn = Instance.new("TextButton")
+                ibtn.Size = UDim2.new(1, -20, 0, 30); ibtn.Position = UDim2.new(0, 5, 0, itemIndex * 35)
+                ibtn.Text = "📍 " .. name; ibtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); ibtn.TextColor3 = Color3.new(1, 1, 1); ibtn.Parent = ItemScroll
+                
+                ibtn.MouseButton1Click:Connect(function()
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        local cf = obj:IsA("Model") and obj:GetModelCFrame() or obj.CFrame
+                        player.Character.HumanoidRootPart.CFrame = cf * CFrame.new(0, 3, 0)
+                    end
+                end)
+                itemIndex = itemIndex + 1
+            end
+        end
+    end
+    ItemScroll.CanvasSize = UDim2.new(0, 0, 0, itemIndex * 35)
 end
+
+-- 物理與夜視循環 (RenderStepped/Stepped)
+RunService.RenderStepped:Connect(function()
+    if _G.NightVisionEnabled then
+        Lighting.Ambient = Color3.new(1, 1, 1); Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+        Lighting.ExposureCompensation = _G.BrightnessValue; Lighting.GlobalShadows = false
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    if hrp and hum then
+        if _G.IsPressingR and hum.MoveDirection.Magnitude > 0 then hrp.CFrame = hrp.CFrame + (hum.MoveDirection * _G.MoveSpeed) end
+        if _G.IsPressingSpace then 
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, _G.UpSpeed, 0) -- 使用上升速度數值
+        end
+    end
+end)
+
+-- 按鈕事件
+toggleBtn.MouseButton1Click:Connect(function()
+    _G.NightVisionEnabled = not _G.NightVisionEnabled
+    toggleBtn.Text = _G.NightVisionEnabled and "夜視: 開啟" or "夜視: 關閉"
+    toggleBtn.BackgroundColor3 = _G.NightVisionEnabled and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(120, 0, 0)
+end)
+
+clickerBtn.MouseButton1Click:Connect(function()
+    _G.AutoClicker = not _G.AutoClicker
+    clickerBtn.Text = _G.AutoClicker and "自動連點: 開啟" or "自動連點: 關閉"
+    clickerBtn.BackgroundColor3 = _G.AutoClicker and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(120, 0, 0)
+end)
+
 RefreshBtn.MouseButton1Click:Connect(updateLists)
 TPBtn.MouseButton1Click:Connect(function()
     local s = Players:FindFirstChild(_G.SelectedSubject); local t = Players:FindFirstChild(_G.SelectedTarget)
     if s and t and s.Character and t.Character then s.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame end
 end)
+
+-- 鍵盤偵聽
+UserInputService.InputBegan:Connect(function(i, p) if not p then if i.KeyCode == Enum.KeyCode.R then _G.IsPressingR = true elseif i.KeyCode == Enum.KeyCode.Space then _G.IsPressingSpace = true end end end)
+UserInputService.InputEnded:Connect(function(i) if i.KeyCode == Enum.KeyCode.R then _G.IsPressingR = false elseif i.KeyCode == Enum.KeyCode.Space then _G.IsPressingSpace = false end end)
+
+-- 自動連點 Thread
+spawn(function()
+    while true do
+        if _G.AutoClicker then
+            local vs = workspace.CurrentCamera.ViewportSize
+            VirtualInputManager:SendMouseButtonEvent(vs.X/2, vs.Y/2, 0, true, game, 1)
+            VirtualInputManager:SendMouseButtonEvent(vs.X/2, vs.Y/2, 0, false, game, 1)
+        end
+        task.wait(1)
+    end
+end)
+
 updateLists()
