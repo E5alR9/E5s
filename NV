@@ -126,10 +126,25 @@ toggleBtn.MouseButton1Click:Connect(function()
     toggleBtn.BackgroundColor3 = _G.NightVisionEnabled and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(120, 0, 0)
 end)
 
+-- 增強版全圖夜視/打光邏輯
 if _G.LightingLoop then _G.LightingLoop:Disconnect() end
 _G.LightingLoop = RunService.RenderStepped:Connect(function()
     if _G.NightVisionEnabled then
-         Lighting.Ambient = Color3.new(1,1,1); Lighting.OutdoorAmbient = Color3.new(1,1,1); Lighting.ExposureCompensation = _G.BrightnessValue
+        -- 強制環境光為純白（影響室內與陰影處）
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        -- 強制室外環境光為純白（影響露天區域）
+        Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+        -- 補償亮度（由 UI 的 bBox 控制）
+        Lighting.ExposureCompensation = _G.BrightnessValue
+        
+        -- 額外優化：消除霧氣與陰影（這能讓遠處看得很清楚）
+        Lighting.GlobalShadows = false -- 關閉陰影
+        Lighting.FogEnd = 9e9         -- 將霧氣推到無限遠
+        Lighting.Brightness = 2        -- 基礎亮度提升
+    else
+        -- 恢復默認（如果需要更精確的還原，建議在開啟前先記錄原始數值）
+        Lighting.GlobalShadows = true
+        Lighting.FogEnd = 100000 
     end
 end)
 
