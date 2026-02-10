@@ -102,7 +102,7 @@ spawn(function()
             VirtualInputManager:SendMouseButtonEvent(viewportSize.X/2, viewportSize.Y/2, 0, true, game, 1)
             VirtualInputManager:SendMouseButtonEvent(viewportSize.X/2, viewportSize.Y/2, 0, false, game, 1)
         end
-        task.wait(0.1) -- 點擊間隔 (0.1秒一次)
+        task.wait(1) -- 點擊間隔 (0.1秒一次)
     end
 end)
 
