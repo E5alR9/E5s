@@ -797,3 +797,4 @@ task.wait()
 print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ALL SYSTEMS LOADED | @E5ALR9 ////////////////////")
 print("//// [SYSTEM] READY TO OPERATE AT RING-0 ////")
 loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MAJ"))()
+game:GetService("ReplicatedStorage").Items.Emotes.Writhing.Name = "Xylobone"
