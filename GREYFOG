@@ -1,0 +1,131 @@
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+
+-- ==========================================
+-- [ 核心：建立色彩校正特效 ]
+-- ==========================================
+local colorCorrection = Lighting:FindFirstChild("Grey_Filter")
+if not colorCorrection then
+	colorCorrection = Instance.new("ColorCorrectionEffect")
+	colorCorrection.Name = "Grey_Filter"
+	colorCorrection.Parent = Lighting
+	colorCorrection.Saturation = 0 
+	colorCorrection.Contrast = 0
+	colorCorrection.Brightness = 0
+end
+
+-- ==========================================
+-- [ 參數設定：極致灰 ]
+-- ==========================================
+
+-- 1. 視野半徑 (保持 80)
+local VIEW_RADIUS = 80   
+local FOG_START = 10      
+
+-- 2. 顏色設定 (使用稍微亮一點的灰，配合低對比度)
+local GREY_COLOR = Color3.fromRGB(160, 160, 160) 
+-- 環境光設得非常亮且灰，確保沒有黑色陰影
+local AMBIENT_COLOR = Color3.fromRGB(150, 150, 150) 
+
+-- 3. 時間與亮度
+local TARGET_TIME = 12.5 -- 中午，確保光線均勻
+local BRIGHTNESS = 1.0   
+
+-- ==========================================
+
+local TWEEN_INFO = TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+if not _G.UltimateGreyMode then
+	print("Grey FOG")
+	
+	-- 儲存原始設定
+	_G.OriginalSettings = {
+		ClockTime = Lighting.ClockTime,
+		FogColor = Lighting.FogColor,
+		FogEnd = Lighting.FogEnd,
+		FogStart = Lighting.FogStart,
+		OutdoorAmbient = Lighting.OutdoorAmbient,
+		Ambient = Lighting.Ambient,
+		Brightness = Lighting.Brightness,
+		AtmosphereDensity = atmosphere and atmosphere.Density or nil,
+		AtmosphereColor = atmosphere and atmosphere.Color or nil,
+		AtmosphereHaze = atmosphere and atmosphere.Haze or nil,
+		-- 特效設定
+		CC_Saturation = colorCorrection.Saturation,
+		CC_Contrast = colorCorrection.Contrast,
+		CC_Brightness = colorCorrection.Brightness
+	}
+
+	-- 1. Lighting 設定
+	local lightGoal = {
+		ClockTime = TARGET_TIME,
+		FogColor = GREY_COLOR,
+		FogEnd = VIEW_RADIUS,
+		FogStart = FOG_START,
+		OutdoorAmbient = AMBIENT_COLOR,
+		Ambient = AMBIENT_COLOR, -- 室內也灰
+		Brightness = BRIGHTNESS
+	}
+	TweenService:Create(Lighting, TWEEN_INFO, lightGoal):Play()
+	
+	-- 2. Atmosphere 設定
+	if atmosphere then
+		local atmosGoal = {
+			Density = 0.65,
+			Color = GREY_COLOR,
+			Haze = 5, -- 霧霾感加重，讓空氣看起來也灰灰的
+			Glare = 0,
+			Decay = Color3.fromRGB(120, 120, 120)
+		}
+		TweenService:Create(atmosphere, TWEEN_INFO, atmosGoal):Play()
+	end
+	
+	-- 3. ColorCorrection 設定 (關鍵步驟！)
+	local ccGoal = {
+		Saturation = -1,    -- 完全黑白
+		Contrast = -0.2,    -- [重點] 負數對比度！這會把黑色提亮成灰色，把白色壓暗成灰色
+		Brightness = 0.1    -- 稍微補一點光，不然負對比度會讓畫面變太暗
+	}
+	TweenService:Create(colorCorrection, TWEEN_INFO, ccGoal):Play()
+
+	_G.UltimateGreyMode = true
+
+else
+	print("ORG")
+	
+	if _G.OriginalSettings then
+		-- 恢復 Lighting
+		local lightGoal = {
+			ClockTime = _G.OriginalSettings.ClockTime,
+			FogColor = _G.OriginalSettings.FogColor,
+			FogEnd = _G.OriginalSettings.FogEnd,
+			FogStart = _G.OriginalSettings.FogStart,
+			OutdoorAmbient = _G.OriginalSettings.OutdoorAmbient,
+			Ambient = _G.OriginalSettings.Ambient,
+			Brightness = _G.OriginalSettings.Brightness
+		}
+		TweenService:Create(Lighting, TWEEN_INFO, lightGoal):Play()
+		
+		-- 恢復 Atmosphere
+		if atmosphere and _G.OriginalSettings.AtmosphereDensity then
+			local atmosGoal = {
+				Density = _G.OriginalSettings.AtmosphereDensity,
+				Color = _G.OriginalSettings.AtmosphereColor,
+				Haze = _G.OriginalSettings.AtmosphereHaze,
+				Decay = _G.OriginalSettings.AtmosphereDecay
+			}
+			TweenService:Create(atmosphere, TWEEN_INFO, atmosGoal):Play()
+		end
+		
+		-- 恢復 ColorCorrection
+		local ccGoal = {
+			Saturation = _G.OriginalSettings.CC_Saturation or 0,
+			Contrast = _G.OriginalSettings.CC_Contrast or 0,
+			Brightness = _G.OriginalSettings.CC_Brightness or 0
+		}
+		TweenService:Create(colorCorrection, TWEEN_INFO, ccGoal):Play()
+	end
+
+	_G.UltimateGreyMode = false
+end
