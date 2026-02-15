@@ -3,14 +3,20 @@ local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 
 -- [ 參數設定 ] --
-local FLOOR_SIZE_THRESHOLD = 40   -- [地板判定] 接觸到的物體如果大於此值，視為地板(忽略)
-local FORCE_REMOVE_FAR_COUNT = 6  -- [邊界清理] 強制嘗試刪除最遠的 6 個邊界
-local MIN_SIZE_TO_DELETE = 200    -- [尺寸保護] 只有尺寸超過 200 的大牆壁才會被刪除！(小於 200 的一律保留)
+local FLOOR_SIZE_THRESHOLD = 40   -- [地板判定] 接觸物體 > 40 視為地板 (防止掉入虛空)
+local MIN_SIZE_FOR_MODE_1 = 200   -- [模式1標準] 模式1只刪除 > 200 的牆壁
 
--- 判斷是否為斜坡的函數
+-- 初始化全局變數
+if _G.WallMode == nil then _G.WallMode = 0 end 
+if _G.StoredWalls == nil then _G.StoredWalls = {} end
+
+-- 切換模式 (0 -> 1 -> 2 -> 0)
+_G.WallMode = _G.WallMode + 1
+if _G.WallMode > 2 then _G.WallMode = 0 end
+
+-- 輔助函數：判斷是否為斜坡
 local function isSlope(part)
 	if part:IsA("WedgePart") or part:IsA("CornerWedgePart") then return true end
-	-- 簡單的角度檢查
 	local rotX = math.abs(part.Orientation.X) % 90
 	local rotZ = math.abs(part.Orientation.Z) % 90
 	local threshold = 2 
@@ -20,109 +26,10 @@ local function isSlope(part)
 	return false
 end
 
-if not _G.WallsGone then
-	-- [[ 開啟穿牆 ]] --
-	_G.StoredWalls = {} 
-	local foundCount = 0   
-	local deletedCount = 0 
-	local checkCount = 0 
-
-	local params = OverlapParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = {Workspace.Terrain}
-
-	local allParts = Workspace:GetDescendants()
-
-	-- ==============================
-	-- [第一階段：掃描全圖]
-	-- ==============================
-	for _, v in pairs(allParts) do
-		if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide then
-			
-			foundCount = foundCount + 1
-			
-			checkCount = checkCount + 1
-			if checkCount % 100 == 0 then task.wait() end
-
-			-- [保護 1] 斜坡保護
-			if isSlope(v) then continue end
-
-			-- [保護 2] 尺寸保護 (關鍵修改：200以下的全部保留)
-			local maxSize = math.max(v.Size.X, v.Size.Y, v.Size.Z)
-			if maxSize < MIN_SIZE_TO_DELETE then
-				-- 太小了 (小於 200)，直接跳過
-				continue
-			end
-
-			-- [保護 3] 內容物檢測 (重疊檢測)
-			local partsInside = Workspace:GetPartsInPart(v, params)
-			local shouldKeep = false
-
-			for _, touchingPart in pairs(partsInside) do
-				if touchingPart.Transparency < 1 and touchingPart ~= v then
-					-- 如果裡面包著小細節 (非地板)，則保留
-					if touchingPart.Size.X < FLOOR_SIZE_THRESHOLD and touchingPart.Size.Z < FLOOR_SIZE_THRESHOLD then
-						shouldKeep = true
-						break 
-					end
-				end
-			end
-
-			if not shouldKeep then
-				-- 條件達成：夠大(>200)、不是斜坡、裡面沒包重要東西 -> 刪除
-				table.insert(_G.StoredWalls, v) 
-				v.CanCollide = false            
-				deletedCount = deletedCount + 1
-			end
-		end
-	end
-
-	-- ==============================
-	-- [第二階段：強制清理最遠邊界]
-	-- ==============================
-	local plr = Players.LocalPlayer
-	if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-		local root = plr.Character.HumanoidRootPart
-		local candidates = {}
-
-		for _, v in pairs(Workspace:GetDescendants()) do
-			-- 只抓「還活著」且「夠大」的牆壁
-			if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide and not isSlope(v) then
-				-- 這裡也要再次檢查尺寸，確保強制清理時也不會誤刪 < 200 的
-				local maxSize = math.max(v.Size.X, v.Size.Y, v.Size.Z)
-				if maxSize >= MIN_SIZE_TO_DELETE then
-					local dist = (v.Position - root.Position).Magnitude
-					table.insert(candidates, {Part = v, Distance = dist})
-				end
-			end
-		end
-
-		-- 距離由遠到近排序
-		table.sort(candidates, function(a, b) return a.Distance > b.Distance end)
-
-		-- 嘗試刪除最遠的幾個
-		for i = 1, FORCE_REMOVE_FAR_COUNT do
-			if candidates[i] then
-				local target = candidates[i].Part
-				if target.CanCollide == true then -- 如果還沒被刪
-					table.insert(_G.StoredWalls, target)
-					target.CanCollide = false
-					deletedCount = deletedCount + 1
-				end
-			end
-		end
-	end
-
-	_G.WallsGone = true
-
-	StarterGui:SetCore("SendNotification", {
-		Title = "Large Walls Removed";
-		Text = "Kept size < " .. MIN_SIZE_TO_DELETE .. "\nDeleted: " .. deletedCount;
-		Duration = 5;
-	})
-
-else
-	-- [[ 恢復原狀 ]] --
+-- ==========================================
+-- [ 模式 0 ] : 恢復原狀 (Restored)
+-- ==========================================
+if _G.WallMode == 0 then
 	local restoreCount = 0
 	if _G.StoredWalls then
 		for _, v in pairs(_G.StoredWalls) do
@@ -132,12 +39,98 @@ else
 			end
 		end
 	end
-	_G.StoredWalls = nil
-	_G.WallsGone = false
+	_G.StoredWalls = {} -- 清空儲存表
+	
+	StarterGui:SetCore("SendNotification", {
+		Title = "Normal";
+		Text = "Restored " .. restoreCount .. " walls.\n(Back to default)";
+		Duration = 3;
+	})
+
+-- ==========================================
+-- [ 模式 1 ] : 智慧刪除 (只刪大牆)
+-- ==========================================
+elseif _G.WallMode == 1 then
+	local count = 0
+	local checkCount = 0
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = {Workspace.Terrain}
+
+	-- 掃描全圖
+	for _, v in pairs(Workspace:GetDescendants()) do
+		if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide then
+			checkCount = checkCount + 1
+			if checkCount % 200 == 0 then task.wait() end
+
+			-- 保護機制 1: 斜坡
+			if isSlope(v) then continue end
+
+			-- 保護機制 2: 尺寸太小 (< 200) 則保留
+			local maxSize = math.max(v.Size.X, v.Size.Y, v.Size.Z)
+			if maxSize < MIN_SIZE_FOR_MODE_1 then continue end
+
+			-- 保護機制 3: 地板判定 (避免誤刪包含地板的牆)
+			local partsInside = Workspace:GetPartsInPart(v, params)
+			local shouldKeep = false
+			for _, touchingPart in pairs(partsInside) do
+				if touchingPart.Transparency < 1 and touchingPart ~= v then
+					if touchingPart.Size.X < FLOOR_SIZE_THRESHOLD and touchingPart.Size.Z < FLOOR_SIZE_THRESHOLD then
+						shouldKeep = true
+						break 
+					end
+				end
+			end
+
+			if not shouldKeep then
+				table.insert(_G.StoredWalls, v)
+				v.CanCollide = false
+				count = count + 1
+			end
+		end
+	end
 
 	StarterGui:SetCore("SendNotification", {
-		Title = "Restored";
-		Text = "Map is back to normal";
+		Title = "Smart Remove";
+		Text = "Removed " .. count .. " LARGE walls.\n(Kept small details)";
+		Duration = 3;
+	})
+
+-- ==========================================
+-- [ 模式 2 ] : 全力刪除 (刪除所有隱形牆)
+-- ==========================================
+elseif _G.WallMode == 2 then
+	local count = 0
+	local checkCount = 0
+	
+	-- 這裡我們再次掃描，把模式1沒刪掉的小牆壁也刪了
+	-- 已經被模式1刪掉的 (CanCollide=false) 會自動跳過
+	for _, v in pairs(Workspace:GetDescendants()) do
+		if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide then
+			checkCount = checkCount + 1
+			if checkCount % 200 == 0 then task.wait() end
+
+			-- 即使是暴力模式，也要保留斜坡，不然樓梯會壞掉
+			if isSlope(v) then continue end
+			
+			-- 注意：這裡移除了「尺寸 < 200」的保護！
+
+			-- 還是要有基本的防掉落保護 (只保留純地板)
+			-- 如果這個牆壁"只"接觸到超大地板，那就視為地板的一部分，不刪
+			-- 如果它是懸空的或者接觸小東西，刪！
+			
+			-- 簡單邏輯：暴力模式下，我們只保留斜坡。
+			-- 如果你希望連小物件都刪，就不做重疊檢測了。
+			
+			table.insert(_G.StoredWalls, v)
+			v.CanCollide = false
+			count = count + 1
+		end
+	end
+
+	StarterGui:SetCore("SendNotification", {
+		Title = "Remove ALL";
+		Text = "Removed " .. count .. " remaining small walls.\n(Total clean up)";
 		Duration = 3;
 	})
 end
