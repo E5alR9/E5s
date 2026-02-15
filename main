@@ -490,6 +490,18 @@ local function createUI()
     fogBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", fogBtn)
 
+	-- Remove 按鈕 (左側第四排，Edge 下方)
+	local removeBtn = Instance.new("TextButton", m)
+	removeBtn.Size = UDim2.new(0.45, 0, 0, 35)
+	removeBtn.Position = UDim2.new(0.03, 0, 0, 155) -- Y軸設定為 155
+	removeBtn.ZIndex = 10
+	removeBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+	removeBtn.BackgroundTransparency = 0.7
+	removeBtn.Text = "Remove"
+	removeBtn.TextColor3 = Color3.new(1, 1, 1)
+	removeBtn.Visible = not _G.isMinimized
+	Instance.new("UICorner", removeBtn)
+
     -- 狀態文字初始化
     local function updateZbStyle()
         if _G.zbClickCount == 0 then zbBtn.Text = "Zombie"
@@ -572,6 +584,10 @@ local function createUI()
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/GREYFOG"))() end)
     end)
 
+	removeBtn.MouseButton1Click:Connect(function()
+		pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/removeinvwall"))() end)
+	end)
+
     minBtn.MouseButton1Click:Connect(function()
         _G.isMinimized = not _G.isMinimized
         m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
@@ -583,6 +599,7 @@ local function createUI()
 		bhopBtn.Visible = not _G.isMinimized
 		edgeBtn.Visible = not _G.isMinimized
 		fogBtn.Visible = not _G.isMinimized
+		removeBtn.Visible = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
     end)
 end
