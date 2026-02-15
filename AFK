@@ -1,0 +1,144 @@
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-----------------------------------------------------------
+-- 1. 載入外部腳本 (EvadeEvent & E5s)
+-----------------------------------------------------------
+task.spawn(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/EvadeEvent"))()
+    end)
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/script.txt"))()
+    end)
+end)
+
+-----------------------------------------------------------
+-- 2. 建立 UI 主容器
+-----------------------------------------------------------
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EvadeMergedGui"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-----------------------------------------------------------
+-- 3. 自動點擊功能 (紅圈 & 控制)
+-----------------------------------------------------------
+local TargetCircle = Instance.new("Frame")
+local UICornerDot = Instance.new("UICorner")
+local TargetLabel = Instance.new("TextLabel")
+
+TargetCircle.Name = "TargetCircle"
+TargetCircle.Parent = ScreenGui
+TargetCircle.Size = UDim2.new(0, 50, 0, 50)
+TargetCircle.Position = UDim2.new(0.68, 0, 0.55, 0)
+TargetCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+TargetCircle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+TargetCircle.BackgroundTransparency = 0.5
+TargetCircle.Active = true
+TargetCircle.Draggable = true 
+
+UICornerDot.CornerRadius = UDim.new(1, 0)
+UICornerDot.Parent = TargetCircle
+
+TargetLabel.Size = UDim2.new(1, 0, 1, 0)
+TargetLabel.BackgroundTransparency = 1
+TargetLabel.Text = "對準按鈕"
+TargetLabel.TextColor3 = Color3.new(1, 1, 1)
+TargetLabel.TextSize = 10
+TargetLabel.Parent = TargetCircle
+
+-- 自動點擊控制按鈕
+local ClickBtn = Instance.new("TextButton")
+local UICornerClick = Instance.new("UICorner")
+ClickBtn.Name = "AutoClickToggle"
+ClickBtn.Parent = ScreenGui
+ClickBtn.Size = UDim2.new(0, 140, 0, 45)
+ClickBtn.Position = UDim2.new(0.1, 0, 0.4, 0)
+ClickBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+ClickBtn.Text = "自動點擊: 關閉"
+ClickBtn.TextColor3 = Color3.new(1, 1, 1)
+ClickBtn.Font = Enum.Font.GothamBold
+ClickBtn.TextSize = 14
+ClickBtn.Draggable = true
+UICornerClick.Parent = ClickBtn
+
+local isClickActive = false
+ClickBtn.MouseButton1Click:Connect(function()
+    isClickActive = not isClickActive
+    ClickBtn.Text = isClickActive and "自動點擊: 開啟" or "自動點擊: 關閉"
+    ClickBtn.BackgroundColor3 = isClickActive and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(40, 40, 40)
+    TargetCircle.BackgroundTransparency = isClickActive and 0.7 or 0.5
+end)
+
+-- 自動點擊循環
+task.spawn(function()
+    while true do
+        if isClickActive then
+            local targetX = TargetCircle.AbsolutePosition.X + (TargetCircle.AbsoluteSize.X / 2)
+            local targetY = TargetCircle.AbsolutePosition.Y + (TargetCircle.AbsoluteSize.Y / 2)
+            pcall(function()
+                VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, true, game, 1)
+                task.wait(0.1)
+                VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, false, game, 1)
+            end)
+            TargetCircle.BackgroundColor3 = Color3.new(1, 1, 1)
+            task.wait(0.1)
+            TargetCircle.BackgroundColor3 = Color3.new(1, 0, 0)
+        end
+        task.wait(1)
+    end
+end)
+
+-----------------------------------------------------------
+-- 4. 復活自動按鍵功能 (G + 5)
+-----------------------------------------------------------
+local KeyBtn = Instance.new("TextButton")
+local UICornerKey = Instance.new("UICorner")
+KeyBtn.Name = "AutoKeyToggle"
+KeyBtn.Parent = ScreenGui
+KeyBtn.Size = UDim2.new(0, 140, 0, 45)
+KeyBtn.Position = UDim2.new(0.1, 0, 0.5, 0)
+KeyBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 150)
+KeyBtn.Text = "復活按鍵: 關閉"
+KeyBtn.TextColor3 = Color3.new(1, 1, 1)
+KeyBtn.Font = Enum.Font.GothamBold
+KeyBtn.TextSize = 14
+KeyBtn.Draggable = true
+UICornerKey.Parent = KeyBtn
+
+local isAutoKeyEnabled = false
+KeyBtn.MouseButton1Click:Connect(function()
+    isAutoKeyEnabled = not isAutoKeyEnabled
+    KeyBtn.Text = isAutoKeyEnabled and "復活按鍵: 開啟" or "復活按鍵: 關閉"
+    KeyBtn.BackgroundColor3 = isAutoKeyEnabled and Color3.fromRGB(130, 0, 255) or Color3.fromRGB(80, 0, 150)
+end)
+
+local function simulateCombo()
+    if not isAutoKeyEnabled then return end
+    task.wait(2) -- 給予更多時間載入
+    pcall(function()
+        -- 按下 G
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
+        task.wait(0.5)
+        -- 按下 5
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Five, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Five, false, game)
+    end)
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    simulateCombo()
+end)
+
+-- 初始檢查
+if LocalPlayer.Character then
+    task.spawn(simulateCombo)
+end
+
+print("所有腳本已整合載入成功！")
