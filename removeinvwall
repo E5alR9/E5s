@@ -3,12 +3,14 @@ local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 
 -- [ 參數設定 ] --
-local FLOOR_SIZE_THRESHOLD = 40 -- 物體判定大小 (過大視為地板)
-local FORCE_REMOVE_FAR_COUNT = 6 -- 強制刪除最遠邊界數量
+local FLOOR_SIZE_THRESHOLD = 40   -- [地板判定] 接觸到的物體如果大於此值，視為地板(忽略)
+local FORCE_REMOVE_FAR_COUNT = 6  -- [邊界清理] 強制嘗試刪除最遠的 6 個邊界
+local MIN_SIZE_TO_DELETE = 200    -- [尺寸保護] 只有尺寸超過 200 的大牆壁才會被刪除！(小於 200 的一律保留)
 
 -- 判斷是否為斜坡的函數
 local function isSlope(part)
 	if part:IsA("WedgePart") or part:IsA("CornerWedgePart") then return true end
+	-- 簡單的角度檢查
 	local rotX = math.abs(part.Orientation.X) % 90
 	local rotZ = math.abs(part.Orientation.Z) % 90
 	local threshold = 2 
@@ -19,41 +21,46 @@ local function isSlope(part)
 end
 
 if not _G.WallsGone then
-	-- [[ 開啟穿牆模式 ]] --
+	-- [[ 開啟穿牆 ]] --
 	_G.StoredWalls = {} 
-	local foundCount = 0    -- 找到的總數
-	local deletedCount = 0  -- 刪除的總數
+	local foundCount = 0   
+	local deletedCount = 0 
 	local checkCount = 0 
 
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = {Workspace.Terrain}
 
-	-- 1. 第一階段：掃描與智慧過濾
 	local allParts = Workspace:GetDescendants()
 
+	-- ==============================
+	-- [第一階段：掃描全圖]
+	-- ==============================
 	for _, v in pairs(allParts) do
-		-- 基礎條件：透明且有碰撞
 		if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide then
 			
-			foundCount = foundCount + 1 -- 發現一個隱形牆！計數 +1
+			foundCount = foundCount + 1
 			
-			-- 防卡頓
 			checkCount = checkCount + 1
 			if checkCount % 100 == 0 then task.wait() end
 
-			-- [A] 斜坡保護：如果是斜坡，跳過
-			if isSlope(v) then
-				continue 
+			-- [保護 1] 斜坡保護
+			if isSlope(v) then continue end
+
+			-- [保護 2] 尺寸保護 (關鍵修改：200以下的全部保留)
+			local maxSize = math.max(v.Size.X, v.Size.Y, v.Size.Z)
+			if maxSize < MIN_SIZE_TO_DELETE then
+				-- 太小了 (小於 200)，直接跳過
+				continue
 			end
 
-			-- [B] 重疊檢測：檢查是否包著細節模型
+			-- [保護 3] 內容物檢測 (重疊檢測)
 			local partsInside = Workspace:GetPartsInPart(v, params)
 			local shouldKeep = false
 
 			for _, touchingPart in pairs(partsInside) do
 				if touchingPart.Transparency < 1 and touchingPart ~= v then
-					-- 如果是小東西 (欄杆細節) 則保留
+					-- 如果裡面包著小細節 (非地板)，則保留
 					if touchingPart.Size.X < FLOOR_SIZE_THRESHOLD and touchingPart.Size.Z < FLOOR_SIZE_THRESHOLD then
 						shouldKeep = true
 						break 
@@ -62,38 +69,45 @@ if not _G.WallsGone then
 			end
 
 			if not shouldKeep then
-				-- 判定為垃圾牆，刪除！
+				-- 條件達成：夠大(>200)、不是斜坡、裡面沒包重要東西 -> 刪除
 				table.insert(_G.StoredWalls, v) 
 				v.CanCollide = false            
-				deletedCount = deletedCount + 1 -- 刪除數 +1
+				deletedCount = deletedCount + 1
 			end
 		end
 	end
 
-	-- 2. 第二階段：強制清理邊界 (針對漏網之魚)
+	-- ==============================
+	-- [第二階段：強制清理最遠邊界]
+	-- ==============================
 	local plr = Players.LocalPlayer
 	if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
 		local root = plr.Character.HumanoidRootPart
 		local candidates = {}
 
-		-- 重新掃描一次，這次只找「還活著」的隱形牆
 		for _, v in pairs(Workspace:GetDescendants()) do
+			-- 只抓「還活著」且「夠大」的牆壁
 			if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide and not isSlope(v) then
-				local dist = (v.Position - root.Position).Magnitude
-				table.insert(candidates, {Part = v, Distance = dist})
+				-- 這裡也要再次檢查尺寸，確保強制清理時也不會誤刪 < 200 的
+				local maxSize = math.max(v.Size.X, v.Size.Y, v.Size.Z)
+				if maxSize >= MIN_SIZE_TO_DELETE then
+					local dist = (v.Position - root.Position).Magnitude
+					table.insert(candidates, {Part = v, Distance = dist})
+				end
 			end
 		end
 
+		-- 距離由遠到近排序
 		table.sort(candidates, function(a, b) return a.Distance > b.Distance end)
 
+		-- 嘗試刪除最遠的幾個
 		for i = 1, FORCE_REMOVE_FAR_COUNT do
 			if candidates[i] then
 				local target = candidates[i].Part
-				-- 再次確認沒被刪過 (雖然上面篩選過，但保險起見)
-				if target.CanCollide == true then
+				if target.CanCollide == true then -- 如果還沒被刪
 					table.insert(_G.StoredWalls, target)
 					target.CanCollide = false
-					deletedCount = deletedCount + 1 -- 這裡刪的也要加進去
+					deletedCount = deletedCount + 1
 				end
 			end
 		end
@@ -101,10 +115,9 @@ if not _G.WallsGone then
 
 	_G.WallsGone = true
 
-	-- [[ 顯示統計通知 ]] --
 	StarterGui:SetCore("SendNotification", {
-		Title = "Remove Walls";
-		Text = "Found: " .. foundCount .. " | Deleted: " .. deletedCount;
+		Title = "Large Walls Removed";
+		Text = "Kept size < " .. MIN_SIZE_TO_DELETE .. "\nDeleted: " .. deletedCount;
 		Duration = 5;
 	})
 
@@ -124,7 +137,7 @@ else
 
 	StarterGui:SetCore("SendNotification", {
 		Title = "Restored";
-		Text = "Restored " .. restoreCount .. " walls back to normal";
+		Text = "Map is back to normal";
 		Duration = 3;
 	})
 end
