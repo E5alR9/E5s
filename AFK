@@ -102,7 +102,7 @@ KeyBtn.Parent = ScreenGui
 KeyBtn.Size = UDim2.new(0, 140, 0, 45)
 KeyBtn.Position = UDim2.new(0.1, 0, 0.5, 0)
 KeyBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 150)
-KeyBtn.Text = "復活按鍵: 關閉"
+KeyBtn.Text = "G5按鍵: 關閉"
 KeyBtn.TextColor3 = Color3.new(1, 1, 1)
 KeyBtn.Font = Enum.Font.GothamBold
 KeyBtn.TextSize = 14
@@ -112,7 +112,7 @@ UICornerKey.Parent = KeyBtn
 local isAutoKeyEnabled = false
 KeyBtn.MouseButton1Click:Connect(function()
     isAutoKeyEnabled = not isAutoKeyEnabled
-    KeyBtn.Text = isAutoKeyEnabled and "復活按鍵: 開啟" or "復活按鍵: 關閉"
+    KeyBtn.Text = isAutoKeyEnabled and "G5按鍵: 開啟" or "G5按鍵: 關閉"
     KeyBtn.BackgroundColor3 = isAutoKeyEnabled and Color3.fromRGB(130, 0, 255) or Color3.fromRGB(80, 0, 150)
 end)
 
@@ -140,5 +140,12 @@ end)
 if LocalPlayer.Character then
     task.spawn(simulateCombo)
 end
-
-print("所有腳本已整合載入成功！")
+print([[										
+  ________  ________  ________  ___       ________   _______
+ |\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \
+ \ \  \___|\ \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \
+  \ \  \___\\ \_____  \ \   __  \ \  \    \ \  _____\ \_____  \
+   \ \  \__|_\| _____\ \ \  \ \  \ \  \____\ \  \\_ \_|_____\  \
+    \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
+     \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
+    ]])
