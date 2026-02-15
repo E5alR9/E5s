@@ -1,46 +1,143 @@
 local StarterGui = game:GetService("StarterGui")
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
 
--- Check toggle state
+-- [ 參數設定 ] --
+local FLOOR_SIZE_THRESHOLD = 40   -- [地板判定] 接觸到的物體如果大於此值，視為地板(忽略)
+local FORCE_REMOVE_FAR_COUNT = 6  -- [邊界清理] 強制嘗試刪除最遠的 6 個邊界
+local MIN_SIZE_TO_DELETE = 200    -- [尺寸保護] 只有尺寸超過 200 的大牆壁才會被刪除！(小於 200 的一律保留)
+
+-- 判斷是否為斜坡的函數
+local function isSlope(part)
+	if part:IsA("WedgePart") or part:IsA("CornerWedgePart") then return true end
+	-- 簡單的角度檢查
+	local rotX = math.abs(part.Orientation.X) % 90
+	local rotZ = math.abs(part.Orientation.Z) % 90
+	local threshold = 2 
+	if (rotX > threshold and rotX < (90 - threshold)) or (rotZ > threshold and rotZ < (90 - threshold)) then
+		return true 
+	end
+	return false
+end
+
 if not _G.WallsGone then
-	-- [ Mode: Remove Walls ]
-	_G.StoredWalls = {} -- Table to store modified parts
-	local count = 0
+	-- [[ 開啟穿牆 ]] --
+	_G.StoredWalls = {} 
+	local foundCount = 0   
+	local deletedCount = 0 
+	local checkCount = 0 
 
-	for _, v in pairs(workspace:GetDescendants()) do
-		-- Condition: Part + Invisible + Collidable
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = {Workspace.Terrain}
+
+	local allParts = Workspace:GetDescendants()
+
+	-- ==============================
+	-- [第一階段：掃描全圖]
+	-- ==============================
+	for _, v in pairs(allParts) do
 		if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide then
-			table.insert(_G.StoredWalls, v) -- Store it for later
-			v.CanCollide = false            -- Disable collision
-			count = count + 1
+			
+			foundCount = foundCount + 1
+			
+			checkCount = checkCount + 1
+			if checkCount % 100 == 0 then task.wait() end
+
+			-- [保護 1] 斜坡保護
+			if isSlope(v) then continue end
+
+			-- [保護 2] 尺寸保護 (關鍵修改：200以下的全部保留)
+			local maxSize = math.max(v.Size.X, v.Size.Y, v.Size.Z)
+			if maxSize < MIN_SIZE_TO_DELETE then
+				-- 太小了 (小於 200)，直接跳過
+				continue
+			end
+
+			-- [保護 3] 內容物檢測 (重疊檢測)
+			local partsInside = Workspace:GetPartsInPart(v, params)
+			local shouldKeep = false
+
+			for _, touchingPart in pairs(partsInside) do
+				if touchingPart.Transparency < 1 and touchingPart ~= v then
+					-- 如果裡面包著小細節 (非地板)，則保留
+					if touchingPart.Size.X < FLOOR_SIZE_THRESHOLD and touchingPart.Size.Z < FLOOR_SIZE_THRESHOLD then
+						shouldKeep = true
+						break 
+					end
+				end
+			end
+
+			if not shouldKeep then
+				-- 條件達成：夠大(>200)、不是斜坡、裡面沒包重要東西 -> 刪除
+				table.insert(_G.StoredWalls, v) 
+				v.CanCollide = false            
+				deletedCount = deletedCount + 1
+			end
+		end
+	end
+
+	-- ==============================
+	-- [第二階段：強制清理最遠邊界]
+	-- ==============================
+	local plr = Players.LocalPlayer
+	if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+		local root = plr.Character.HumanoidRootPart
+		local candidates = {}
+
+		for _, v in pairs(Workspace:GetDescendants()) do
+			-- 只抓「還活著」且「夠大」的牆壁
+			if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide and not isSlope(v) then
+				-- 這裡也要再次檢查尺寸，確保強制清理時也不會誤刪 < 200 的
+				local maxSize = math.max(v.Size.X, v.Size.Y, v.Size.Z)
+				if maxSize >= MIN_SIZE_TO_DELETE then
+					local dist = (v.Position - root.Position).Magnitude
+					table.insert(candidates, {Part = v, Distance = dist})
+				end
+			end
+		end
+
+		-- 距離由遠到近排序
+		table.sort(candidates, function(a, b) return a.Distance > b.Distance end)
+
+		-- 嘗試刪除最遠的幾個
+		for i = 1, FORCE_REMOVE_FAR_COUNT do
+			if candidates[i] then
+				local target = candidates[i].Part
+				if target.CanCollide == true then -- 如果還沒被刪
+					table.insert(_G.StoredWalls, target)
+					target.CanCollide = false
+					deletedCount = deletedCount + 1
+				end
+			end
 		end
 	end
 
 	_G.WallsGone = true
 
-	-- Send Notification (English)
 	StarterGui:SetCore("SendNotification", {
-		Title = "Invisible Walls: Remove";
-		Text = "Removed " .. count .. " invisible walls";
-		Duration = 3;
+		Title = "Walls Removed";
+		Text = "Kept size < " .. MIN_SIZE_TO_DELETE .. "\nDeleted: " .. deletedCount;
+		Duration = 5;
 	})
 
 else
-	-- [ Mode: Restore Walls ]
+	-- [[ 恢復原狀 ]] --
+	local restoreCount = 0
 	if _G.StoredWalls then
 		for _, v in pairs(_G.StoredWalls) do
-			if v then -- Check if part still exists
-				v.CanCollide = true -- Restore collision
+			if v then 
+				v.CanCollide = true 
+				restoreCount = restoreCount + 1
 			end
 		end
 	end
-
 	_G.StoredWalls = nil
 	_G.WallsGone = false
 
-	-- Send Notification (English)
 	StarterGui:SetCore("SendNotification", {
-		Title = "Invisible Walls: Add Back";
-		Text = "All walls restored to normal";
+		Title = "Restored";
+		Text = "Map is back to normal";
 		Duration = 3;
 	})
 end
