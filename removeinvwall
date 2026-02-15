@@ -1,0 +1,46 @@
+local StarterGui = game:GetService("StarterGui")
+
+-- Check toggle state
+if not _G.WallsGone then
+	-- [ Mode: Remove Walls ]
+	_G.StoredWalls = {} -- Table to store modified parts
+	local count = 0
+
+	for _, v in pairs(workspace:GetDescendants()) do
+		-- Condition: Part + Invisible + Collidable
+		if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide then
+			table.insert(_G.StoredWalls, v) -- Store it for later
+			v.CanCollide = false            -- Disable collision
+			count = count + 1
+		end
+	end
+
+	_G.WallsGone = true
+
+	-- Send Notification (English)
+	StarterGui:SetCore("SendNotification", {
+		Title = "Invisible Walls: Remove";
+		Text = "Removed " .. count .. " invisible walls";
+		Duration = 3;
+	})
+
+else
+	-- [ Mode: Restore Walls ]
+	if _G.StoredWalls then
+		for _, v in pairs(_G.StoredWalls) do
+			if v then -- Check if part still exists
+				v.CanCollide = true -- Restore collision
+			end
+		end
+	end
+
+	_G.StoredWalls = nil
+	_G.WallsGone = false
+
+	-- Send Notification (English)
+	StarterGui:SetCore("SendNotification", {
+		Title = "Invisible Walls: Add Back";
+		Text = "All walls restored to normal";
+		Duration = 3;
+	})
+end
