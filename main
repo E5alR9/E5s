@@ -11,9 +11,8 @@
 _G.fKN = _G.fKN or "PageDown"           
 _G.freezeMS = _G.freezeMS or 300      
 _G.isMinimized = _G.isMinimized or false 
-_G.toggleKey = _G.toggleKey or Enum.KeyCode.T
-_G.switchInterval = _G.switchInterval or 0.08
-_G.sensitivity = _G.sensitivity or 0.087
+_G.toggleKey = _G.toggleKey or Enum.KeyCode.R
+_G.spinSpeed = _G.spinSpeed or 10
 _G.freeze = false
 
 local p = game:GetService("Players").LocalPlayer
@@ -28,6 +27,9 @@ local DC_URL = "https://discord.gg/" .. DC_CODE
 local BG_IMAGE_ID = "rbxassetid://117164248667049"
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local isPressing = false
 
 local function startSwagMusic()
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -157,29 +159,6 @@ local function notify(title, text, duration)
     end)
 end
 
--- [[ ⌨️ AD (Spin) 邏輯變數 ]]
-local activeAD = false
-_G.switchInterval = _G.switchInterval or 0.08
-local pressDuration = 0.000000001 
-_G.sensitivity = _G.sensitivity or 0.087
-local lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
-
--- 1. 定義智能重置函數 (已修復手動衝突問題)
-local function forceReset()
-    activeAD = false
-    
-    -- 檢查：只有當玩家「手動沒按著」A 時，才發送放開指令
-    if not UIS:IsKeyDown(Enum.KeyCode.A) then
-        VIM:SendKeyEvent(false, Enum.KeyCode.A, false, game)
-    end
-    
-    -- 檢查：只有當玩家「手動沒按著」D 時，才發送放開指令
-    if not UIS:IsKeyDown(Enum.KeyCode.D) then
-        VIM:SendKeyEvent(false, Enum.KeyCode.D, false, game)
-    end
-    
-    print("\\\\ SYSTEM \\\\ [[ SPIN_DEACTIVATED - MANUAL_PRESERVED ]]")
-end
 
 -- [[ 🚀 標頭輸出：ANSI 3D 立體斜體 ]]
 local function showHeader()
@@ -348,9 +327,10 @@ local function createUI()
     content.Position = UDim2.new(0, 0, 1, -160)
     content.BackgroundTransparency, content.Visible = 1, not _G.isMinimized
 
-    -- [[ 第一排：LAG TOOL | KEY | SPD | SENS ]]
+-- [[ 第一排：LAG TOOL | KEY  ]]
     local lagToolBtn = Instance.new("TextButton", content)
-    lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.02, 0, 0, 0), "TOOL"
+    -- 設定為 45% 寬度，靠左留 3% 邊距
+    lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.45, 0, 0, 40), UDim2.new(0.03, 0, 0, 0), "TOOL"
     lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.fromRGB(70, 90, 110), Color3.new(1, 1, 1), 0.5
     Instance.new("UICorner", lagToolBtn)
     lagToolBtn.MouseButton1Click:Connect(function()
@@ -360,38 +340,21 @@ local function createUI()
     end)
 
     local spinKeyBtn = Instance.new("TextButton", content)
-    spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.38, 0, 0, 0)
-    spinKeyBtn.Text = "K:".._G.toggleKey.Name
+    -- 設定為 45% 寬度，從 52% 的位置開始 (中間留 4% 隙縫)
+    spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.45, 0, 0, 40), UDim2.new(0.52, 0, 0, 0)
+    spinKeyBtn.Text = "Spin KEY :".._G.toggleKey.Name
     spinKeyBtn.BackgroundColor3, spinKeyBtn.TextColor3, spinKeyBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
+    Instance.new("UICorner", spinKeyBtn)
     spinKeyBtn.MouseButton1Click:Connect(function()
         spinKeyBtn.Text = "..."
         local con; con = UIS.InputBegan:Connect(function(i)
             if i.UserInputType == Enum.UserInputType.Keyboard then
                 _G.toggleKey = i.KeyCode
-                spinKeyBtn.Text = "K:".._G.toggleKey.Name
-                notify("KEYBIND", "Spin Key: ".._G.toggleKey.Name)
+                spinKeyBtn.Text = "Spin KEY :".._G.toggleKey.Name
+                notify("KEYBIND", "Spin Key : ".._G.toggleKey.Name)
                 con:Disconnect()
             end
         end)
-    end)
-
-    local spdBox = Instance.new("TextBox", content)
-    spdBox.Size, spdBox.Position, spdBox.Text = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.58, 0, 0, 0), tostring(_G.switchInterval)
-    spdBox.BackgroundColor3, spdBox.TextColor3, spdBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
-    spdBox.FocusLost:Connect(function()
-        _G.switchInterval = tonumber(spdBox.Text) or 0.08
-        notify("SPD", "Interval: ".._G.switchInterval)
-    end)
-
-    local sensBox = Instance.new("TextBox", content)
-    sensBox.Size, sensBox.Position, sensBox.Text = UDim2.new(0.18, 0, 0, 40), UDim2.new(0.78, 0, 0, 0), tostring(_G.sensitivity)
-    sensBox.BackgroundColor3, sensBox.TextColor3, sensBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
-    sensBox.FocusLost:Connect(function()
-        local val = tonumber(sensBox.Text)
-        if val then 
-            _G.sensitivity = val
-            notify("SENS", "Sensitivity: ".._G.sensitivity)
-        end
     end)
 
     -- [[ 第二排：PGDN (fKN) | MS ]]
@@ -739,27 +702,6 @@ UIS.InputBegan:Connect(function(i, processed)
     end 
 end)
 
--- 2. 偵測放開 (包含智能重置檢查)
-UIS.InputEnded:Connect(function(i) 
-	if i.KeyCode.Name == _G.fKN then 
-        _G.freeze = false 
-    elseif i.KeyCode == _G.toggleKey then 
-        -- 呼叫智能重置，會判斷你是否按著 AD
-        forceReset()
-    end 
-end)
-
--- 3. 強制保險絲 (每 0.5 秒同步狀態)
-task.spawn(function()
-    while true do
-        -- 如果開關變數是開啟的，但實體按鍵沒被按下，執行智能重置
-        if activeAD and not UIS:IsKeyDown(_G.toggleKey) then
-            forceReset()
-        end
-        task.wait(0.5)
-    end
-end)
-
 -- 2. 物理循環： Freeze
 RS.Heartbeat:Connect(function()
     local c = p.Character
@@ -789,49 +731,34 @@ RS.Heartbeat:Connect(function()
     end
 end)
 
--- [[ ⌨️ 核心 AD 旋轉邏輯循環 - 最終調試版 ]]
-task.spawn(function()
-    while true do
-        local manualA = UIS:IsKeyDown(Enum.KeyCode.A)
-        local manualD = UIS:IsKeyDown(Enum.KeyCode.D)
-        local isMovingManually = manualA or manualD
-
-        if activeAD and not isMovingManually then
-            pcall(function()
-                local _, currentY, _ = Cam.CFrame:ToOrientation()
-                local deltaY = currentY - lastCameraAngle
-                
-                if deltaY > math.pi then deltaY = deltaY - (math.pi * 2)
-                elseif deltaY < -math.pi then deltaY = deltaY + (math.pi * 2) end
-
-                if math.abs(deltaY) > (_G.sensitivity or 0.087) then
-                    local firstKey = (deltaY < 0) and Enum.KeyCode.D or Enum.KeyCode.A
-                    local secondKey = (deltaY < 0) and Enum.KeyCode.A or Enum.KeyCode.D
-                    
-                    lastCameraAngle = currentY 
-
-                    VIM:SendKeyEvent(true, firstKey, false, game)
-                    task.wait(pressDuration)
-                    VIM:SendKeyEvent(false, firstKey, false, game)
-
-                    task.wait(_G.switchInterval) -- 對接 UI
-
-                    if activeAD and not (UIS:IsKeyDown(Enum.KeyCode.A) or UIS:IsKeyDown(Enum.KeyCode.D)) then
-                        VIM:SendKeyEvent(true, secondKey, false, game)
-                        task.wait(pressDuration)
-                        VIM:SendKeyEvent(false, secondKey, false, game)
-                    end
-                    
-                    task.wait(_G.switchInterval) -- 對接 UI
-                else
-                    lastCameraAngle = currentY
-                    task.wait(0.01) 
-                end
-            end)
-        else
-            lastCameraAngle = select(2, Cam.CFrame:ToOrientation())
-            task.wait(0.05)
+-- [[ 修正後的核心旋轉邏輯 ]] --
+RunService.Heartbeat:Connect(function()
+    -- 這裡統一使用 isPressing 和上方定義的 lp (LocalPlayer)
+    if isPressing and lp.Character then
+        local hrp = lp.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            -- 使用 pcall 防止 _G.spinSpeed 遺失導致報錯
+            local speed = tonumber(_G.spinSpeed) or 50
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(speed), 0)
         end
+    end
+end)
+
+-- [[ 修正後的按鍵偵測 ]] --
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    -- 確保與 UI 設定的 _G.toggleKey 同步
+    if input.KeyCode == _G.toggleKey then
+        isPressing = true
+        print("\\\\ SYSTEM \\\\ [[ SPIN_HOLD_START ]]")
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    -- 放開時停止
+    if input.KeyCode == _G.toggleKey then
+        isPressing = false
+        print("\\\\ SYSTEM \\\\ [[ SPIN_HOLD_STOP ]]")
     end
 end)
 
