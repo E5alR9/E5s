@@ -732,13 +732,14 @@ RS.Heartbeat:Connect(function()
     local r = c and c:FindFirstChild("HumanoidRootPart")
     local hum = c and c:FindFirstChildOfClass("Humanoid")
 
-    -- [[ Freeze 核心 (射線觸發版) ]]
+    -- [[ Freeze 核心 (球形觸發版) ]]
     if _G.freeze and r then
-        local lp = RaycastParams.new()
-        lp.FilterDescendantsInstances = {c}
-        
-        -- 判定：腳下 20 單位或前方 15 單位有物體時觸發
-        if workspace:Raycast(r.Position, Vector3.new(0,-20,0), lp) or workspace:Raycast(r.Position, r.CFrame.LookVector*15, lp) then
+        local op = OverlapParams.new()
+        op.FilterDescendantsInstances = {c}
+        op.FilterType = Enum.RaycastFilterType.Exclude
+
+        -- 判定：以玩家為中心，半徑 20 單位為範圍的球形偵測
+        if #workspace:GetPartBoundsInRadius(r.Position, 20, op) > 0 then
             
             -- 跳出 UI 通知
             game:GetService("StarterGui"):SetCore("SendNotification", { 
