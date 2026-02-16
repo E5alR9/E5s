@@ -851,7 +851,7 @@ task.spawn(function()
         end
     end
     local function sendInvite()
-        return pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "E5alR9 - DISCORD", Text = "Join for more useful? pls join to ask me If u dont know how to use", Duration = 99999, Button1 = "YES", Button2 = "NO", Callback = bindable }) end)
+        return pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "E5alR9 - DISCORD", Text = "Join discord? pls join to ask me If u dont know how to use", Duration = 99999, Button1 = "YES", Button2 = "NO", Callback = bindable }) end)
     end
     task.wait(5)
     local sent = false
