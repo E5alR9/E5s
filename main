@@ -12,7 +12,7 @@ _G.fKN = _G.fKN or "PageDown"
 _G.freezeMS = _G.freezeMS or 300      
 _G.isMinimized = _G.isMinimized or false 
 _G.toggleKey = _G.toggleKey or Enum.KeyCode.R
-_G.spinSpeed = _G.spinSpeed or 50
+_G.spinSpeed = _G.spinSpeed or 10
 _G.freeze = false
 
 local p = game:GetService("Players").LocalPlayer
