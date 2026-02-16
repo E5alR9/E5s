@@ -1,0 +1,43 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+
+-- 你要加載的地圖 ID
+local MAP_ASSET_ID = 13336839729 
+local ALTURA_INICIAL = 5000 -- 初始等待高度
+
+-- 固定玩家，防止掉落
+root.Anchored = true
+root.CFrame = CFrame.new(root.Position.X, ALTURA_INICIAL, root.Position.Z)
+
+local function LoadMapOnly()
+    -- 獲取並加載地圖物件
+    local success, objs = pcall(function() 
+        return game:GetObjects("rbxassetid://" .. MAP_ASSET_ID) 
+    end)
+
+    if success and objs[1] then
+        local map = objs[1]
+        map.Parent = workspace
+        
+        -- 等待地圖物理加載一下
+        task.wait(1) 
+
+        -- 尋找地圖中的一個零件作為傳送點
+        local targetPart = map:FindFirstChildWhichIsA("BasePart", true)
+        if targetPart then
+            root.CFrame = targetPart.CFrame + Vector3.new(0, 5, 0)
+        else
+            -- 如果找不到零件，就傳送到座標中心
+            root.CFrame = CFrame.new(0, 10, 0)
+        end
+    else
+        warn("地圖加載失敗，請檢查 ID 是否正確。")
+    end
+
+    -- 解開固定
+    root.Anchored = false
+end
+
+-- 執行加載
+task.spawn(LoadMapOnly)
