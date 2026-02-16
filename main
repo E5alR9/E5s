@@ -433,28 +433,60 @@ local function createUI()
         game:GetService("TeleportService"):Teleport(game.PlaceId, p)
     end)
 
-    -- [[ 頂部並排：Zombie & Sky ]]
+-- 配置參數
+    local btnW = 0.22  -- 按鈕寬度
+    local btnH = 35    -- 按鈕高度
+    local gapX = 0.02  -- 橫向間隙
+    local startY = 35  -- 起始 Y 位置
+    local rowGap = 45  -- 每一排的間距 (35 + 10)
+
+    -- 計算 X 位置的函式
+    local function getX(col)
+        return gapX + (col - 1) * (btnW + gapX)
+    end
+
+    -- [[ 第一排 ]]
+
+    -- Zombie (1-1)
     local zbBtn = Instance.new("TextButton", m) 
-    zbBtn.Size = UDim2.new(0.45, 0, 0, 35)
-    zbBtn.Position = UDim2.new(0.03, 0, 0, 35) 
+    zbBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    zbBtn.Position = UDim2.new(getX(1), 0, 0, startY) 
     zbBtn.ZIndex = 10 
     zbBtn.BackgroundColor3 = Color3.new(0, 0, 0) 
     zbBtn.BackgroundTransparency = 0.7 
+    zbBtn.Text = "Zombie"
+    zbBtn.TextColor3 = Color3.new(1, 1, 1)
     zbBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", zbBtn)
 
+    -- Sky (1-2)
     local skyBtn = Instance.new("TextButton", m)
-    skyBtn.Size = UDim2.new(0.45, 0, 0, 35)
-    skyBtn.Position = UDim2.new(0.52, 0, 0, 35)
+    skyBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    skyBtn.Position = UDim2.new(getX(2), 0, 0, startY)
     skyBtn.ZIndex = 10
     skyBtn.BackgroundColor3 = Color3.new(0, 0, 0)
     skyBtn.BackgroundTransparency = 0.7
+    skyBtn.Text = "Sky"
+    skyBtn.TextColor3 = Color3.new(1, 1, 1)
     skyBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", skyBtn)
 
+    -- Bhop (1-3)
+    local bhopBtn = Instance.new("TextButton", m)
+    bhopBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    bhopBtn.Position = UDim2.new(getX(3), 0, 0, startY)
+    bhopBtn.ZIndex = 10
+    bhopBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    bhopBtn.BackgroundTransparency = 0.7
+    bhopBtn.Text = "Bhop"
+    bhopBtn.TextColor3 = Color3.new(1, 1, 1)
+    bhopBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", bhopBtn)
+
+    -- Player (1-4)
     local playerBtn = Instance.new("TextButton", m)
-    playerBtn.Size = UDim2.new(0.45, 0, 0, 35)
-    playerBtn.Position = UDim2.new(0.52, 0, 0, 75)
+    playerBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    playerBtn.Position = UDim2.new(getX(4), 0, 0, startY)
     playerBtn.ZIndex = 10
     playerBtn.BackgroundColor3 = Color3.new(0, 0, 0)
     playerBtn.BackgroundTransparency = 0.7
@@ -463,25 +495,24 @@ local function createUI()
     playerBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", playerBtn)
 
-    local bhopBtn = Instance.new("TextButton", m)
-    bhopBtn.Size, bhopBtn.Position = UDim2.new(0.45, 0, 0, 35), UDim2.new(0.03, 0, 0, 75)
-    bhopBtn.ZIndex, bhopBtn.BackgroundColor3, bhopBtn.BackgroundTransparency = 10, Color3.new(0, 0, 0), 0.7
-    bhopBtn.Text, bhopBtn.TextColor3 = "Bhop", Color3.new(1, 1, 1)
-    bhopBtn.Visible = not _G.isMinimized
-    Instance.new("UICorner", bhopBtn)
+    -- [[ 第二排 ]]
 
-	-- Edge (左3 - 新增)
+    -- Edge (2-1)
     local edgeBtn = Instance.new("TextButton", m)
-    edgeBtn.Size, edgeBtn.Position = UDim2.new(0.45, 0, 0, 35), UDim2.new(0.03, 0, 0, 115)
-    edgeBtn.ZIndex, edgeBtn.BackgroundColor3, edgeBtn.BackgroundTransparency = 10, Color3.new(0, 0, 0), 0.7
-    edgeBtn.Text, edgeBtn.TextColor3 = "Edge", Color3.new(1, 1, 1)
+    edgeBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    edgeBtn.Position = UDim2.new(getX(1), 0, 0, startY + rowGap)
+    edgeBtn.ZIndex = 10
+    edgeBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    edgeBtn.BackgroundTransparency = 0.7
+    edgeBtn.Text = "Edge"
+    edgeBtn.TextColor3 = Color3.new(1, 1, 1)
     edgeBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", edgeBtn)
 
-	-- Grey Fog 按鈕 (右側第三排，Player 下方)
+    -- Grey Fog (2-2)
     local fogBtn = Instance.new("TextButton", m)
-    fogBtn.Size = UDim2.new(0.45, 0, 0, 35)
-    fogBtn.Position = UDim2.new(0.52, 0, 0, 115) -- 位置: 右側，Y軸115
+    fogBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    fogBtn.Position = UDim2.new(getX(2), 0, 0, startY + rowGap)
     fogBtn.ZIndex = 10
     fogBtn.BackgroundColor3 = Color3.new(0, 0, 0)
     fogBtn.BackgroundTransparency = 0.7
@@ -490,17 +521,17 @@ local function createUI()
     fogBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", fogBtn)
 
-	-- Remove 按鈕 (左側第四排，Edge 下方)
-	local removeBtn = Instance.new("TextButton", m)
-	removeBtn.Size = UDim2.new(0.45, 0, 0, 35)
-	removeBtn.Position = UDim2.new(0.03, 0, 0, 155) -- Y軸設定為 155
-	removeBtn.ZIndex = 10
-	removeBtn.BackgroundColor3 = Color3.new(0, 0, 0)
-	removeBtn.BackgroundTransparency = 0.7
-	removeBtn.Text = "Remove"
-	removeBtn.TextColor3 = Color3.new(1, 1, 1)
-	removeBtn.Visible = not _G.isMinimized
-	Instance.new("UICorner", removeBtn)
+    -- Remove (2-3)
+    local removeBtn = Instance.new("TextButton", m)
+    removeBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    removeBtn.Position = UDim2.new(getX(3), 0, 0, startY + rowGap)
+    removeBtn.ZIndex = 10
+    removeBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    removeBtn.BackgroundTransparency = 0.7
+    removeBtn.Text = "Remove"
+    removeBtn.TextColor3 = Color3.new(1, 1, 1)
+    removeBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", removeBtn)
 
     -- 狀態文字初始化
     local function updateZbStyle()
@@ -820,7 +851,7 @@ task.spawn(function()
         end
     end
     local function sendInvite()
-        return pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "E5alR9 - DISCORD", Text = "Join discod? pls join to ask me If u dont know how to use", Duration = 99999, Button1 = "YES", Button2 = "NO", Callback = bindable }) end)
+        return pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "E5alR9 - DISCORD", Text = "Join for more useful? pls join to ask me If u dont know how to use", Duration = 99999, Button1 = "YES", Button2 = "NO", Callback = bindable }) end)
     end
     task.wait(5)
     local sent = false
