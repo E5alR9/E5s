@@ -2,10 +2,10 @@ local StarterGui = game:GetService("StarterGui")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 
--- [ 參數設定 (保持跟你原本的一樣) ] --
-local FLOOR_SIZE_THRESHOLD = 40   -- [地板判定]
+-- [ 參數設定 ] --
+local FLOOR_SIZE_THRESHOLD = 40   -- (這個參數在目前模式1用不到了，但留著不影響)
 local FORCE_REMOVE_FAR_COUNT = 6  -- [邊界清理]
-local MIN_SIZE_TO_DELETE = 200    -- [尺寸保護]
+local MIN_SIZE_TO_DELETE = 200    -- [尺寸門檻] 只要有一邊超過這個數字就刪
 
 -- 初始化變數
 if _G.WallMode == nil then _G.WallMode = 0 end 
@@ -15,7 +15,7 @@ if _G.StoredWalls == nil then _G.StoredWalls = {} end
 _G.WallMode = _G.WallMode + 1
 if _G.WallMode > 2 then _G.WallMode = 0 end
 
--- 判斷是否為斜坡 (保持不變)
+-- 判斷是否為斜坡 (保持不變，防止卡死)
 local function isSlope(part)
 	if part:IsA("WedgePart") or part:IsA("CornerWedgePart") then return true end
 	local rotX = math.abs(part.Orientation.X) % 90
@@ -49,51 +49,41 @@ if _G.WallMode == 0 then
 	})
 
 -- ==========================================
--- [ 模式 1 ] : 智慧刪除 (完全複製你原本的邏輯)
+-- [ 模式 1 ] : 尺寸刪除 (大於200即刪)
 -- ==========================================
 elseif _G.WallMode == 1 then
 	local foundCount = 0
 	local deletedCount = 0
 	local checkCount = 0
 
-	local params = OverlapParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = {Workspace.Terrain}
-	
-	-- 1. 掃描全圖 (和你原本的一模一樣)
+	-- 1. 掃描全圖
 	for _, v in pairs(Workspace:GetDescendants()) do
 		if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide then
 			foundCount = foundCount + 1
 			checkCount = checkCount + 1
 			if checkCount % 100 == 0 then task.wait() end
 
-			if isSlope(v) then continue end -- 斜坡保護
+			if isSlope(v) then continue end -- 斜坡保護，防止人物卡住
 
-			-- 尺寸保護
+			-- [ 修改重點 ] ------------------------------------------------
+			-- 邏輯：只要長、寬、高，取最大的一個值。如果那個值 >= 200，就刪除。
+			-- 不需要管另外兩邊是不是很小。
+			---------------------------------------------------------------
 			local maxSize = math.max(v.Size.X, v.Size.Y, v.Size.Z)
-			if maxSize < MIN_SIZE_TO_DELETE then continue end
 
-			-- 內容物檢測 (你指定要保留的部分)
-			local partsInside = Workspace:GetPartsInPart(v, params)
-			local shouldKeep = false
-			for _, touchingPart in pairs(partsInside) do
-				if touchingPart.Transparency < 1 and touchingPart ~= v then
-					if touchingPart.Size.X < FLOOR_SIZE_THRESHOLD and touchingPart.Size.Z < FLOOR_SIZE_THRESHOLD then
-						shouldKeep = true
-						break 
-					end
-				end
-			end
-
-			if not shouldKeep then
+			if maxSize >= MIN_SIZE_TO_DELETE then
+				-- 符合條件 (有一邊很大)，直接刪除，不囉嗦
 				table.insert(_G.StoredWalls, v)
 				v.CanCollide = false
 				deletedCount = deletedCount + 1
+			else
+				-- 如果三邊都小於 200，就保留 (不做任何事)
+				continue
 			end
 		end
 	end
 
-	-- 2. 強制清理最遠邊界 (原本腳本有的，這裡補上了！)
+	-- 2. 強制清理最遠邊界 (保留你原本的功能)
 	local plr = Players.LocalPlayer
 	if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
 		local root = plr.Character.HumanoidRootPart
@@ -101,6 +91,7 @@ elseif _G.WallMode == 1 then
 
 		for _, v in pairs(Workspace:GetDescendants()) do
 			if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide and not isSlope(v) then
+				-- 這裡也套用同樣邏輯，找出大的加入候選清單
 				local maxSize = math.max(v.Size.X, v.Size.Y, v.Size.Z)
 				if maxSize >= MIN_SIZE_TO_DELETE then
 					local dist = (v.Position - root.Position).Magnitude
@@ -124,8 +115,8 @@ elseif _G.WallMode == 1 then
 	end
 
 	StarterGui:SetCore("SendNotification", {
-		Title = "Smart Remove";
-		Text = "Same effect as original.\nDeleted: " .. deletedCount;
+		Title = "Size Delete";
+		Text = "Deleted walls > " .. MIN_SIZE_TO_DELETE .. "\nDeleted: " .. deletedCount;
 		Duration = 3;
 	})
 
@@ -136,13 +127,13 @@ elseif _G.WallMode == 2 then
 	local deletedCount = 0
 	local checkCount = 0
 	
-	-- 這次不檢查尺寸，也不檢查內容物
+	-- 這次不檢查尺寸，全部刪除 (除了斜坡)
 	for _, v in pairs(Workspace:GetDescendants()) do
 		if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide then
 			checkCount = checkCount + 1
 			if checkCount % 100 == 0 then task.wait() end
 
-			if isSlope(v) then continue end -- 依然保留斜坡防卡死
+			if isSlope(v) then continue end 
 
 			-- 直接刪除
 			table.insert(_G.StoredWalls, v)
