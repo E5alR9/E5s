@@ -12,7 +12,7 @@ _G.fKN = _G.fKN or "PageDown"
 _G.freezeMS = _G.freezeMS or 300      
 _G.isMinimized = _G.isMinimized or false 
 _G.toggleKey = _G.toggleKey or Enum.KeyCode.R
-_G.spinSpeed = _G.spinSpeed or 10
+_G.spinSpeed = _G.spinSpeed or 50
 _G.freeze = false
 
 local p = game:GetService("Players").LocalPlayer
@@ -327,35 +327,55 @@ local function createUI()
     content.Position = UDim2.new(0, 0, 1, -160)
     content.BackgroundTransparency, content.Visible = 1, not _G.isMinimized
 
--- [[ 第一排：LAG TOOL | KEY  ]]
-    local lagToolBtn = Instance.new("TextButton", content)
-    -- 設定為 45% 寬度，靠左留 3% 邊距
-    lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.45, 0, 0, 40), UDim2.new(0.03, 0, 0, 0), "TOOL"
-    lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.fromRGB(70, 90, 110), Color3.new(1, 1, 1), 0.5
-    Instance.new("UICorner", lagToolBtn)
-    lagToolBtn.MouseButton1Click:Connect(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/TOOL"))()
-        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/spin"))() end)
-        notify("TOOL", "Freeze Window & Spin Loaded!")
-    end)
+	-- [[ 第一排：LAG TOOL | KEY | SPEED ]]
 
-    local spinKeyBtn = Instance.new("TextButton", content)
-    -- 設定為 45% 寬度，從 52% 的位置開始 (中間留 4% 隙縫)
-    spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.45, 0, 0, 40), UDim2.new(0.52, 0, 0, 0)
-    spinKeyBtn.Text = "Spin KEY :".._G.toggleKey.Name
-    spinKeyBtn.BackgroundColor3, spinKeyBtn.TextColor3, spinKeyBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
-    Instance.new("UICorner", spinKeyBtn)
-    spinKeyBtn.MouseButton1Click:Connect(function()
-        spinKeyBtn.Text = "..."
-        local con; con = UIS.InputBegan:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.Keyboard then
-                _G.toggleKey = i.KeyCode
-                spinKeyBtn.Text = "Spin KEY :".._G.toggleKey.Name
-                notify("KEYBIND", "Spin Key : ".._G.toggleKey.Name)
-                con:Disconnect()
-            end
-        end)
-    end)
+	-- 1. TOOL 按鈕 (寬度佔 35%)
+	local lagToolBtn = Instance.new("TextButton", content)
+	lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.03, 0, 0, 0), "TOOL"
+	lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.fromRGB(70, 90, 110), Color3.new(1, 1, 1), 0.5
+	Instance.new("UICorner", lagToolBtn)
+	lagToolBtn.MouseButton1Click:Connect(function()
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/TOOL"))()
+		pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/spin"))() end)
+		notify("TOOL", "Freeze Window & Spin Loaded!")
+	end)
+
+	-- 2. Spin KEY 按鈕 (寬度佔 35%)
+	local spinKeyBtn = Instance.new("TextButton", content)
+	spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.40, 0, 0, 0)
+	spinKeyBtn.Text = "KEY:".._G.toggleKey.Name
+	spinKeyBtn.BackgroundColor3, spinKeyBtn.TextColor3, spinKeyBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
+	Instance.new("UICorner", spinKeyBtn)
+	spinKeyBtn.MouseButton1Click:Connect(function()
+		spinKeyBtn.Text = "..."
+		local con; con = UIS.InputBegan:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.Keyboard then
+				_G.toggleKey = i.KeyCode
+				spinKeyBtn.Text = "KEY:".._G.toggleKey.Name
+				notify("KEYBIND", "Spin Key: ".._G.toggleKey.Name)
+				con:Disconnect()
+			end
+		end)
+	end)
+
+	-- 3. Spin SPEED 輸入框 (寬度佔 20%)
+	local speedBox = Instance.new("TextBox", content)
+	speedBox.Size, speedBox.Position = UDim2.new(0.20, 0, 0, 40), UDim2.new(0.77, 0, 0, 0)
+	speedBox.Text = tostring(_G.spinSpeed or 10)
+	speedBox.PlaceholderText = "SPD"
+	speedBox.BackgroundColor3, speedBox.TextColor3, speedBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1, 1, 0), 0.7
+	speedBox.TextSize = 14
+	Instance.new("UICorner", speedBox)
+
+	speedBox.FocusLost:Connect(function(enterPressed)
+		local val = tonumber(speedBox.Text)
+		if val then
+			_G.spinSpeed = val
+			notify("SYSTEM", "Spin Speed set to: " .. _G.spinSpeed)
+		else
+			speedBox.Text = tostring(_G.spinSpeed or 10)
+		end
+	end)
 
     -- [[ 第二排：PGDN (fKN) | MS ]]
     local l = Instance.new("TextButton", content)
