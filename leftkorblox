@@ -1,0 +1,63 @@
+local Players = game:GetService("Players")
+
+-- [[ 根據你提供的左腿數據進行修正 ]]
+local K_LEFT_MESH_ID = 101851582 -- 正確的左腿 Mesh ID
+local K_OVERLAY_ID = 101851254
+-- 圖片中的顏色帶有明顯的青藍色調 (Teal/Dark Cyan)
+local K_COLOR = Color3.fromRGB(38, 65, 68) 
+
+local function applyTargetColor(char)
+    if not char then return end
+
+    -- 1. 使用 CharacterMesh 套用在左腿 (LeftLeg)
+    local lLegMesh = char:FindFirstChild("KorbloxLeftMesh") or Instance.new("CharacterMesh")
+    lLegMesh.Name = "KorbloxLeftMesh"
+    lLegMesh.BodyPart = Enum.BodyPart.LeftLeg -- 確保指向左腿
+    lLegMesh.MeshId = K_LEFT_MESH_ID
+    lLegMesh.BaseTextureId = 0
+    lLegMesh.OverlayTextureId = K_OVERLAY_ID
+    lLegMesh.Parent = char
+
+    -- 2. 微調左腿零件的材質與顏色
+    local lLeg = char:WaitForChild("Left Leg", 5)
+    if lLeg then
+        -- 移除任何會干擾外觀的 SpecialMesh 或貼圖
+        for _, v in ipairs(lLeg:GetChildren()) do
+            if v:IsA("SpecialMesh") or v:IsA("Decal") then 
+                v:Destroy() 
+            end
+        end
+
+        lLeg.Color = K_COLOR
+        lLeg.Transparency = 0
+        -- 使用 Plastic 或 Neon (若需要發光感可改為 Enum.Material.Neon)
+        lLeg.Material = Enum.Material.Plastic 
+        
+        -- 強力鎖定，防止被遊戲或服裝系統改回顏色
+        task.spawn(function()
+            while char and char.Parent and lLeg.Parent do
+                if lLeg.Color ~= K_COLOR then 
+                    lLeg.Color = K_COLOR 
+                end
+                task.wait(1)
+            end
+        end)
+    end
+end
+
+-- 全服套用邏輯
+local function onPlayerAdded(p)
+    p.CharacterAdded:Connect(function(c)
+        task.wait(0.5) -- 等待零件生成
+        applyTargetColor(c)
+    end)
+    if p.Character then 
+        task.spawn(applyTargetColor, p.Character) 
+    end
+end
+
+-- 初始化現有玩家與新玩家
+for _, p in pairs(Players:GetPlayers()) do
+    onPlayerAdded(p)
+end
+Players.PlayerAdded:Connect(onPlayerAdded)
