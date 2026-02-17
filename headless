@@ -1,21 +1,38 @@
 local Players = game:GetService("Players")
 local p = Players.LocalPlayer
 
+-- 定義你提供的無頭 Mesh 資訊
+local HEADLESS_MESH_ID = "rbxassetid://6686307858"
+local HEADLESS_COLOR = Color3.fromRGB(163, 162, 165)
+
 local function applyHeadless(char)
     if not char then return end
     
-    -- 使用 task.spawn 避免等待頭部時卡住後續邏輯
     task.spawn(function()
         -- 最長等待 10 秒直到頭部零件加載
         local h = char:WaitForChild("Head", 10)
         
         if h then 
-            task.wait(0.2) -- 稍微延遲，確保臉部貼圖加載完畢
+            task.wait(0.2) -- 確保初始資源加載完畢
             
-            -- 1. 讓頭部零件完全透明
-            h.Transparency = 1 
+            -- 1. 設定基礎屬性 (依據你提供的資訊)
+            h.Color = HEADLESS_COLOR
+            h.Material = Enum.Material.Plastic
+            h.Transparency = 0
+            h.CastShadow = false -- 通常無頭不投射陰影，若要陰影可改為 true
             
-            -- 2. 讓頭部內的所有貼圖（臉、表情）完全透明
+            -- 2. 尋找或創建 SpecialMesh 進行替換
+            -- 許多 R6/R15 角色頭部內建 SpecialMesh，直接修改它最穩定
+            local mesh = h:FindFirstChildOfClass("SpecialMesh")
+            if not mesh then
+                mesh = Instance.new("SpecialMesh", h)
+            end
+            
+            mesh.MeshId = HEADLESS_MESH_ID
+            mesh.TextureId = "" -- 清空貼圖 ID
+            
+            -- 3. 處理臉部貼圖與其他裝飾物
+            -- 遍歷頭部內的所有子物件，將貼圖透明度設為 1
             for _, v in ipairs(h:GetChildren()) do 
                 if v:IsA("Decal") or v:IsA("Texture") then 
                     v.Transparency = 1 
@@ -25,7 +42,7 @@ local function applyHeadless(char)
     end)
 end
 
--- 監聽角色生成（確保死後重生依然有無頭效果）
+-- 監聽角色生成（確保死後重生依然有效）
 p.CharacterAdded:Connect(applyHeadless)
 
 -- 如果腳本執行時角色已經存在，直接套用一次
