@@ -12,6 +12,7 @@ task.spawn(function()
     end)
     pcall(function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/script.txt"))()
+        pcall(loadstring(game:HttpGet('https://raw.githubusercontent.com/zReal-King/Evade/main/Main.lua')))
     end)
 end)
 
@@ -45,7 +46,7 @@ UICornerDot.Parent = TargetCircle
 
 TargetLabel.Size = UDim2.new(1, 0, 1, 0)
 TargetLabel.BackgroundTransparency = 1
-TargetLabel.Text = "對準按鈕"
+TargetLabel.Text = "對準按鈕 click here"
 TargetLabel.TextColor3 = Color3.new(1, 1, 1)
 TargetLabel.TextSize = 10
 TargetLabel.Parent = TargetCircle
@@ -58,7 +59,7 @@ ClickBtn.Parent = ScreenGui
 ClickBtn.Size = UDim2.new(0, 140, 0, 45)
 ClickBtn.Position = UDim2.new(0.1, 0, 0.4, 0)
 ClickBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-ClickBtn.Text = "自動點擊: 關閉"
+ClickBtn.Text = "自動點擊auto click: 關閉off"
 ClickBtn.TextColor3 = Color3.new(1, 1, 1)
 ClickBtn.Font = Enum.Font.GothamBold
 ClickBtn.TextSize = 14
@@ -68,7 +69,7 @@ UICornerClick.Parent = ClickBtn
 local isClickActive = false
 ClickBtn.MouseButton1Click:Connect(function()
     isClickActive = not isClickActive
-    ClickBtn.Text = isClickActive and "自動點擊: 開啟" or "自動點擊: 關閉"
+    ClickBtn.Text = isClickActive and "自動點擊auto click: 開啟on" or "自動點擊auto click: 關閉off"
     ClickBtn.BackgroundColor3 = isClickActive and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(40, 40, 40)
     TargetCircle.BackgroundTransparency = isClickActive and 0.7 or 0.5
 end)
@@ -102,7 +103,7 @@ KeyBtn.Parent = ScreenGui
 KeyBtn.Size = UDim2.new(0, 140, 0, 45)
 KeyBtn.Position = UDim2.new(0.1, 0, 0.5, 0)
 KeyBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 150)
-KeyBtn.Text = "G5按鍵: 關閉"
+KeyBtn.Text = "G5按鍵: 關閉off"
 KeyBtn.TextColor3 = Color3.new(1, 1, 1)
 KeyBtn.Font = Enum.Font.GothamBold
 KeyBtn.TextSize = 14
@@ -112,7 +113,7 @@ UICornerKey.Parent = KeyBtn
 local isAutoKeyEnabled = false
 KeyBtn.MouseButton1Click:Connect(function()
     isAutoKeyEnabled = not isAutoKeyEnabled
-    KeyBtn.Text = isAutoKeyEnabled and "G5按鍵: 開啟" or "G5按鍵: 關閉"
+    KeyBtn.Text = isAutoKeyEnabled and "G5按鍵: 開啟on" or "G5按鍵: 關閉on"
     KeyBtn.BackgroundColor3 = isAutoKeyEnabled and Color3.fromRGB(130, 0, 255) or Color3.fromRGB(80, 0, 150)
 end)
 
