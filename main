@@ -416,7 +416,7 @@ local function createUI()
         game:GetService("TeleportService"):Teleport(game.PlaceId, p)
     end)
 
--- 配置參數
+	-- 配置參數
     local btnW = 0.22  -- 按鈕寬度
     local btnH = 35    -- 按鈕高度
     local gapX = 0.02  -- 橫向間隙
@@ -516,6 +516,44 @@ local function createUI()
     removeBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", removeBtn)
 
+    -- Headless (2-4) -> 移到第二排最後一格
+    local headlessBtn = Instance.new("TextButton", m)
+    headlessBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    headlessBtn.Position = UDim2.new(getX(4), 0, 0, startY + rowGap) -- 這裡改成了 getX(4)
+    headlessBtn.ZIndex = 10
+    headlessBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    headlessBtn.BackgroundTransparency = 0.7
+    headlessBtn.Text = "Headless"
+    headlessBtn.TextColor3 = Color3.new(1, 1, 1)
+    headlessBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", headlessBtn)
+
+    -- [[ 第三排 ]]
+
+    -- Left Korblox (3-1)
+    local leftKBtn = Instance.new("TextButton", m)
+    leftKBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    leftKBtn.Position = UDim2.new(getX(1), 0, 0, startY + rowGap * 2) -- 換到第 1 欄
+    leftKBtn.ZIndex = 10
+    leftKBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    leftKBtn.BackgroundTransparency = 0.7
+    leftKBtn.Text = "Left Korblox"
+    leftKBtn.TextColor3 = Color3.new(1, 1, 1)
+    leftKBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", leftKBtn)
+
+    -- Right Korblox (3-2)
+    local rightKBtn = Instance.new("TextButton", m)
+    rightKBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    rightKBtn.Position = UDim2.new(getX(2), 0, 0, startY + rowGap * 2) -- 換到第 2 欄
+    rightKBtn.ZIndex = 10
+    rightKBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    rightKBtn.BackgroundTransparency = 0.7
+    rightKBtn.Text = "Right Korblox"
+    rightKBtn.TextColor3 = Color3.new(1, 1, 1)
+    rightKBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", rightKBtn)
+
     -- 狀態文字初始化
     local function updateZbStyle()
         if _G.zbClickCount == 0 then zbBtn.Text = "Zombie"
@@ -602,6 +640,21 @@ local function createUI()
 		pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/removeinvwall"))() end)
 	end)
 
+	-- [[ 點擊事件新增 ]]
+
+    headlessBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/headless"))() end)
+    end)
+
+    rightKBtn.MouseButton1Click:Connect(function()
+        -- 根據你的要求，Right 對應 bestkorblox
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/bestkorblox"))() end)
+    end)
+
+    leftKBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/leftkorblox"))() end)
+    end)
+
     minBtn.MouseButton1Click:Connect(function()
         _G.isMinimized = not _G.isMinimized
         m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
@@ -614,6 +667,9 @@ local function createUI()
 		edgeBtn.Visible = not _G.isMinimized
 		fogBtn.Visible = not _G.isMinimized
 		removeBtn.Visible = not _G.isMinimized
+		headlessBtn.Visible = not _G.isMinimized
+        rightKBtn.Visible = not _G.isMinimized
+        leftKBtn.Visible = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
     end)
 end
@@ -656,30 +712,6 @@ local function run(c)
             end
         end)
     end
-
-    -- 2. 外觀處理：無頭與斷腳 (Korblox)
-    task.spawn(function()
-        -- 等待頭部加載，最長等待 10 秒
-        local h = c:WaitForChild("Head", 10)
-        if h then 
-            task.wait(0.2) -- 稍微延長等待，確保所有裝飾品加載完畢
-            
-            -- 透明化頭部
-            h.Transparency = 1 
-            
-            -- 執行遠端斷腳腳本
-            pcall(function()
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/bestkorblox"))()
-            end)
-            
-            -- 透明化所有面部貼圖 (Faces, Decals)
-            for _, v in ipairs(h:GetChildren()) do 
-                if v:IsA("Decal") or v:IsA("Texture") then 
-                    v.Transparency = 1 
-                end 
-            end 
-        end
-    end)
 end
 
 -- [[ 🚀 角色監控系統 (全服適用) ]]
@@ -708,7 +740,7 @@ task.spawn(function()
     Players.PlayerAdded:Connect(monitor)
 end)
 
--- [[ ⌨️ 輸入偵測核心：啟動與停止 (智能重置版) ]]
+-- [[ ⌨️ 輸入偵測核心：啟動與停止 ]]
 
 -- 1. 偵測按下
 UIS.InputBegan:Connect(function(i, processed)
