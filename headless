@@ -1,0 +1,34 @@
+local Players = game:GetService("Players")
+local p = Players.LocalPlayer
+
+local function applyHeadless(char)
+    if not char then return end
+    
+    -- 使用 task.spawn 避免等待頭部時卡住後續邏輯
+    task.spawn(function()
+        -- 最長等待 10 秒直到頭部零件加載
+        local h = char:WaitForChild("Head", 10)
+        
+        if h then 
+            task.wait(0.2) -- 稍微延遲，確保臉部貼圖加載完畢
+            
+            -- 1. 讓頭部零件完全透明
+            h.Transparency = 1 
+            
+            -- 2. 讓頭部內的所有貼圖（臉、表情）完全透明
+            for _, v in ipairs(h:GetChildren()) do 
+                if v:IsA("Decal") or v:IsA("Texture") then 
+                    v.Transparency = 1 
+                end 
+            end 
+        end
+    end)
+end
+
+-- 監聽角色生成（確保死後重生依然有無頭效果）
+p.CharacterAdded:Connect(applyHeadless)
+
+-- 如果腳本執行時角色已經存在，直接套用一次
+if p.Character then 
+    applyHeadless(p.Character) 
+end
