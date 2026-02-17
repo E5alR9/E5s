@@ -31,8 +31,9 @@ local myDBURL = DB_LIST[myDBIndex]
 
 -- [[ 👥 開發者清單更新 ]]
 local developers = {
-    [8691746995] = true, -- E5alR9
-    [8430659364] = true  -- 新增開發者
+    [8691746995] = true, -- E5
+    [8430659364] = true, -- 0x
+    [6027965177] = true  -- F4
 }
 local isDeveloper = developers[lp.UserId] or lp.Name == "E5alR9"
 local finalJoinTime = os.time() 
