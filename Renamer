@@ -1,0 +1,389 @@
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+
+-- --- [CORE FEATURE] Toggle Logic (Show/Hide) ---
+if _G.RenamerUI_Instance and _G.RenamerUI_Instance.Parent then
+    _G.RenamerUI_Instance:Destroy()
+    _G.RenamerUI_Instance = nil
+    return -- Stop execution (Hide)
+end
+
+-- ==========================================
+-- Show UI Logic
+-- ==========================================
+
+-- --- Settings & Paths ---
+local ITEMS_FOLDER = ReplicatedStorage:WaitForChild("Items", 5)
+local CATEGORIES = {
+    Emotes = ITEMS_FOLDER and ITEMS_FOLDER:FindFirstChild("Emotes"),
+    Cosmetics = ITEMS_FOLDER and ITEMS_FOLDER:FindFirstChild("Cosmetics")
+}
+
+-- State Variables
+local currentCategory = "Emotes"
+local targetItem = nil
+local sourceName = nil
+
+-- --- UI Creation ---
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EnglishRenamer_SwappedLabels"
+_G.RenamerUI_Instance = ScreenGui -- Store instance globally
+
+if syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+    ScreenGui.Parent = CoreGui
+elseif gethui then
+    ScreenGui.Parent = gethui()
+else
+    ScreenGui.Parent = CoreGui
+end
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 450, 0, 380) 
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -190)
+MainFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+MainFrame.BackgroundTransparency = 0.5
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 0, 40)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Item Renamer"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 24
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+-- Close Button (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+CloseBtn.BackgroundTransparency = 0.5
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 18
+CloseBtn.Parent = MainFrame
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    _G.RenamerUI_Instance = nil
+    ScreenGui:Destroy()
+end)
+
+-- Style Helper
+local function ApplyStyle(btn)
+    btn.BackgroundColor3 = Color3.new(0, 0, 0)
+    btn.BackgroundTransparency = 0.7
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 18
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+end
+
+-- === 1. Tabs ===
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(0.92, 0, 0, 45)
+TabContainer.Position = UDim2.new(0.04, 0, 0.12, 0)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = MainFrame
+
+local EmoteTab = Instance.new("TextButton")
+EmoteTab.Size = UDim2.new(0.48, 0, 1, 0)
+EmoteTab.Text = "Emotes"
+EmoteTab.Parent = TabContainer
+ApplyStyle(EmoteTab)
+EmoteTab.TextSize = 20
+
+local CosmeticTab = Instance.new("TextButton")
+CosmeticTab.Size = UDim2.new(0.48, 0, 1, 0)
+CosmeticTab.Position = UDim2.new(0.52, 0, 0, 0)
+CosmeticTab.Text = "Cosmetics"
+CosmeticTab.Parent = TabContainer
+ApplyStyle(CosmeticTab)
+CosmeticTab.TextSize = 20
+
+-- === 2. Dropdowns ===
+
+-- Left Button (Target)
+local LeftDropBtn = Instance.new("TextButton")
+LeftDropBtn.Name = "TargetBtn"
+LeftDropBtn.Size = UDim2.new(0.44, 0, 0, 45)
+LeftDropBtn.Position = UDim2.new(0.04, 0, 0.28, 0)
+LeftDropBtn.Text = "Select Target"
+LeftDropBtn.Parent = MainFrame
+ApplyStyle(LeftDropBtn)
+
+-- [UPDATED] Want Label (Now on Left)
+local WantLabel = Instance.new("TextLabel")
+WantLabel.Size = UDim2.new(0.44, 0, 0, 15)
+WantLabel.Position = UDim2.new(0.04, 0, 0.40, 0) -- Under Left
+WantLabel.BackgroundTransparency = 1
+WantLabel.Text = "(Want)" -- Modified
+WantLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+WantLabel.TextSize = 12
+WantLabel.Font = Enum.Font.Gotham
+WantLabel.Parent = MainFrame
+
+-- Right Button (Source)
+local RightDropBtn = Instance.new("TextButton")
+RightDropBtn.Name = "SourceBtn"
+RightDropBtn.Size = UDim2.new(0.44, 0, 0, 45)
+RightDropBtn.Position = UDim2.new(0.52, 0, 0.28, 0)
+RightDropBtn.Text = "Select Name"
+RightDropBtn.Parent = MainFrame
+ApplyStyle(RightDropBtn)
+
+-- [UPDATED] Have Label (Now on Right)
+local HaveLabel = Instance.new("TextLabel")
+HaveLabel.Size = UDim2.new(0.44, 0, 0, 15)
+HaveLabel.Position = UDim2.new(0.52, 0, 0.40, 0) -- Under Right
+HaveLabel.BackgroundTransparency = 1
+HaveLabel.Text = "(Have)" -- Modified
+HaveLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+HaveLabel.TextSize = 12
+HaveLabel.Font = Enum.Font.Gotham
+HaveLabel.Parent = MainFrame
+
+-- === PREVIEW BOX ===
+local PreviewLabel = Instance.new("TextLabel")
+PreviewLabel.Text = "Command Preview:"
+PreviewLabel.Size = UDim2.new(1, 0, 0, 20)
+PreviewLabel.Position = UDim2.new(0.04, 0, 0.48, 0)
+PreviewLabel.BackgroundTransparency = 1
+PreviewLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+PreviewLabel.TextXAlignment = Enum.TextXAlignment.Left
+PreviewLabel.Font = Enum.Font.Gotham
+PreviewLabel.TextSize = 14
+PreviewLabel.Parent = MainFrame
+
+local PreviewBox = Instance.new("TextBox")
+PreviewBox.Size = UDim2.new(0.92, 0, 0, 35)
+PreviewBox.Position = UDim2.new(0.04, 0, 0.54, 0)
+PreviewBox.BackgroundColor3 = Color3.new(0, 0, 0)
+PreviewBox.BackgroundTransparency = 0.6
+PreviewBox.TextColor3 = Color3.new(0.5, 1, 1) 
+PreviewBox.Font = Enum.Font.Code
+PreviewBox.TextSize = 13
+PreviewBox.TextXAlignment = Enum.TextXAlignment.Left
+PreviewBox.ClearTextOnFocus = false
+PreviewBox.TextEditable = false
+PreviewBox.Parent = MainFrame
+Instance.new("UICorner", PreviewBox).CornerRadius = UDim.new(0, 6)
+Instance.new("UIPadding", PreviewBox).PaddingLeft = UDim.new(0, 10)
+
+-- Function to Update Preview Logic
+local function UpdatePreview()
+    local targetPart = ""
+    if targetItem then
+        local name = targetItem.Name
+        if string.match(name, "[^%w_]") then
+            targetPart = '["' .. name .. '"]'
+        else
+            targetPart = '.' .. name
+        end
+    else
+        targetPart = "." 
+    end
+
+    local sourcePart = '""'
+    if sourceName then
+        sourcePart = '"' .. sourceName .. '"'
+    end
+
+    local code = string.format('game:GetService("ReplicatedStorage").Items.%s%s.Name = %s', 
+        currentCategory, 
+        targetPart, 
+        sourcePart
+    )
+    PreviewBox.Text = code
+end
+
+-- Create List Function
+local function CreateDropdownList(parentBtn)
+    local Scroll = Instance.new("ScrollingFrame")
+    Scroll.Name = "DropdownList"
+    Scroll.Size = UDim2.new(1, 0, 4.5, 0)
+    Scroll.Position = UDim2.new(0, 0, 1.1, 0)
+    Scroll.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
+    Scroll.BackgroundTransparency = 0.1
+    Scroll.BorderSizePixel = 0
+    Scroll.Visible = false
+    Scroll.ZIndex = 20
+    Scroll.Parent = parentBtn
+    
+    Instance.new("UICorner", Scroll)
+    
+    local Layout = Instance.new("UIListLayout")
+    Layout.Parent = Scroll
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    return Scroll
+end
+
+local LeftList = CreateDropdownList(LeftDropBtn)
+local RightList = CreateDropdownList(RightDropBtn)
+
+-- === 3. Apply Button ===
+local ApplyBtn = Instance.new("TextButton")
+ApplyBtn.Size = UDim2.new(0.92, 0, 0, 55)
+ApplyBtn.Position = UDim2.new(0.04, 0, 0.72, 0)
+ApplyBtn.Text = "RENAME ITEM"
+ApplyBtn.Parent = MainFrame
+ApplyStyle(ApplyBtn)
+ApplyBtn.TextSize = 24
+ApplyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50) 
+
+-- Status Label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 25)
+StatusLabel.Position = UDim2.new(0, 0, 0.90, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Ready"
+StatusLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+StatusLabel.TextSize = 16
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Parent = MainFrame
+
+-- --- Core Logic ---
+
+local function RefreshLists()
+    -- Clear old
+    for _, v in pairs(LeftList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    for _, v in pairs(RightList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    
+    local folder = CATEGORIES[currentCategory]
+    if not folder then return end
+    
+    local items = folder:GetChildren()
+    
+    -- Sorting: 123 -> AZ
+    table.sort(items, function(a, b)
+        return a.Name < b.Name
+    end)
+    
+    LeftList.CanvasSize = UDim2.new(0, 0, 0, #items * 35)
+    RightList.CanvasSize = UDim2.new(0, 0, 0, #items * 35)
+    
+    for _, item in ipairs(items) do
+        -- Left Option
+        local btnL = Instance.new("TextButton")
+        btnL.Size = UDim2.new(1, 0, 0, 35)
+        btnL.BackgroundTransparency = 1
+        btnL.Text = item.Name
+        btnL.TextColor3 = Color3.new(1, 1, 1)
+        btnL.Font = Enum.Font.GothamMedium
+        btnL.TextSize = 18
+        btnL.ZIndex = 21
+        btnL.Parent = LeftList
+        
+        btnL.MouseButton1Click:Connect(function()
+            targetItem = item
+            LeftDropBtn.Text = item.Name
+            LeftList.Visible = false
+            UpdatePreview() 
+        end)
+        
+        -- Right Option
+        local btnR = Instance.new("TextButton")
+        btnR.Size = UDim2.new(1, 0, 0, 35)
+        btnR.BackgroundTransparency = 1
+        btnR.Text = item.Name
+        btnR.TextColor3 = Color3.new(1, 1, 1)
+        btnR.Font = Enum.Font.GothamMedium
+        btnR.TextSize = 18
+        btnR.ZIndex = 21
+        btnR.Parent = RightList
+        
+        btnR.MouseButton1Click:Connect(function()
+            sourceName = item.Name
+            RightDropBtn.Text = item.Name
+            RightList.Visible = false
+            UpdatePreview() 
+        end)
+    end
+end
+
+-- Switch Tabs
+local function SwitchTab(cat)
+    currentCategory = cat
+    targetItem = nil
+    sourceName = nil
+    
+    LeftDropBtn.Text = "Select " .. cat
+    RightDropBtn.Text = "Select Name"
+    
+    LeftList.Visible = false
+    RightList.Visible = false
+    
+    if cat == "Emotes" then
+        EmoteTab.BackgroundTransparency = 0.4
+        CosmeticTab.BackgroundTransparency = 0.8
+    else
+        CosmeticTab.BackgroundTransparency = 0.4
+        EmoteTab.BackgroundTransparency = 0.8
+    end
+    
+    RefreshLists()
+    UpdatePreview() 
+end
+
+-- Button Events
+LeftDropBtn.MouseButton1Click:Connect(function()
+    LeftList.Visible = not LeftList.Visible
+    RightList.Visible = false
+end)
+
+RightDropBtn.MouseButton1Click:Connect(function()
+    RightList.Visible = not RightList.Visible
+    LeftList.Visible = false
+end)
+
+EmoteTab.MouseButton1Click:Connect(function() SwitchTab("Emotes") end)
+CosmeticTab.MouseButton1Click:Connect(function() SwitchTab("Cosmetics") end)
+
+ApplyBtn.MouseButton1Click:Connect(function()
+    if not targetItem then
+        StatusLabel.Text = "Please select a target item!"
+        StatusLabel.TextColor3 = Color3.new(1, 0.3, 0.3)
+        return
+    end
+    
+    if not sourceName then
+        StatusLabel.Text = "Please select a source name!"
+        StatusLabel.TextColor3 = Color3.new(1, 0.3, 0.3)
+        return
+    end
+
+    local oldName = targetItem.Name
+    
+    local success, err = pcall(function()
+        targetItem.Name = sourceName
+    end)
+    
+    if success then
+        StatusLabel.Text = "Success! Renamed."
+        StatusLabel.TextColor3 = Color3.new(0.3, 1, 0.3)
+        RefreshLists() 
+        LeftDropBtn.Text = sourceName
+        UpdatePreview() 
+    else
+        StatusLabel.Text = "Failed (Permission Denied)"
+        warn(err)
+    end
+end)
+
+SwitchTab("Emotes")
