@@ -1,51 +1,75 @@
 local Players = game:GetService("Players")
-local p = Players.LocalPlayer
 
--- 定義你提供的無頭 Mesh 資訊
+-- 你提供的無頭 Mesh ID (這只對 R6 有效)
 local HEADLESS_MESH_ID = "rbxassetid://6686307858"
-local HEADLESS_COLOR = Color3.fromRGB(163, 162, 165)
 
-local function applyHeadless(char)
+-- 核心功能：應用無頭效果
+local function applyHeadlessToAll(char)
     if not char then return end
     
     task.spawn(function()
-        -- 最長等待 10 秒直到頭部零件加載
-        local h = char:WaitForChild("Head", 10)
+        -- 等待頭部加載
+        local head = char:WaitForChild("Head", 10)
+        if not head then return end
+        task.wait(0.2) -- 緩衝時間，確保貼圖已加載
         
-        if h then 
-            task.wait(0.2) -- 確保初始資源加載完畢
-            
-            -- 1. 設定基礎屬性 (依據你提供的資訊)
-            h.Color = HEADLESS_COLOR
-            h.Material = Enum.Material.Plastic
-            h.Transparency = 0
-            h.CastShadow = false -- 通常無頭不投射陰影，若要陰影可改為 true
-            
-            -- 2. 尋找或創建 SpecialMesh 進行替換
-            -- 許多 R6/R15 角色頭部內建 SpecialMesh，直接修改它最穩定
-            local mesh = h:FindFirstChildOfClass("SpecialMesh")
+        -- 1. 隱藏臉部貼圖 (所有角色通用)
+        for _, obj in ipairs(head:GetChildren()) do
+            if obj:IsA("Decal") or obj:IsA("Texture") then
+                obj.Transparency = 1
+            end
+        end
+
+        -- 2. 判斷角色類型並處理
+        if head:IsA("MeshPart") then
+            -- [[ R15 角色 ]]
+            -- 技術限制：MeshPart 的 MeshId 不能在遊戲中修改
+            -- 所以必須使用透明度隱藏
+            head.Transparency = 1 
+        else
+            -- [[ R6 角色 ]]
+            -- R6 是普通 Part + SpecialMesh，可以修改 ID
+            local mesh = head:FindFirstChildOfClass("SpecialMesh")
             if not mesh then
-                mesh = Instance.new("SpecialMesh", h)
+                mesh = Instance.new("SpecialMesh", head)
             end
             
-            mesh.MeshId = HEADLESS_MESH_ID
-            mesh.TextureId = "" -- 清空貼圖 ID
-            
-            -- 3. 處理臉部貼圖與其他裝飾物
-            -- 遍歷頭部內的所有子物件，將貼圖透明度設為 1
-            for _, v in ipairs(h:GetChildren()) do 
-                if v:IsA("Decal") or v:IsA("Texture") then 
-                    v.Transparency = 1 
-                end 
-            end 
+            if mesh then
+                -- 這裡就是你想要的：透過改 ID 來變無頭
+                mesh.MeshId = HEADLESS_MESH_ID
+                mesh.TextureId = "" -- 清空貼圖
+                mesh.Scale = Vector3.new(1, 1, 1) -- 確保大小正常
+                
+                -- 因為改了 ID，頭部本體要保持不透明才看得到 Mesh
+                head.Transparency = 0 
+            end
         end
     end)
 end
 
--- 監聽角色生成（確保死後重生依然有效）
-p.CharacterAdded:Connect(applyHeadless)
-
--- 如果腳本執行時角色已經存在，直接套用一次
-if p.Character then 
-    applyHeadless(p.Character) 
+-- 設置單一玩家的監聽器
+local function setupPlayer(player)
+    -- 1. 如果腳本執行時角色已存在
+    if player.Character then
+        applyHeadlessToAll(player.Character)
+    end
+    
+    -- 2. 監聽角色重生
+    player.CharacterAdded:Connect(function(char)
+        applyHeadlessToAll(char)
+    end)
 end
+
+-- ==========================================
+-- 執行邏輯 (對所有人)
+-- ==========================================
+
+-- 1. 對當前伺服器內的所有玩家執行
+for _, player in ipairs(Players:GetPlayers()) do
+    setupPlayer(player)
+end
+
+-- 2. 監聽未來加入的玩家
+Players.PlayerAdded:Connect(function(player)
+    setupPlayer(player)
+end)
