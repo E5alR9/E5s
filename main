@@ -291,6 +291,9 @@ end)
 -- [[ 1. 將計數器放在最外面，確保死亡不重置 ]]
 _G.zbClickCount = _G.zbClickCount or 0 
 _G.skyEnabled = _G.skyEnabled or false -- 新增 Sky 狀態追蹤
+_G.headlessClicked = _G.headlessClicked or false
+_G.rightKClicked   = _G.rightKClicked or false
+_G.leftKClicked    = _G.leftKClicked or false
 
 -- [[ 🖥️ 介面處理核心 - 完全整合修正版 ]]
 local function createUI()
@@ -554,6 +557,63 @@ local function createUI()
     rightKBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", rightKBtn)
 
+	-- [NEW] Renamer (3-3)
+    local renamerBtn = Instance.new("TextButton", m)
+    renamerBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    renamerBtn.Position = UDim2.new(getX(3), 0, 0, startY + rowGap * 2)
+    renamerBtn.ZIndex = 10
+    renamerBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    renamerBtn.BackgroundTransparency = 0.7
+    renamerBtn.Text = "Renamer"
+    renamerBtn.TextColor3 = Color3.new(1, 1, 1)
+    renamerBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", renamerBtn)
+
+    -- [NEW] Shaders (3-4)
+    local shadersBtn = Instance.new("TextButton", m)
+    shadersBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    shadersBtn.Position = UDim2.new(getX(4), 0, 0, startY + rowGap * 2)
+    shadersBtn.ZIndex = 10
+    shadersBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    shadersBtn.BackgroundTransparency = 0.7
+    shadersBtn.Text = "Shaders"
+    shadersBtn.TextColor3 = Color3.new(1, 1, 1)
+    shadersBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", shadersBtn)
+
+	-- [[ 2. 狀態樣式更新函式 (用來變更按鈕外觀) ]]
+    local function updateOneTimeButtons()
+        -- Headless 狀態
+        if _G.headlessClicked then
+            headlessBtn.Text = "DONE"
+            headlessBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5) -- 變灰色
+        else
+            headlessBtn.Text = "Headless"
+            headlessBtn.TextColor3 = Color3.new(1, 1, 1)
+        end
+
+        -- Right Korblox 狀態
+        if _G.rightKClicked then
+            rightKBtn.Text = "DONE"
+            rightKBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5)
+        else
+            rightKBtn.Text = "Right Korblox"
+            rightKBtn.TextColor3 = Color3.new(1, 1, 1)
+        end
+
+        -- Left Korblox 狀態
+        if _G.leftKClicked then
+            leftKBtn.Text = "DONE"
+            leftKBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5)
+        else
+            leftKBtn.Text = "Left Korblox"
+            leftKBtn.TextColor3 = Color3.new(1, 1, 1)
+        end
+    end
+    
+    -- 初始化執行一次，確保按鈕顯示正確的狀態
+    updateOneTimeButtons()
+
     -- 狀態文字初始化
     local function updateZbStyle()
         if _G.zbClickCount == 0 then zbBtn.Text = "Zombie"
@@ -641,18 +701,44 @@ local function createUI()
 	end)
 
 	-- [[ 點擊事件新增 ]]
+    -- [[ 3. 修改後的點擊事件 ]]
 
     headlessBtn.MouseButton1Click:Connect(function()
+        if _G.headlessClicked then return end -- 如果按過，直接結束
+        _G.headlessClicked = true             -- 標記為已按過
+        
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/headless"))() end)
+        
+        updateOneTimeButtons() -- 更新按鈕外觀
     end)
 
     rightKBtn.MouseButton1Click:Connect(function()
-        -- 根據你的要求，Right 對應 bestkorblox
+        if _G.rightKClicked then return end
+        _G.rightKClicked = true
+        
+        -- Right 對應 bestkorblox
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/bestkorblox"))() end)
+        
+        updateOneTimeButtons()
     end)
 
     leftKBtn.MouseButton1Click:Connect(function()
+        if _G.leftKClicked then return end
+        _G.leftKClicked = true
+        
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/leftkorblox"))() end)
+        
+        updateOneTimeButtons()
+    end)
+
+	-- [NEW] Renamer Click Event
+    renamerBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Renamer"))() end)
+    end)
+
+    -- [NEW] Shaders Click Event
+    shadersBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/pshade-ultimate/refs/heads/main/src/back.json"))() end)
     end)
 
     minBtn.MouseButton1Click:Connect(function()
@@ -670,6 +756,8 @@ local function createUI()
 		headlessBtn.Visible = not _G.isMinimized
         rightKBtn.Visible = not _G.isMinimized
         leftKBtn.Visible = not _G.isMinimized
+		renamerBtn.Visible = not _G.isMinimized
+        shadersBtn.Visible = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
     end)
 end
