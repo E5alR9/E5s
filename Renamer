@@ -3,6 +3,11 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 
+-- --- [CONFIGURATION] Settings ---
+-- 你可以在這裡更換背景圖片 ID
+local BG_IMAGE_ID = "rbxassetid://130181538648632" 
+
+
 -- --- [CORE FEATURE] Toggle Logic (Show/Hide) ---
 if _G.RenamerUI_Instance and _G.RenamerUI_Instance.Parent then
     _G.RenamerUI_Instance:Destroy()
@@ -28,7 +33,7 @@ local sourceName = nil
 
 -- --- UI Creation ---
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "EnglishRenamer_SwappedLabels"
+ScreenGui.Name = "EnglishRenamer_WithBackground"
 _G.RenamerUI_Instance = ScreenGui -- Store instance globally
 
 if syn and syn.protect_gui then
@@ -45,14 +50,29 @@ local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 450, 0, 380) 
 MainFrame.Position = UDim2.new(0.5, -225, 0.5, -190)
-MainFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-MainFrame.BackgroundTransparency = 0.5
+MainFrame.BackgroundColor3 = Color3.new(0, 0, 0) -- 改為黑色，配合背景圖
+MainFrame.BackgroundTransparency = 0.5 -- 讓背景圖與底色混合
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+-- [NEW] Background Image Logic (新增的背景圖片部分)
+local BgImage = Instance.new("ImageLabel")
+BgImage.Name = "BackgroundImage"
+BgImage.Size = UDim2.new(1, 0, 1, 0)
+BgImage.Position = UDim2.new(0, 0, 0, 0)
+BgImage.Image = BG_IMAGE_ID
+BgImage.ScaleType = Enum.ScaleType.Stretch -- 拉伸填滿
+-- 或是用 Slice (如果你有切圖): BgImage.ScaleType = Enum.ScaleType.Slice
+BgImage.BackgroundTransparency = 1
+BgImage.ZIndex = 0 -- 確保它在所有按鈕的後面
+BgImage.Parent = MainFrame
+
+-- 為背景圖也加上圓角，確保不會超出 MainFrame
+Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 10)
 
 -- Title
 local Title = Instance.new("TextLabel")
@@ -64,6 +84,7 @@ Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 24
 Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 2
 Title.Parent = MainFrame
 
 -- Close Button (X)
@@ -76,6 +97,7 @@ CloseBtn.Text = "X"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.TextSize = 18
+CloseBtn.ZIndex = 2
 CloseBtn.Parent = MainFrame
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
@@ -87,10 +109,11 @@ end)
 -- Style Helper
 local function ApplyStyle(btn)
     btn.BackgroundColor3 = Color3.new(0, 0, 0)
-    btn.BackgroundTransparency = 0.7
+    btn.BackgroundTransparency = 0.6 -- 稍微降低透明度，讓文字在背景圖上更清楚
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 18
+    btn.ZIndex = 2
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 end
 
@@ -99,6 +122,7 @@ local TabContainer = Instance.new("Frame")
 TabContainer.Size = UDim2.new(0.92, 0, 0, 45)
 TabContainer.Position = UDim2.new(0.04, 0, 0.12, 0)
 TabContainer.BackgroundTransparency = 1
+TabContainer.ZIndex = 2
 TabContainer.Parent = MainFrame
 
 local EmoteTab = Instance.new("TextButton")
@@ -127,15 +151,16 @@ LeftDropBtn.Text = "Select Target"
 LeftDropBtn.Parent = MainFrame
 ApplyStyle(LeftDropBtn)
 
--- [UPDATED] Want Label (Now on Left)
+-- [UPDATED] Want Label (Left)
 local WantLabel = Instance.new("TextLabel")
 WantLabel.Size = UDim2.new(0.44, 0, 0, 15)
-WantLabel.Position = UDim2.new(0.04, 0, 0.40, 0) -- Under Left
+WantLabel.Position = UDim2.new(0.04, 0, 0.40, 0)
 WantLabel.BackgroundTransparency = 1
-WantLabel.Text = "(Want)" -- Modified
-WantLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+WantLabel.Text = "(Want)"
+WantLabel.TextColor3 = Color3.fromRGB(200, 200, 200) -- 稍微調亮，避免被背景吃掉
 WantLabel.TextSize = 12
 WantLabel.Font = Enum.Font.Gotham
+WantLabel.ZIndex = 2
 WantLabel.Parent = MainFrame
 
 -- Right Button (Source)
@@ -147,15 +172,16 @@ RightDropBtn.Text = "Select Name"
 RightDropBtn.Parent = MainFrame
 ApplyStyle(RightDropBtn)
 
--- [UPDATED] Have Label (Now on Right)
+-- [UPDATED] Have Label (Right)
 local HaveLabel = Instance.new("TextLabel")
 HaveLabel.Size = UDim2.new(0.44, 0, 0, 15)
-HaveLabel.Position = UDim2.new(0.52, 0, 0.40, 0) -- Under Right
+HaveLabel.Position = UDim2.new(0.52, 0, 0.40, 0)
 HaveLabel.BackgroundTransparency = 1
-HaveLabel.Text = "(Have)" -- Modified
-HaveLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+HaveLabel.Text = "(Have)"
+HaveLabel.TextColor3 = Color3.fromRGB(200, 200, 200) -- 稍微調亮
 HaveLabel.TextSize = 12
 HaveLabel.Font = Enum.Font.Gotham
+HaveLabel.ZIndex = 2
 HaveLabel.Parent = MainFrame
 
 -- === PREVIEW BOX ===
@@ -164,10 +190,11 @@ PreviewLabel.Text = "Command Preview:"
 PreviewLabel.Size = UDim2.new(1, 0, 0, 20)
 PreviewLabel.Position = UDim2.new(0.04, 0, 0.48, 0)
 PreviewLabel.BackgroundTransparency = 1
-PreviewLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+PreviewLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 PreviewLabel.TextXAlignment = Enum.TextXAlignment.Left
 PreviewLabel.Font = Enum.Font.Gotham
 PreviewLabel.TextSize = 14
+PreviewLabel.ZIndex = 2
 PreviewLabel.Parent = MainFrame
 
 local PreviewBox = Instance.new("TextBox")
@@ -181,6 +208,7 @@ PreviewBox.TextSize = 13
 PreviewBox.TextXAlignment = Enum.TextXAlignment.Left
 PreviewBox.ClearTextOnFocus = false
 PreviewBox.TextEditable = false
+PreviewBox.ZIndex = 2
 PreviewBox.Parent = MainFrame
 Instance.new("UICorner", PreviewBox).CornerRadius = UDim.new(0, 6)
 Instance.new("UIPadding", PreviewBox).PaddingLeft = UDim.new(0, 10)
@@ -246,6 +274,7 @@ ApplyBtn.Parent = MainFrame
 ApplyStyle(ApplyBtn)
 ApplyBtn.TextSize = 24
 ApplyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50) 
+ApplyBtn.ZIndex = 2
 
 -- Status Label
 local StatusLabel = Instance.new("TextLabel")
@@ -253,9 +282,10 @@ StatusLabel.Size = UDim2.new(1, 0, 0, 25)
 StatusLabel.Position = UDim2.new(0, 0, 0.90, 0)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "Ready"
-StatusLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+StatusLabel.TextColor3 = Color3.new(0.9, 0.9, 0.9)
 StatusLabel.TextSize = 16
 StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.ZIndex = 2
 StatusLabel.Parent = MainFrame
 
 -- --- Core Logic ---
