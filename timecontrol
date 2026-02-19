@@ -1,0 +1,241 @@
+-- Services
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+
+-- --- [CONFIGURATION] Settings ---
+local BG_IMAGE_ID = "rbxassetid://134798120362907" 
+
+-- 紀錄第一次執行腳本時的「原始時間」
+if not _G.OriginalClockTime then
+    _G.OriginalClockTime = Lighting.ClockTime
+end
+
+-- --- [CORE FEATURE] Toggle Logic (Show/Hide) ---
+if _G.TimeSliderUI_Instance and _G.TimeSliderUI_Instance.Parent then
+    _G.TimeSliderUI_Instance:Destroy()
+    _G.TimeSliderUI_Instance = nil
+    return -- Stop execution (Hide)
+end
+
+-- ==========================================
+-- Show UI Logic
+-- ==========================================
+
+-- --- UI Creation ---
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TimeControl_WithBackground"
+_G.TimeSliderUI_Instance = ScreenGui -- Store instance globally
+
+if syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+    ScreenGui.Parent = CoreGui
+elseif gethui then
+    ScreenGui.Parent = gethui()
+else
+    ScreenGui.Parent = CoreGui
+end
+
+-- Main Frame (高度從 180 增加到 230，以容納新按鈕)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 450, 0, 230) 
+MainFrame.Position = UDim2.new(0, 610, 0, 340)
+MainFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+MainFrame.BackgroundTransparency = 0.5 
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+-- Background Image
+local BgImage = Instance.new("ImageLabel")
+BgImage.Name = "BackgroundImage"
+BgImage.Size = UDim2.new(1, 0, 1, 0)
+BgImage.Position = UDim2.new(0, 0, 0, 0)
+BgImage.Image = BG_IMAGE_ID
+BgImage.ScaleType = Enum.ScaleType.Stretch
+BgImage.BackgroundTransparency = 1
+BgImage.ZIndex = 0 
+BgImage.Parent = MainFrame
+Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 10)
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 0, 40)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Time Control"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 24
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 2
+Title.Parent = MainFrame
+
+-- Close Button (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+CloseBtn.BackgroundTransparency = 0.5
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 18
+CloseBtn.ZIndex = 2
+CloseBtn.Parent = MainFrame
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    _G.TimeSliderUI_Instance = nil
+    ScreenGui:Destroy()
+end)
+
+-- ==========================================
+-- Time Slider Components
+-- ==========================================
+
+-- Time Display Label (稍微調高 Y 軸位置比例)
+local TimeLabel = Instance.new("TextLabel")
+TimeLabel.Size = UDim2.new(0.9, 0, 0, 30)
+TimeLabel.Position = UDim2.new(0.05, 0, 0.28, 0) 
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.Text = "Current Time: 12:00"
+TimeLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+TimeLabel.Font = Enum.Font.GothamMedium
+TimeLabel.TextSize = 18
+TimeLabel.TextXAlignment = Enum.TextXAlignment.Center
+TimeLabel.ZIndex = 2
+TimeLabel.Parent = MainFrame
+
+-- Slider Track (背景軌道)
+local SliderTrack = Instance.new("Frame")
+SliderTrack.Name = "SliderTrack"
+SliderTrack.Size = UDim2.new(0.9, 0, 0, 15)
+SliderTrack.Position = UDim2.new(0.05, 0, 0.5, 0)
+SliderTrack.BackgroundColor3 = Color3.new(0, 0, 0)
+SliderTrack.BackgroundTransparency = 0.6
+SliderTrack.ZIndex = 2
+SliderTrack.Parent = MainFrame
+Instance.new("UICorner", SliderTrack).CornerRadius = UDim.new(1, 0)
+
+-- Slider Fill (已經填充的進度條)
+local SliderFill = Instance.new("Frame")
+SliderFill.Name = "SliderFill"
+SliderFill.Size = UDim2.new(0.5, 0, 1, 0) 
+SliderFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255) 
+SliderFill.BorderSizePixel = 0
+SliderFill.ZIndex = 3
+SliderFill.Parent = SliderTrack
+Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(1, 0)
+
+-- Slider Knob (拖曳按鈕)
+local SliderKnob = Instance.new("TextButton")
+SliderKnob.Name = "SliderKnob"
+SliderKnob.Size = UDim2.new(0, 25, 0, 25)
+SliderKnob.AnchorPoint = Vector2.new(0.5, 0.5) 
+SliderKnob.Position = UDim2.new(0.5, 0, 0.5, 0)
+SliderKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+SliderKnob.Text = ""
+SliderKnob.ZIndex = 4
+SliderKnob.Parent = SliderTrack
+Instance.new("UICorner", SliderKnob).CornerRadius = UDim.new(1, 0)
+
+-- ==========================================
+-- Restore Button Component
+-- ==========================================
+
+local RestoreBtn = Instance.new("TextButton")
+RestoreBtn.Name = "RestoreBtn"
+RestoreBtn.Size = UDim2.new(0.9, 0, 0, 40)
+RestoreBtn.Position = UDim2.new(0.05, 0, 0.72, 0)
+RestoreBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+RestoreBtn.BackgroundTransparency = 0.6
+RestoreBtn.Text = "Restore Original Time"
+RestoreBtn.TextColor3 = Color3.new(1, 1, 1)
+RestoreBtn.Font = Enum.Font.GothamMedium
+RestoreBtn.TextSize = 18
+RestoreBtn.ZIndex = 2
+RestoreBtn.Parent = MainFrame
+Instance.new("UICorner", RestoreBtn).CornerRadius = UDim.new(0, 6)
+
+-- ==========================================
+-- Slider Logic (拖曳與時間運算)
+-- ==========================================
+
+local dragging = false
+
+-- 時間格式化 (將 0~24 的浮點數轉成 HH:MM)
+local function FormatTime(clockTime)
+    local hours = math.floor(clockTime)
+    local mins = math.floor((clockTime - hours) * 60)
+    return string.format("%02d:%02d", hours, mins)
+end
+
+-- 更新滑桿與遊戲時間
+local function UpdateSlider(input)
+    -- 計算滑鼠在軌道上的相對位置 (0 到 1 之間)
+    local trackPos = SliderTrack.AbsolutePosition.X
+    local trackSize = SliderTrack.AbsoluteSize.X
+    local mousePos = input.Position.X
+    
+    local percentage = math.clamp((mousePos - trackPos) / trackSize, 0, 1)
+    
+    -- 更新 UI 顯示
+    SliderFill.Size = UDim2.new(percentage, 0, 1, 0)
+    SliderKnob.Position = UDim2.new(percentage, 0, 0.5, 0)
+    
+    -- 更新遊戲時間 (0 ~ 24)
+    local newTime = percentage * 24
+    Lighting.ClockTime = newTime
+    TimeLabel.Text = "Current Time: " .. FormatTime(newTime)
+end
+
+-- 初始化位置 (讀取當前時間)
+local function InitSlider()
+    local currentTime = Lighting.ClockTime
+    local percentage = currentTime / 24
+    
+    SliderFill.Size = UDim2.new(percentage, 0, 1, 0)
+    SliderKnob.Position = UDim2.new(percentage, 0, 0.5, 0)
+    TimeLabel.Text = "Current Time: " .. FormatTime(currentTime)
+end
+InitSlider()
+
+-- 事件監聽
+SliderKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+    end
+end)
+
+SliderTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        UpdateSlider(input) -- 點擊軌道直接跳轉時間
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        UpdateSlider(input)
+    end
+end)
+
+-- 恢復時間按鈕的點擊事件
+RestoreBtn.MouseButton1Click:Connect(function()
+    if _G.OriginalClockTime then
+        Lighting.ClockTime = _G.OriginalClockTime
+        InitSlider() -- 重新初始化滑桿位置與文字，對齊原本的時間
+    end
+end)
