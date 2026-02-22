@@ -59,14 +59,28 @@ end
 
 -- 啟動持續偵測的函式
 local function startAutoDetection()
-	_G.AutoDetectConnection = Workspace.DescendantAdded:Connect(function(descendant)
-		-- 延遲 0.5 秒，確保新生成的物件其 Size 和 Transparency 屬性已經完全從伺服器載入
-		task.delay(0.5, function()
-			if descendant and descendant.Parent then
-				checkAndRemove(descendant)
-			end
-		end)
-	end)
+    local autoDeletedCount = 0 -- 新增計數器，紀錄自動刪除的總數
+
+    _G.AutoDetectConnection = Workspace.DescendantAdded:Connect(function(descendant)
+        -- 延遲 0.5 秒，確保新生成的物件其 Size 和 Transparency 屬性已經完全從伺服器載入
+        task.delay(0.5, function()
+            if descendant and descendant.Parent then
+                -- 如果成功刪除了新生成的牆壁
+                if checkAndRemove(descendant) then
+                    autoDeletedCount = autoDeletedCount + 1 -- 成功刪除就 +1
+
+                    -- 發送即時通知，並顯示目前自動刪除的總數
+                    pcall(function()
+                        StarterGui:SetCore("SendNotification", {
+                            Title = "Auto Detected!";
+                            Text = "Removed a hidden wall!\n(Total auto-cleared: " .. autoDeletedCount .. ")";
+                            Duration = 2; -- 通知顯示 2 秒
+                        })
+                    end)
+                end
+            end
+        end)
+    end)
 end
 
 -- ==========================================
@@ -112,7 +126,7 @@ elseif _G.WallMode == 1 then
 
 	StarterGui:SetCore("SendNotification", {
 		Title = "Size Delete";
-		Text = "Deleted walls > " .. MIN_SIZE_TO_DELETE .. "\nMonitoring new walls...",
+		Text = "Deleted " .. deletedCount .. " walls > " .. MIN_SIZE_TO_DELETE .. "\nMonitoring new walls...",
 		Duration = 3;
 	})
 
@@ -138,7 +152,7 @@ elseif _G.WallMode == 2 then
 
 	StarterGui:SetCore("SendNotification", {
 		Title = "Remove ALL";
-		Text = "Cleared all walls.\nMonitoring new walls...",
+		Text = "Cleared " .. deletedCount .. " walls.\nMonitoring new walls...",
 		Duration = 3;
 	})
 end
