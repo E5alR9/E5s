@@ -1,0 +1,85 @@
+-- ================= 核心開關邏輯 =================
+if _G.JumpToggle then
+    _G.JumpToggle = false
+    print("Double Jump: OFF")
+    return 
+else
+    _G.JumpToggle = true
+    print("Double Jump: ON (Cap: " .. tostring(_G.JumpCap or 2) .. ")")
+end
+
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- ================= 全域設定 =================
+_G.JumpCap = _G.JumpCap or 2 
+
+local currentConnections = {}
+local jumpCount = 0
+local canJumpNow = true
+
+-- 清除連線的函數
+local function clearConnections()
+    for _, conn in pairs(currentConnections) do
+        if conn then conn:Disconnect() end
+    end
+    currentConnections = {}
+end
+
+-- 核心功能函數
+local function setupDoubleJump(character)
+    clearConnections() -- 確保重生時清理乾淨
+    local humanoid = character:WaitForChild("Humanoid")
+    jumpCount = 0
+
+    -- 1. 落地重置
+    local stateConn = humanoid.StateChanged:Connect(function(_, newState)
+        if newState == Enum.HumanoidStateType.Landed then
+            jumpCount = 0
+        end
+    end)
+    table.insert(currentConnections, stateConn)
+
+    -- 2. 按下跳躍
+    local beganConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not _G.JumpToggle then return end
+        if gameProcessed then return end
+        
+        if input.KeyCode == Enum.KeyCode.Space then
+            -- 注意：這裡多判斷一個空中狀態，避免在地上時就消耗次數
+            if jumpCount < (_G.JumpCap or 1) and canJumpNow then
+                canJumpNow = false
+                jumpCount = jumpCount + 1
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end)
+    table.insert(currentConnections, beganConn)
+
+    -- 3. 放開按鍵
+    local endedConn = UserInputService.InputEnded:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.Space then
+            canJumpNow = true
+        end
+    end)
+    table.insert(currentConnections, endedConn)
+end
+
+-- 監聽角色重生
+local respawnConn = player.CharacterAdded:Connect(setupDoubleJump)
+
+-- 第一次執行（如果角色已經存在）
+if player.Character then
+    task.spawn(setupDoubleJump, player.Character)
+end
+
+-- 監控關閉狀態
+task.spawn(function()
+    while _G.JumpToggle do
+        task.wait(0.5)
+    end
+    clearConnections()
+    if respawnConn then respawnConn:Disconnect() end
+    print("System Cleaned Up")
+end)
