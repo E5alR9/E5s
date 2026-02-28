@@ -569,24 +569,13 @@ local function createUI()
     renamerBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", renamerBtn)
 
-    -- [NEW] Shaders (3-4)
-    local shadersBtn = Instance.new("TextButton", m)
-    shadersBtn.Size = UDim2.new(btnW, 0, 0, btnH)
-    shadersBtn.Position = UDim2.new(getX(4), 0, 0, startY + rowGap * 2)
-    shadersBtn.ZIndex = 10
-    shadersBtn.BackgroundColor3 = Color3.new(0, 0, 0)
-    shadersBtn.BackgroundTransparency = 0.7
-    shadersBtn.Text = "Shaders"
-    shadersBtn.TextColor3 = Color3.new(1, 1, 1)
-    shadersBtn.Visible = not _G.isMinimized
-    Instance.new("UICorner", shadersBtn)
 
 	-- [[ 第四排 ]]
     
     -- [NEW] Time Control (4-1)
     local timeCtrlBtn = Instance.new("TextButton", m)
     timeCtrlBtn.Size = UDim2.new(btnW, 0, 0, btnH)
-    timeCtrlBtn.Position = UDim2.new(getX(1), 0, 0, startY + rowGap * 3) -- 第 4 排，Y增加 rowGap * 3
+    timeCtrlBtn.Position = UDim2.new(getX(4), 0, 0, startY + rowGap * 2) -- 第 4 排，Y增加 rowGap * 3
     timeCtrlBtn.ZIndex = 10
     timeCtrlBtn.BackgroundColor3 = Color3.new(0, 0, 0)
     timeCtrlBtn.BackgroundTransparency = 0.7
@@ -594,6 +583,35 @@ local function createUI()
     timeCtrlBtn.TextColor3 = Color3.new(1, 1, 1)
     timeCtrlBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", timeCtrlBtn)
+
+	-- [[ 第四排擴充 ]]
+
+	-- [NEW] JumpCap TextBox (4-2)
+    local capBox = Instance.new("TextBox", m)
+    capBox.Size = UDim2.new(btnW, 0, 0, btnH)
+    capBox.Position = UDim2.new(getX(2), 0, 0, startY + rowGap * 3)
+    capBox.ZIndex = 10
+    capBox.BackgroundColor3 = Color3.new(0, 0, 0) -- 改為黑色
+    capBox.BackgroundTransparency = 0.7 -- 統一透明度
+    capBox.Text = tostring(_G.JumpCap or 2)
+    capBox.PlaceholderText = "Cap..."
+    capBox.TextColor3 = Color3.new(1, 1, 1) -- 改回白色
+    capBox.Visible = not _G.isMinimized
+    Instance.new("UICorner", capBox)
+
+    -- [NEW] JumpCap Execute Button (4-3)
+    local capExBtn = Instance.new("TextButton", m)
+    capExBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    capExBtn.Position = UDim2.new(getX(1), 0, 0, startY + rowGap * 3)
+    capExBtn.ZIndex = 10
+    capExBtn.BackgroundColor3 = Color3.new(0, 0, 0) -- 改為黑色
+    capExBtn.BackgroundTransparency = 0.7 -- 統一透明度
+    capExBtn.Text = "Jump cap"
+    capExBtn.TextColor3 = Color3.new(1, 1, 1)
+    capExBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", capExBtn)
+
+	
 
 	-- [[ 2. 狀態樣式更新函式 (用來變更按鈕外觀) ]]
     local function updateOneTimeButtons()
@@ -754,9 +772,31 @@ local function createUI()
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Renamer"))() end)
     end)
 
-    -- [NEW] Shaders Click Event
-    shadersBtn.MouseButton1Click:Connect(function()
-        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/pshade-ultimate/refs/heads/main/src/back.json"))() end)
+	-- [[ 點擊與輸入事件 ]]
+
+    capExBtn.MouseButton1Click:Connect(function()
+        -- 獲取文字盒內容並轉換為數字
+        local num = tonumber(capBox.Text)
+        
+        if num then
+            _G.JumpCap = num
+            
+            -- 執行指定 URL 腳本
+            pcall(function() 
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/jumpcap"))() 
+            end)
+        else
+            -- 輸入錯誤時的官方通知
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Error",
+                Text = "Please enter a valid number!",
+                Duration = 3
+            })
+            
+            capBox.Text = "Error"
+            task.wait(1)
+            capBox.Text = tostring(_G.JumpCap or 2)
+        end
     end)
 
     minBtn.MouseButton1Click:Connect(function()
@@ -775,8 +815,9 @@ local function createUI()
         rightKBtn.Visible = not _G.isMinimized
         leftKBtn.Visible = not _G.isMinimized
 		renamerBtn.Visible = not _G.isMinimized
-        shadersBtn.Visible = not _G.isMinimized
 		timeCtrlBtn.Visible = not _G.isMinimized
+		capBox.Visible = not _G.isMinimized
+        capExBtn.Visible = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
     end)
 end
