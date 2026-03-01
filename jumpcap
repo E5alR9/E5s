@@ -47,13 +47,17 @@ local function setupDoubleJump(character)
         if gameProcessed then return end
         
         if input.KeyCode == Enum.KeyCode.Space then
-            -- 注意：這裡多判斷一個空中狀態，避免在地上時就消耗次數
-            if jumpCount < (_G.JumpCap or 1) and canJumpNow then
-                canJumpNow = false
-                jumpCount = jumpCount + 1
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
-        end
+			-- 直接讀取 _G.JumpCap，這樣你在控制台改完，下一秒跳躍就生效
+			local maxJumps = tonumber(_G.JumpCap) or 2 
+			
+			if jumpCount < maxJumps and canJumpNow then
+				canJumpNow = false
+				jumpCount = jumpCount + 1
+				
+				-- 強制執行跳躍狀態
+				humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+			end
+		end
     end)
     table.insert(currentConnections, beganConn)
 
