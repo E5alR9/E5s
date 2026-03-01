@@ -775,26 +775,26 @@ local function createUI()
 	-- [[ 點擊與輸入事件 ]]
 
     capExBtn.MouseButton1Click:Connect(function()
-        -- 獲取文字盒內容並轉換為數字
+        -- 1. 獲取文字盒內容並轉換為數字
         local num = tonumber(capBox.Text)
         
+        -- 2. 更新全域變數 (即便這次是為了關閉，先更新也無妨，下次開啟就會用到)
         if num then
             _G.JumpCap = num
-            
-            -- 執行指定 URL 腳本
-            pcall(function() 
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/jumpcap"))() 
-            end)
-        else
-            -- 輸入錯誤時的官方通知
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "Error",
-                Text = "Please enter a valid number!",
-                Duration = 3
-            })
-            
-            capBox.Text = "Error"
-            task.wait(1)
+        end
+
+        -- 3. 官方 SendNotification (告知觸發動作)
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Jump System",
+            Text = "Triggering Toggle...", -- 正在切換狀態
+            Duration = 1.5
+        })
+
+        pcall(function() 
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/jumpcap"))() 
+        end)
+        
+        if not num then
             capBox.Text = tostring(_G.JumpCap or 2)
         end
     end)
