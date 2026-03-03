@@ -1,0 +1,107 @@
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local lp = game.Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- 數值參數 (已按比例調升)
+local TARGET_BOOST = 1600     
+local MAX_SPEED_CAP = 4750    -- 原 3800 * 1.25 = 4750
+local VEL_SCALE = 90          
+local SLOPE_ACCEL_FORCE = 6875 -- 原 5500 * 1.25，增強斜坡推力以匹配極速
+
+-- 甩鼠標加速參數
+local STRAFE_BOOST_MAX = 750   -- 提高甩頭上限
+local STRAFE_SENSITIVITY = 1.0 -- 提高甩頭靈敏度
+
+-- 摩擦力與加速度
+local ACCEL_RATE = 450        -- 稍微加快起步累積
+local FRICTION_DECAY = 0.9975 -- 更加滑溜，適應高時速滑行
+
+-- 狀態變量
+local boostTimer = 0
+local isBoostActive = false
+local currentSpeed = 0
+local lastCameraYaw = 0 
+
+RunService.Heartbeat:Connect(function(dt)
+    local char = lp.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    if char:GetAttribute("State") == "Downed" then
+        local isCtrlHeld = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
+        
+        -- 1. Ctrl 觸發
+        if isCtrlHeld then
+            if not isBoostActive then
+                boostTimer = 4.0
+                isBoostActive = true
+            end
+            if currentSpeed < TARGET_BOOST then
+                currentSpeed = math.min(currentSpeed + (ACCEL_RATE * dt * 5), TARGET_BOOST)
+            end
+        else
+            isBoostActive = false
+            boostTimer = 0
+        end
+
+        -- 2. 甩鼠標偵測
+        local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
+        local yawDelta = math.abs(camYaw - lastCameraYaw)
+        if yawDelta > math.pi then yawDelta = math.abs(yawDelta - (math.pi * 2)) end
+        
+        local angularVelocity = yawDelta / dt
+        local strafeBonus = math.min(angularVelocity * STRAFE_SENSITIVITY, STRAFE_BOOST_MAX)
+        lastCameraYaw = camYaw
+
+        -- 3. 斜坡偵測
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {char}
+        local ray = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), rayParams)
+        
+        local slopeBonus = 0
+        if ray and ray.Instance then
+            local localNormal = root.CFrame:VectorToObjectSpace(ray.Normal)
+            local rawSlope = -localNormal.Z
+            if rawSlope > 0 then
+                slopeBonus = rawSlope * SLOPE_ACCEL_FORCE * dt
+            end
+        end
+
+        -- 4. 速度邏輯 (極速強化與低摩擦)
+        if slopeBonus > 0 then
+            -- 下坡加速至 4750
+            currentSpeed = math.min(currentSpeed + slopeBonus, MAX_SPEED_CAP)
+        elseif isCtrlHeld or (angularVelocity > 1.5 and currentSpeed > 400) then
+            -- 甩頭或按住時幾乎不掉速
+            currentSpeed = math.min(currentSpeed + (strafeBonus * dt), MAX_SPEED_CAP)
+            currentSpeed = currentSpeed * 0.9995 
+        else
+            -- 一般滑行衰減 (0.9975 極其持久)
+            if currentSpeed > 5 then
+                currentSpeed = currentSpeed * FRICTION_DECAY
+            else
+                currentSpeed = 0
+            end
+        end
+
+        -- 5. 執行 XZ 水平位移
+        if currentSpeed > 0 then
+            local studsPerSec = currentSpeed / VEL_SCALE
+            local camLook = camera.CFrame.LookVector
+            local forwardDir = Vector3.new(camLook.X, 0, camLook.Z).Unit
+            
+            local horizontalMove = forwardDir * studsPerSec * dt
+            
+            -- 更新坐標，保留 Y 軸物理重力
+            root.CFrame = CFrame.new(root.Position.X + horizontalMove.X, root.Position.Y, root.Position.Z + horizontalMove.Z) * root.CFrame.Rotation
+            
+            char:SetAttribute("RelativeSpeed", currentSpeed)
+        end
+    else
+        boostTimer = 0
+        isBoostActive = false
+        currentSpeed = 0
+    end
+end)
