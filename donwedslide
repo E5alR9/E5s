@@ -3,25 +3,22 @@ local UserInputService = game:GetService("UserInputService")
 local lp = game.Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
--- 數值參數 (已按比例調升)
-local TARGET_BOOST = 1600     
-local MAX_SPEED_CAP = 4750    -- 原 3800 * 1.25 = 4750
-local VEL_SCALE = 90          
-local SLOPE_ACCEL_FORCE = 6875 -- 原 5500 * 1.25，增強斜坡推力以匹配極速
+-- 數值參數
+local TARGET_BOOST = 1000     
+local MAX_SPEED_CAP = 4625    -- 絕對速度天花板
+local SLOPE_ACCEL_FORCE = 2000 
+local STRAFE_ADD_AMOUNT = 5    
 
--- 甩鼠標加速參數
-local STRAFE_BOOST_MAX = 750   -- 提高甩頭上限
-local STRAFE_SENSITIVITY = 1.0 -- 提高甩頭靈敏度
-
--- 摩擦力與加速度
-local ACCEL_RATE = 450        -- 稍微加快起步累積
-local FRICTION_DECAY = 0.9975 -- 更加滑溜，適應高時速滑行
+-- 加速度與摩擦
+local ACCEL_RATE = 150        
+local FRICTION_DECAY = 0.997  
+local OVER_SPEED_DECAY = 0.95 -- 如果超過 4625，每幀強制扣除 5% 速度直到回落
 
 -- 狀態變量
-local boostTimer = 0
-local isBoostActive = false
 local currentSpeed = 0
-local lastCameraYaw = 0 
+local lastCameraYaw = 0
+local isBoostActive = false
+local boostTimer = 0
 
 RunService.Heartbeat:Connect(function(dt)
     local char = lp.Character
@@ -31,36 +28,57 @@ RunService.Heartbeat:Connect(function(dt)
 
     if char:GetAttribute("State") == "Downed" then
         local isCtrlHeld = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
+        local camLook = camera.CFrame.LookVector
+        local forwardDir = Vector3.new(camLook.X, 0, camLook.Z).Unit
         
-        -- 1. Ctrl 觸發
+        -- --- 【碰撞偵測】 ---
+        local wallRayParams = RaycastParams.new()
+        wallRayParams.FilterDescendantsInstances = {char}
+        local rayOrigin = root.Position + Vector3.new(0, 1, 0)
+        local wallCheck = workspace:Raycast(rayOrigin, forwardDir * 2.5, wallRayParams)
+
+        if wallCheck and wallCheck.Instance then
+            local wallNormal = wallCheck.Normal
+            if wallNormal.Y < 0.7 then 
+                local dot = forwardDir:Dot(wallNormal) 
+                if dot < -0.8 then
+                    currentSpeed = currentSpeed * 0.05
+                else
+                    currentSpeed = currentSpeed * 0.85
+                    forwardDir = (forwardDir - (dot * wallNormal)).Unit
+                end
+            end
+        end
+
+        -- 1. 平滑加速邏輯 (基礎加速)
         if isCtrlHeld then
             if not isBoostActive then
                 boostTimer = 4.0
                 isBoostActive = true
             end
             if currentSpeed < TARGET_BOOST then
-                currentSpeed = math.min(currentSpeed + (ACCEL_RATE * dt * 5), TARGET_BOOST)
+                currentSpeed = currentSpeed + (ACCEL_RATE * dt * 3)
             end
         else
             isBoostActive = false
             boostTimer = 0
         end
 
-        -- 2. 甩鼠標偵測
+        -- 2. 轉頭偵測
         local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
         local yawDelta = math.abs(camYaw - lastCameraYaw)
         if yawDelta > math.pi then yawDelta = math.abs(yawDelta - (math.pi * 2)) end
-        
-        local angularVelocity = yawDelta / dt
-        local strafeBonus = math.min(angularVelocity * STRAFE_SENSITIVITY, STRAFE_BOOST_MAX)
+        local isTurning = yawDelta > 0.005
         lastCameraYaw = camYaw
 
-        -- 3. 斜坡偵測
-        local rayParams = RaycastParams.new()
-        rayParams.FilterDescendantsInstances = {char}
-        local ray = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), rayParams)
+        -- 3. 地面與斜坡偵測
+        local groundRayParams = RaycastParams.new()
+        groundRayParams.FilterDescendantsInstances = {char}
+        local ray = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), groundRayParams)
         
         local slopeBonus = 0
+        local isOnGround = (ray ~= nil)
+        
         if ray and ray.Instance then
             local localNormal = root.CFrame:VectorToObjectSpace(ray.Normal)
             local rawSlope = -localNormal.Z
@@ -69,16 +87,18 @@ RunService.Heartbeat:Connect(function(dt)
             end
         end
 
-        -- 4. 速度邏輯 (極速強化與低摩擦)
-        if slopeBonus > 0 then
-            -- 下坡加速至 4750
+        -- 4. 速度演化 (加入強制限速與超速懲罰)
+        if currentSpeed > MAX_SPEED_CAP then
+            -- 【核心修改】：如果超過最大速度，強制進行減速 (使用 OVER_SPEED_DECAY)
+            currentSpeed = currentSpeed * OVER_SPEED_DECAY
+        elseif slopeBonus > 0 then
+            -- 斜坡加速：限制增加後的結果不得超過上限
             currentSpeed = math.min(currentSpeed + slopeBonus, MAX_SPEED_CAP)
-        elseif isCtrlHeld or (angularVelocity > 1.5 and currentSpeed > 400) then
-            -- 甩頭或按住時幾乎不掉速
-            currentSpeed = math.min(currentSpeed + (strafeBonus * dt), MAX_SPEED_CAP)
-            currentSpeed = currentSpeed * 0.9995 
-        else
-            -- 一般滑行衰減 (0.9975 極其持久)
+        elseif isTurning and currentSpeed > 100 then
+            -- 轉頭加速：限制增加後的結果不得超過上限
+            currentSpeed = math.min(currentSpeed + STRAFE_ADD_AMOUNT, MAX_SPEED_CAP)
+        elseif isOnGround then
+            -- 平地自然衰減
             if currentSpeed > 5 then
                 currentSpeed = currentSpeed * FRICTION_DECAY
             else
@@ -86,22 +106,14 @@ RunService.Heartbeat:Connect(function(dt)
             end
         end
 
-        -- 5. 執行 XZ 水平位移
-        if currentSpeed > 0 then
-            local studsPerSec = currentSpeed / VEL_SCALE
-            local camLook = camera.CFrame.LookVector
-            local forwardDir = Vector3.new(camLook.X, 0, camLook.Z).Unit
-            
-            local horizontalMove = forwardDir * studsPerSec * dt
-            
-            -- 更新坐標，保留 Y 軸物理重力
-            root.CFrame = CFrame.new(root.Position.X + horizontalMove.X, root.Position.Y, root.Position.Z + horizontalMove.Z) * root.CFrame.Rotation
-            
-            char:SetAttribute("RelativeSpeed", currentSpeed)
+        -- 5. 最終物理應用
+        if currentSpeed > 10 then
+            local targetVelocity = forwardDir * (currentSpeed / 45) 
+            root.AssemblyLinearVelocity = Vector3.new(targetVelocity.X, root.AssemblyLinearVelocity.Y, targetVelocity.Z)
         end
+        
+        char:SetAttribute("RelativeSpeed", currentSpeed)
     else
-        boostTimer = 0
-        isBoostActive = false
         currentSpeed = 0
     end
 end)
