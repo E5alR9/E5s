@@ -4,14 +4,13 @@ local lp = game.Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 -- 數值參數
-local TARGET_BOOST = 1900     
+local TARGET_BOOST = 1000     
 local MAX_SPEED_CAP = 4625    
-local SLOPE_ACCEL_FORCE = 2000 
-local STRAFE_ADD_AMOUNT = 10   
+local STRAFE_ADD_AMOUNT = 9   -- 移除門檻後，稍微調高讓平地起步更有感
 
 -- 加速度與摩擦
 local ACCEL_RATE = 150        
-local FRICTION_DECAY = 0.997  
+local FRICTION_DECAY = 0.998  -- 你原本設定的 0.998，滑行距離較長
 local OVER_SPEED_DECAY = 0.95 
 
 -- 狀態變量
@@ -23,13 +22,16 @@ RunService.Heartbeat:Connect(function(dt)
     local char = lp.Character
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not root or not humanoid then return end
 
+    -- 判斷角色狀態
     if char:GetAttribute("State") == "Downed" then
         local isCtrlHeld = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
         local isA = UserInputService:IsKeyDown(Enum.KeyCode.A)
         local isD = UserInputService:IsKeyDown(Enum.KeyCode.D)
         
+        -- 獲取相機水平方向
         local camLook = camera.CFrame.LookVector
         local camForward = Vector3.new(camLook.X, 0, camLook.Z).Unit
         
@@ -40,49 +42,50 @@ RunService.Heartbeat:Connect(function(dt)
         if yawDelta < -math.pi then yawDelta = yawDelta + (math.pi * 2) end
         lastCameraYaw = camYaw
 
-        -- 2. Strafe 邏輯判定
+        -- 2. Strafe 邏輯與方向鎖定
+        -- 無射線模式下，我們完全靠輸入來切換 moveDir
         local canStrafe = false
+        
         if isA and yawDelta > 0.001 then
+            -- A + 向左轉：同步鏡頭
             moveDir = camForward
             canStrafe = true
         elseif isD and yawDelta < -0.001 then
+            -- D + 向右轉：同步鏡頭
             moveDir = camForward
             canStrafe = true
         elseif moveDir.Magnitude < 0.1 then 
+            -- 初始化方向
             moveDir = camForward 
         end
+        -- 注意：若不符合上述條件（例如轉頭 180 度但不按 A/D），moveDir 不會更新，達成倒退滑行。
 
-        -- 3. 加速邏輯
-        if isCtrlHeld and currentSpeed < TARGET_BOOST then
-            currentSpeed = currentSpeed + (ACCEL_RATE * dt * 3)
-        end
-
-        -- 4. 速度演化與斜坡
-        local groundRay = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), wallRayParams)
-        local isOnGround = (groundRay ~= nil)
-        
-        if currentSpeed > MAX_SPEED_CAP then
-            currentSpeed = currentSpeed * OVER_SPEED_DECAY
-        elseif isCtrlHeld then
-            -- 斜坡加速
-            if groundRay and groundRay.Instance then
-                local localNormal = root.CFrame:VectorToObjectSpace(groundRay.Normal)
-                local rawSlope = -localNormal.Z
-                if rawSlope > 0 then
-                    currentSpeed = math.min(currentSpeed + (rawSlope * SLOPE_ACCEL_FORCE * dt), MAX_SPEED_CAP)
-                end
+        -- 3. 速度邏輯
+        if isCtrlHeld then
+            -- A. 基礎推進加速
+            if currentSpeed < TARGET_BOOST then
+                currentSpeed = currentSpeed + (ACCEL_RATE * dt * 3)
             end
-            -- Strafe 加速
-            if canStrafe and currentSpeed > 50 then
+            
+            -- B. Strafe 加速 (已移除 > 50 門檻，起步即生效)
+            if canStrafe then
                 currentSpeed = math.min(currentSpeed + STRAFE_ADD_AMOUNT, MAX_SPEED_CAP)
             end
-        elseif isOnGround then
+        else
+            -- C. 自然摩擦衰減 (未按住 Ctrl)
             currentSpeed = currentSpeed * FRICTION_DECAY
         end
 
+        -- 4. 超速限制
+        if currentSpeed > MAX_SPEED_CAP then
+            currentSpeed = currentSpeed * OVER_SPEED_DECAY
+        end
+
         -- 5. 最終物理應用
+        -- 我們不再檢查地面前方是否有牆，直接交給物理引擎處理速度向量
         if currentSpeed > 10 then
             local targetVelocity = moveDir.Unit * (currentSpeed / 45) 
+            -- 保留垂直方向的速度（例如重力造成的掉落），只修改水平速度
             root.AssemblyLinearVelocity = Vector3.new(targetVelocity.X, root.AssemblyLinearVelocity.Y, targetVelocity.Z)
         else
             currentSpeed = 0
@@ -90,6 +93,7 @@ RunService.Heartbeat:Connect(function(dt)
         
         char:SetAttribute("RelativeSpeed", currentSpeed)
     else
+        -- 非滑行狀態重置
         currentSpeed = 0
         moveDir = Vector3.new(0,0,0)
     end
