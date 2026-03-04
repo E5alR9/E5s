@@ -4,21 +4,20 @@ local lp = game.Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 -- 數值參數
-local TARGET_BOOST = 1000     
-local MAX_SPEED_CAP = 4625    -- 絕對速度天花板
+local TARGET_BOOST = 1900     
+local MAX_SPEED_CAP = 4625    
 local SLOPE_ACCEL_FORCE = 2000 
-local STRAFE_ADD_AMOUNT = 8    
+local STRAFE_ADD_AMOUNT = 10   
 
 -- 加速度與摩擦
 local ACCEL_RATE = 150        
 local FRICTION_DECAY = 0.997  
-local OVER_SPEED_DECAY = 0.95 -- 如果超過 4625，每幀強制扣除 5% 速度直到回落
+local OVER_SPEED_DECAY = 0.95 
 
 -- 狀態變量
 local currentSpeed = 0
 local lastCameraYaw = 0
-local isBoostActive = false
-local boostTimer = 0
+local moveDir = Vector3.new(0,0,0) 
 
 RunService.Heartbeat:Connect(function(dt)
     local char = lp.Character
@@ -28,92 +27,70 @@ RunService.Heartbeat:Connect(function(dt)
 
     if char:GetAttribute("State") == "Downed" then
         local isCtrlHeld = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
-        local camLook = camera.CFrame.LookVector
-        local forwardDir = Vector3.new(camLook.X, 0, camLook.Z).Unit
+        local isA = UserInputService:IsKeyDown(Enum.KeyCode.A)
+        local isD = UserInputService:IsKeyDown(Enum.KeyCode.D)
         
-        -- --- 【碰撞偵測】 ---
-        local wallRayParams = RaycastParams.new()
-        wallRayParams.FilterDescendantsInstances = {char}
-        local rayOrigin = root.Position + Vector3.new(0, 1, 0)
-        local wallCheck = workspace:Raycast(rayOrigin, forwardDir * 2.5, wallRayParams)
-
-        if wallCheck and wallCheck.Instance then
-            local wallNormal = wallCheck.Normal
-            if wallNormal.Y < 0.7 then 
-                local dot = forwardDir:Dot(wallNormal) 
-                if dot < -0.8 then
-                    currentSpeed = currentSpeed * 0.05
-                else
-                    currentSpeed = currentSpeed * 0.85
-                    forwardDir = (forwardDir - (dot * wallNormal)).Unit
-                end
-            end
-        end
-
-        -- 1. 平滑加速邏輯 (基礎加速)
-        if isCtrlHeld then
-            if not isBoostActive then
-                boostTimer = 4.0
-                isBoostActive = true
-            end
-            if currentSpeed < TARGET_BOOST then
-                currentSpeed = currentSpeed + (ACCEL_RATE * dt * 3)
-            end
-        else
-            isBoostActive = false
-            boostTimer = 0
-        end
-
-        -- 2. 轉頭偵測
+        local camLook = camera.CFrame.LookVector
+        local camForward = Vector3.new(camLook.X, 0, camLook.Z).Unit
+        
+        -- 1. 偵測轉向 (Yaw Delta)
         local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
-        local yawDelta = math.abs(camYaw - lastCameraYaw)
-        if yawDelta > math.pi then yawDelta = math.abs(yawDelta - (math.pi * 2)) end
-        local isTurning = yawDelta > 0.005
+        local yawDelta = camYaw - lastCameraYaw
+        if yawDelta > math.pi then yawDelta = yawDelta - (math.pi * 2) end
+        if yawDelta < -math.pi then yawDelta = yawDelta + (math.pi * 2) end
         lastCameraYaw = camYaw
 
-        -- 3. 地面與斜坡偵測
-        local groundRayParams = RaycastParams.new()
-        groundRayParams.FilterDescendantsInstances = {char}
-        local ray = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), groundRayParams)
-        
-        local slopeBonus = 0
-        local isOnGround = (ray ~= nil)
-        
-        if ray and ray.Instance then
-            local localNormal = root.CFrame:VectorToObjectSpace(ray.Normal)
-            local rawSlope = -localNormal.Z
-            if rawSlope > 0 then
-                slopeBonus = rawSlope * SLOPE_ACCEL_FORCE * dt
-            end
+        -- 2. Strafe 邏輯判定
+        local canStrafe = false
+        if isA and yawDelta > 0.001 then
+            moveDir = camForward
+            canStrafe = true
+        elseif isD and yawDelta < -0.001 then
+            moveDir = camForward
+            canStrafe = true
+        elseif moveDir.Magnitude < 0.1 then 
+            moveDir = camForward 
         end
 
-        -- 4. 速度演化 (加入強制限速與超速懲罰)
+        -- 3. 加速邏輯
+        if isCtrlHeld and currentSpeed < TARGET_BOOST then
+            currentSpeed = currentSpeed + (ACCEL_RATE * dt * 3)
+        end
+
+        -- 4. 速度演化與斜坡
+        local groundRay = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), wallRayParams)
+        local isOnGround = (groundRay ~= nil)
+        
         if currentSpeed > MAX_SPEED_CAP then
-            -- 【核心修改】：如果超過最大速度，強制進行減速 (使用 OVER_SPEED_DECAY)
             currentSpeed = currentSpeed * OVER_SPEED_DECAY
-        elseif slopeBonus > 0 then
-            -- 斜坡加速：限制增加後的結果不得超過上限
-            currentSpeed = math.min(currentSpeed + slopeBonus, MAX_SPEED_CAP)
-        elseif isTurning and currentSpeed > 100 then
-            -- 轉頭加速：限制增加後的結果不得超過上限
-            currentSpeed = math.min(currentSpeed + STRAFE_ADD_AMOUNT, MAX_SPEED_CAP)
-        elseif isOnGround then
-            -- 平地自然衰減
-            if currentSpeed > 5 then
-                currentSpeed = currentSpeed * FRICTION_DECAY
-            else
-                currentSpeed = 0
+        elseif isCtrlHeld then
+            -- 斜坡加速
+            if groundRay and groundRay.Instance then
+                local localNormal = root.CFrame:VectorToObjectSpace(groundRay.Normal)
+                local rawSlope = -localNormal.Z
+                if rawSlope > 0 then
+                    currentSpeed = math.min(currentSpeed + (rawSlope * SLOPE_ACCEL_FORCE * dt), MAX_SPEED_CAP)
+                end
             end
+            -- Strafe 加速
+            if canStrafe and currentSpeed > 50 then
+                currentSpeed = math.min(currentSpeed + STRAFE_ADD_AMOUNT, MAX_SPEED_CAP)
+            end
+        elseif isOnGround then
+            currentSpeed = currentSpeed * FRICTION_DECAY
         end
 
         -- 5. 最終物理應用
         if currentSpeed > 10 then
-            local targetVelocity = forwardDir * (currentSpeed / 45) 
+            local targetVelocity = moveDir.Unit * (currentSpeed / 45) 
             root.AssemblyLinearVelocity = Vector3.new(targetVelocity.X, root.AssemblyLinearVelocity.Y, targetVelocity.Z)
+        else
+            currentSpeed = 0
         end
         
         char:SetAttribute("RelativeSpeed", currentSpeed)
     else
         currentSpeed = 0
+        moveDir = Vector3.new(0,0,0)
     end
 end)
