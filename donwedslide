@@ -7,7 +7,7 @@ local camera = workspace.CurrentCamera
 local TARGET_BOOST = 1000     
 local MAX_SPEED_CAP = 4625    -- 絕對速度天花板
 local SLOPE_ACCEL_FORCE = 2000 
-local STRAFE_ADD_AMOUNT = 5    
+local STRAFE_ADD_AMOUNT = 8    
 
 -- 加速度與摩擦
 local ACCEL_RATE = 150        
