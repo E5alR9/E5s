@@ -18,7 +18,7 @@ local currentSpeed = 0
 local lastCameraYaw = 0
 local moveDir = Vector3.new(0,0,0) 
 
--- 狀態鏈紀錄邏輯 (新增)
+-- 狀態鏈紀錄邏輯
 local stateHistory = {"None", "None", "None", "None", "None"}
 local isSlidingActive = false
 
@@ -43,7 +43,6 @@ RunService.Heartbeat:Connect(function(dt)
 	local humanoid = char:FindFirstChild("Humanoid")
 	if not root or not humanoid then return end
 
-	-- 取得當前狀態
 	local currentState = char:GetAttribute("State") or "None"
 
 	-- 更新狀態歷史鏈
@@ -51,7 +50,6 @@ RunService.Heartbeat:Connect(function(dt)
 		table.insert(stateHistory, 1, currentState)
 		if #stateHistory > 6 then table.remove(stateHistory, #stateHistory) end
 		
-		-- 判定是否點火啟動加速
 		if currentState == "Downed" then
 			local foundSlideSource = false
 			for i = 2, #stateHistory do
@@ -60,58 +58,61 @@ RunService.Heartbeat:Connect(function(dt)
 					foundSlideSource = true
 					break
 				elseif not IGNORE_LIST[hState] then
-					-- 如果遇到非忽略也非滑行的狀態 (如 Run)，代表不是滑行進入 Downed
 					break
 				end
 			end
-			
-			if foundSlideSource then
-				isSlidingActive = true
-			end
+			if foundSlideSource then isSlidingActive = true end
 		else
-			-- 如果目前不是 Downed 且不是滑行起源狀態，就徹底熄火
-			if not SLIDE_ORIGINS[currentState] then
-				isSlidingActive = false
-			end
+			if not SLIDE_ORIGINS[currentState] then isSlidingActive = false end
 		end
 	end
 
-	-- 執行滑行物理邏輯 (必須是 Downed 且點火狀態開啟)
+	-- 執行滑行物理邏輯
 	if currentState == "Downed" and isSlidingActive then
-		local isA = UserInputService:IsKeyDown(Enum.KeyCode.A)
-		local isD = UserInputService:IsKeyDown(Enum.KeyCode.D)
-		
 		-- 獲取相機水平方向
-		local camLook = camera.CFrame.LookVector
+		local camCF = camera.CFrame
+		local camLook = camCF.LookVector
 		local camForward = Vector3.new(camLook.X, 0, camLook.Z).Unit
 		
 		-- 1. 偵測轉向 (Yaw Delta)
-		local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
+		local _, camYaw, _ = camCF:ToEulerAnglesYXZ()
 		local yawDelta = camYaw - lastCameraYaw
 		if yawDelta > math.pi then yawDelta = yawDelta - (math.pi * 2) end
 		if yawDelta < -math.pi then yawDelta = yawDelta + (math.pi * 2) end
 		lastCameraYaw = camYaw
 
-		-- 2. Strafe 邏輯與方向鎖定
+		-- 2. 通用 Strafe 邏輯 (支援搖桿)
 		local canStrafe = false
+		local inputDir = humanoid.MoveDirection -- 這是核心：自動支援鍵盤與手機搖桿
 		
-		if isA and yawDelta > 0.001 then
-			moveDir = camForward
-			canStrafe = true
-		elseif isD and yawDelta < -0.001 then
-			moveDir = camForward
-			canStrafe = true
-		elseif moveDir.Magnitude < 0.1 then 
-			moveDir = camForward 
+		if inputDir.Magnitude > 0.1 then
+			-- 計算移動方向相對於相機方向的「左右偏向」
+			-- 利用 Cross Product (叉積) 判斷 inputDir 在 camForward 的左邊還是右邊
+			local relativeMove = camCF:VectorToObjectSpace(inputDir)
+			local isMovingLeft = relativeMove.X < -0.1
+			local isMovingRight = relativeMove.X > 0.1
+
+			if isMovingLeft and yawDelta > 0.001 then
+				-- 向左轉 + 搖桿向左推
+				moveDir = camForward
+				canStrafe = true
+			elseif isMovingRight and yawDelta < -0.001 then
+				-- 向右轉 + 搖桿向右推
+				moveDir = camForward
+				canStrafe = true
+			end
+			
+			-- 如果沒有在轉向，但有在移動，更新 moveDir 以維持前進
+			if moveDir.Magnitude < 0.1 then
+				moveDir = camForward
+			end
 		end
 
-		-- 3. 速度邏輯 (已點火狀態下自動執行)
-		-- A. 基礎推進加速
+		-- 3. 速度邏輯
 		if currentSpeed < TARGET_BOOST then
 			currentSpeed = currentSpeed + (ACCEL_RATE * dt * 3)
 		end
 		
-		-- B. Strafe 加速
 		if canStrafe then
 			currentSpeed = math.min(currentSpeed + STRAFE_ADD_AMOUNT, MAX_SPEED_CAP)
 		end
@@ -131,10 +132,8 @@ RunService.Heartbeat:Connect(function(dt)
 		
 		char:SetAttribute("RelativeSpeed", currentSpeed)
 	else
-		-- 非滑行點火狀態重置
 		currentSpeed = 0
 		moveDir = Vector3.new(0,0,0)
-		-- 重置 lastCameraYaw 以防起身後再次進入時角度突變
 		local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
 		lastCameraYaw = camYaw
 	end
