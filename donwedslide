@@ -3,138 +3,152 @@ local UserInputService = game:GetService("UserInputService")
 local lp = game.Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
--- 數值參數
+-- --- 基礎數值設定 ---
 local TARGET_BOOST = 1400      
-local MAX_SPEED_CAP = 4625     
-local STRAFE_ADD_AMOUNT = 10    
+local MAX_SPEED_CAP = 4625     -- 電腦預設上限
+local FINAL_OVER_SPEED_DECAY = 0.998 -- 電腦超速衰減
+
+-- --- 設備偵測與數值分組 ---
+local STRAFE_ADD_AMOUNT = 10    -- 電腦預設
+local CURRENT_ACCEL_RATE = 150  -- 電腦預設
+
+-- 如果偵測到觸控設備 (手機/平板)
+if UserInputService.TouchEnabled then
+    -- 1. 加速改 1.5 倍 (10 * 1.5)
+    STRAFE_ADD_AMOUNT = 15    
+    
+    -- 2. 基礎起步推力同步改為 1.5 倍
+    CURRENT_ACCEL_RATE = 225  
+    
+    -- 3. 上限改 1.8 倍 (4625 * 1.8)
+    MAX_SPEED_CAP = 8325 
+    
+    -- 手機版超速衰減稍微調順 (0.97)，讓高標速度維持久一點
+    FINAL_OVER_SPEED_DECAY = 0.998
+end
 
 -- 加速度與摩擦
-local ACCEL_RATE = 150         
 local FRICTION_DECAY = 0.997   
-local OVER_SPEED_DECAY = 0.95  
 
 -- 狀態變量
 local currentSpeed = 0
 local lastCameraYaw = 0
 local moveDir = Vector3.new(0,0,0) 
 
--- 狀態鏈紀錄邏輯
+-- 狀態鏈紀錄
 local stateHistory = {"None", "None", "None", "None", "None"}
 local isSlidingActive = false
 
 local SLIDE_ORIGINS = {
-	["Crouch"] = true,
-	["Slide"] = true,
-	["SlideAir"] = true,
-	["EmotingSlide"] = true,
-	["EmotingSlideAir"] = true,
-	["CarryingSlide"] = true
+    ["Crouch"] = true, ["Slide"] = true, ["SlideAir"] = true,
+    ["EmotingSlide"] = true, ["EmotingSlideAir"] = true, ["CarryingSlide"] = true
 }
-
-local IGNORE_LIST = {
-	["Default"] = true,
-	["None"] = true
-}
+local IGNORE_LIST = { ["Default"] = true, ["None"] = true }
 
 RunService.Heartbeat:Connect(function(dt)
-	local char = lp.Character
-	if not char then return end
-	local root = char:FindFirstChild("HumanoidRootPart")
-	local humanoid = char:FindFirstChild("Humanoid")
-	if not root or not humanoid then return end
+    local char = lp.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not root or not humanoid then return end
 
-	local currentState = char:GetAttribute("State") or "None"
+    local currentState = char:GetAttribute("State") or "None"
 
-	-- 更新狀態歷史鏈
-	if stateHistory[1] ~= currentState then
-		table.insert(stateHistory, 1, currentState)
-		if #stateHistory > 6 then table.remove(stateHistory, #stateHistory) end
-		
-		if currentState == "Downed" then
-			local foundSlideSource = false
-			for i = 2, #stateHistory do
-				local hState = stateHistory[i]
-				if SLIDE_ORIGINS[hState] then
-					foundSlideSource = true
-					break
-				elseif not IGNORE_LIST[hState] then
-					break
-				end
-			end
-			if foundSlideSource then isSlidingActive = true end
-		else
-			if not SLIDE_ORIGINS[currentState] then isSlidingActive = false end
-		end
-	end
+    -- 狀態鏈邏輯更新
+    if stateHistory[1] ~= currentState then
+        table.insert(stateHistory, 1, currentState)
+        if #stateHistory > 6 then table.remove(stateHistory, #stateHistory) end
+        
+        if currentState == "Downed" then
+            local foundSlideSource = false
+            for i = 2, #stateHistory do
+                local hState = stateHistory[i]
+                if SLIDE_ORIGINS[hState] then
+                    foundSlideSource = true
+                    break
+                elseif not IGNORE_LIST[hState] then
+                    break
+                end
+            end
+            if foundSlideSource then isSlidingActive = true end
+        else
+            if not SLIDE_ORIGINS[currentState] then isSlidingActive = false end
+        end
+    end
 
-	-- 執行滑行物理邏輯
-	if currentState == "Downed" and isSlidingActive then
-		-- 獲取相機水平方向
-		local camCF = camera.CFrame
-		local camLook = camCF.LookVector
-		local camForward = Vector3.new(camLook.X, 0, camLook.Z).Unit
-		
-		-- 1. 偵測轉向 (Yaw Delta)
-		local _, camYaw, _ = camCF:ToEulerAnglesYXZ()
-		local yawDelta = camYaw - lastCameraYaw
-		if yawDelta > math.pi then yawDelta = yawDelta - (math.pi * 2) end
-		if yawDelta < -math.pi then yawDelta = yawDelta + (math.pi * 2) end
-		lastCameraYaw = camYaw
+    -- 執行滑行物理邏輯
+    if currentState == "Downed" and isSlidingActive then
+        local camCF = camera.CFrame
+        local camForward = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z).Unit
+        
+        -- 核心修正：檢查是否在地面 (空中不扣摩擦力)
+        local isOnGround = humanoid.FloorMaterial ~= Enum.Material.Air
 
-		-- 2. 通用 Strafe 邏輯 (支援搖桿)
-		local canStrafe = false
-		local inputDir = humanoid.MoveDirection -- 這是核心：自動支援鍵盤與手機搖桿
-		
-		if inputDir.Magnitude > 0.1 then
-			-- 計算移動方向相對於相機方向的「左右偏向」
-			-- 利用 Cross Product (叉積) 判斷 inputDir 在 camForward 的左邊還是右邊
-			local relativeMove = camCF:VectorToObjectSpace(inputDir)
-			local isMovingLeft = relativeMove.X < -0.1
-			local isMovingRight = relativeMove.X > 0.1
+        -- 1. 偵測轉向 (Yaw Delta)
+        local _, camYaw, _ = camCF:ToEulerAnglesYXZ()
+        local yawDelta = camYaw - lastCameraYaw
+        if yawDelta > math.pi then yawDelta = yawDelta - (math.pi * 2) end
+        if yawDelta < -math.pi then yawDelta = yawDelta + (math.pi * 2) end
+        lastCameraYaw = camYaw
 
-			if isMovingLeft and yawDelta > 0.001 then
-				-- 向左轉 + 搖桿向左推
-				moveDir = camForward
-				canStrafe = true
-			elseif isMovingRight and yawDelta < -0.001 then
-				-- 向右轉 + 搖桿向右推
-				moveDir = camForward
-				canStrafe = true
-			end
-			
-			-- 如果沒有在轉向，但有在移動，更新 moveDir 以維持前進
-			if moveDir.Magnitude < 0.1 then
-				moveDir = camForward
-			end
-		end
+        -- 2. 通用 Strafe 邏輯
+        local canStrafe = false
+        local inputDir = humanoid.MoveDirection 
+        
+        if inputDir.Magnitude > 0.1 then
+            local relativeMove = camCF:VectorToObjectSpace(inputDir)
+            local isMovingLeft = relativeMove.X < -0.1
+            local isMovingRight = relativeMove.X > 0.1
 
-		-- 3. 速度邏輯
-		if currentSpeed < TARGET_BOOST then
-			currentSpeed = currentSpeed + (ACCEL_RATE * dt * 3)
-		end
-		
-		if canStrafe then
-			currentSpeed = math.min(currentSpeed + STRAFE_ADD_AMOUNT, MAX_SPEED_CAP)
-		end
+            -- 判定門檻，觸控設備通常需要比較靈敏的 yawDelta 判定
+            if (isMovingLeft and yawDelta > 0.0005) or (isMovingRight and yawDelta < -0.0005) then
+                moveDir = camForward
+                canStrafe = true
+            end
+            
+            if moveDir.Magnitude < 0.1 then
+                moveDir = camForward
+            end
+        end
 
-		-- 4. 超速限制
-		if currentSpeed > MAX_SPEED_CAP then
-			currentSpeed = currentSpeed * OVER_SPEED_DECAY
-		end
+        -- 3. 速度邏輯
+        if currentSpeed < TARGET_BOOST then
+            currentSpeed = currentSpeed + (CURRENT_ACCEL_RATE * dt * 3)
+        end
+        
+        if canStrafe then
+            currentSpeed = math.min(currentSpeed + STRAFE_ADD_AMOUNT, MAX_SPEED_CAP)
+        end
 
-		-- 5. 最終物理應用
-		if currentSpeed > 10 then
-			local targetVelocity = moveDir.Unit * (currentSpeed / 45) 
-			root.AssemblyLinearVelocity = Vector3.new(targetVelocity.X, root.AssemblyLinearVelocity.Y, targetVelocity.Z)
-		else
-			currentSpeed = 0
-		end
-		
-		char:SetAttribute("RelativeSpeed", currentSpeed)
-	else
-		currentSpeed = 0
-		moveDir = Vector3.new(0,0,0)
-		local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
-		lastCameraYaw = camYaw
-	end
+        -- 4. 摩擦力與空中處理
+        if not canStrafe then
+            if isOnGround then
+                currentSpeed = currentSpeed * FRICTION_DECAY
+            else
+                -- 空中不執行 FRICTION_DECAY，僅保留 0.9999 極微弱空氣阻力
+                currentSpeed = currentSpeed * 0.9999 
+            end
+        end
+
+        -- 超速限制 (套用設備對應的衰減率)
+        if currentSpeed > MAX_SPEED_CAP then
+            currentSpeed = currentSpeed * FINAL_OVER_SPEED_DECAY
+        end
+
+        -- 5. 最終物理應用
+        if currentSpeed > 10 then
+            local targetVelocity = moveDir.Unit * (currentSpeed / 45) 
+            -- 保留 AssemblyLinearVelocity.Y 以維持正常重力落下
+            root.AssemblyLinearVelocity = Vector3.new(targetVelocity.X, root.AssemblyLinearVelocity.Y, targetVelocity.Z)
+        else
+            currentSpeed = 0
+        end
+        
+        char:SetAttribute("RelativeSpeed", currentSpeed)
+    else
+        currentSpeed = 0
+        moveDir = Vector3.new(0,0,0)
+        local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
+        lastCameraYaw = camYaw
+    end
 end)
