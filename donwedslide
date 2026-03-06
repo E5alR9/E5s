@@ -3,20 +3,41 @@ local UserInputService = game:GetService("UserInputService")
 local lp = game.Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
--- 數值參數
-local TARGET_BOOST = 1000     
-local MAX_SPEED_CAP = 4625    
-local STRAFE_ADD_AMOUNT = 9   -- 移除門檻後，稍微調高讓平地起步更有感
+-- ====================================================
+-- === ⚙️ 核心數值設定區 (你可以隨時修改這裡的數字來測試) ===
+-- ====================================================
+local BOOST_DELAY = 0.1         -- ⏳ 倒地後「延遲幾秒」才給予爆發推力 (目前是 1 秒)
+local INITIAL_BOOST = 50     -- 🚀 爆發推力 (時間到時，瞬間給予的速度)
 
--- 加速度與摩擦
-local ACCEL_RATE = 150        
-local FRICTION_DECAY = 0.997  -- 你原本設定的 0.998，滑行距離較長
-local OVER_SPEED_DECAY = 0.95 
+local MAX_SLOPE_SPEED = 55.5  -- 地面基準限速 (最高滑行速度)
+local STRAFE_ACCEL = 5        -- 轉畫面時的【每秒】加速度
+local SLOPE_ACCEL = 10        -- 斜坡上的【每秒】重力加速
+local GROUND_FRICTION = 3     -- 平地時的【每秒】自然摩擦力減速
+local OVERSPEED_DECEL = 20    -- 落地超速時(大於55.5時)【每秒】的強烈煞車減速
+-- ====================================================
 
 -- 狀態變量
 local currentSpeed = 0
 local lastCameraYaw = 0
 local moveDir = Vector3.new(0,0,0) 
+local wasSlidingLastFrame = false 
+
+-- 延遲計時專用變量
+local downedStartTime = 0             -- 記錄進入倒地狀態的準確時間
+local hasAppliedDelayedBoost = false  -- 記錄是否已經給過延遲爆發
+
+-- 狀態鏈紀錄邏輯
+local stateHistory = {"None", "None", "None", "None", "None"}
+local isSlidingActive = false
+
+local SLIDE_ORIGINS = {
+    ["Crouch"] = true, ["Slide"] = true, ["SlideAir"] = true,
+    ["EmotingSlide"] = true, ["EmotingSlideAir"] = true, ["CarryingSlide"] = true
+}
+local IGNORE_LIST = { ["Default"] = true, ["None"] = true }
+
+local groundRayParams = RaycastParams.new()
+groundRayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 RunService.Heartbeat:Connect(function(dt)
     local char = lp.Character
@@ -25,78 +46,316 @@ RunService.Heartbeat:Connect(function(dt)
     local humanoid = char:FindFirstChild("Humanoid")
     if not root or not humanoid then return end
 
-    -- 判斷角色狀態
-    if char:GetAttribute("State") == "Downed" then
-        local isCtrlHeld = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
-        local isA = UserInputService:IsKeyDown(Enum.KeyCode.A)
-        local isD = UserInputService:IsKeyDown(Enum.KeyCode.D)
+    groundRayParams.FilterDescendantsInstances = {char}
+    local currentState = char:GetAttribute("State") or "None"
+
+    -- 更新歷史狀態鏈
+    if stateHistory[1] ~= currentState then
+        table.insert(stateHistory, 1, currentState)
+        if #stateHistory > 6 then table.remove(stateHistory, #stateHistory) end
         
-        -- 獲取相機水平方向
+        if currentState == "Downed" then
+            local foundSlideSource = false
+            for i = 2, #stateHistory do
+                local hState = stateHistory[i]
+                if SLIDE_ORIGINS[hState] then
+                    foundSlideSource = true
+                    break
+                elseif not IGNORE_LIST[hState] then
+                    break
+                end
+            end
+            if foundSlideSource then isSlidingActive = true end
+        else
+            if not SLIDE_ORIGINS[currentState] then isSlidingActive = false end
+        end
+    end
+
+    -- === 開始判定滑行物理 ===
+    if currentState == "Downed" and isSlidingActive then
+        
+        -- 【1. 剛進入倒地狀態的第一瞬間】
+        if not wasSlidingLastFrame then
+            -- 剛倒地時，先讀取當前引擎速度，不馬上給爆發
+            local engineSpeed = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z).Magnitude
+            currentSpeed = engineSpeed
+            
+            -- 開始計時並重置爆發開關
+            downedStartTime = os.clock()
+            hasAppliedDelayedBoost = false
+            wasSlidingLastFrame = true
+        end
+
+        -- 【2. 延遲爆發機制 (讀取你上面的 BOOST_DELAY 設定)】
+        if not hasAppliedDelayedBoost and (os.clock() - downedStartTime) >= BOOST_DELAY then
+            currentSpeed = math.max(currentSpeed, INITIAL_BOOST)
+            hasAppliedDelayedBoost = true -- 標記已爆發，避免重複給予
+        end
+
+        local isOnGround = humanoid.FloorMaterial ~= Enum.Material.Air
+        local groundRay = workspace:Raycast(root.Position, Vector3.new(0, -5, 0), groundRayParams)
+        
         local camLook = camera.CFrame.LookVector
         local camForward = Vector3.new(camLook.X, 0, camLook.Z).Unit
         
-        -- 1. 偵測轉向 (Yaw Delta)
+        -- 偵測轉向 (Yaw Delta)
         local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
         local yawDelta = camYaw - lastCameraYaw
         if yawDelta > math.pi then yawDelta = yawDelta - (math.pi * 2) end
         if yawDelta < -math.pi then yawDelta = yawDelta + (math.pi * 2) end
         lastCameraYaw = camYaw
 
-        -- 2. Strafe 邏輯與方向鎖定
-        -- 無射線模式下，我們完全靠輸入來切換 moveDir
+        -- 偵測 Strafe (轉畫面+推搖桿)
         local canStrafe = false
+        local inputDir = humanoid.MoveDirection 
         
-        if isA and yawDelta > 0.001 then
-            -- A + 向左轉：同步鏡頭
-            moveDir = camForward
-            canStrafe = true
-        elseif isD and yawDelta < -0.001 then
-            -- D + 向右轉：同步鏡頭
-            moveDir = camForward
-            canStrafe = true
-        elseif moveDir.Magnitude < 0.1 then 
-            -- 初始化方向
+        if inputDir.Magnitude > 0.1 then
+            local relativeMove = camera.CFrame:VectorToObjectSpace(inputDir)
+            local isMovingLeft = relativeMove.X < -0.1
+            local isMovingRight = relativeMove.X > 0.1
+
+            if isMovingLeft and yawDelta > 0.001 then
+                moveDir = camForward
+                canStrafe = true
+            elseif isMovingRight and yawDelta < -0.001 then
+                moveDir = camForward
+                canStrafe = true
+            end
+        end
+
+        if moveDir.Magnitude < 0.1 then 
             moveDir = camForward 
         end
-        -- 注意：若不符合上述條件（例如轉頭 180 度但不按 A/D），moveDir 不會更新，達成倒退滑行。
 
-        -- 3. 速度邏輯
-        if isCtrlHeld then
-            -- A. 基礎推進加速
-            if currentSpeed < TARGET_BOOST then
-                currentSpeed = currentSpeed + (ACCEL_RATE * dt * 3)
-            end
-            
-            -- B. Strafe 加速 (已移除 > 50 門檻，起步即生效)
-            if canStrafe then
-                currentSpeed = math.min(currentSpeed + STRAFE_ADD_AMOUNT, MAX_SPEED_CAP)
-            end
+        -- === 【3. 核心數值運算】 ===
+        if canStrafe then
+            currentSpeed = currentSpeed + (STRAFE_ACCEL * dt)
         else
-            -- C. 自然摩擦衰減 (未按住 Ctrl)
-            currentSpeed = currentSpeed * FRICTION_DECAY
+            if isOnGround then
+                local onSlope = false
+                if groundRay and groundRay.Instance then
+                    local localNormal = root.CFrame:VectorToObjectSpace(groundRay.Normal)
+                    local rawSlope = -localNormal.Z
+                    
+                    if rawSlope > 0.05 then 
+                        onSlope = true
+                        if currentSpeed < MAX_SLOPE_SPEED then
+                            currentSpeed = math.min(currentSpeed + (SLOPE_ACCEL * dt), MAX_SLOPE_SPEED)
+                        end
+                    end
+                end
+                
+                if not onSlope and currentSpeed <= MAX_SLOPE_SPEED then
+                    currentSpeed = math.max(0, currentSpeed - (GROUND_FRICTION * dt))
+                end
+            end
         end
 
-        -- 4. 超速限制
-        if currentSpeed > MAX_SPEED_CAP then
-            currentSpeed = currentSpeed * OVER_SPEED_DECAY
+        -- 【落地超速流失機制】
+        if isOnGround and currentSpeed > MAX_SLOPE_SPEED then
+            currentSpeed = math.max(MAX_SLOPE_SPEED, currentSpeed - (OVERSPEED_DECEL * dt))
         end
 
-        -- 5. 最終物理應用
-        -- 我們不再檢查地面前方是否有牆，直接交給物理引擎處理速度向量
-        if currentSpeed > 10 then
-            local targetVelocity = moveDir.Unit * (currentSpeed / 45) 
-            -- 保留垂直方向的速度（例如重力造成的掉落），只修改水平速度
+        -- === 【4. 最終物理套用】 ===
+        if currentSpeed > 0.5 then
+            local targetVelocity = moveDir.Unit * currentSpeed
             root.AssemblyLinearVelocity = Vector3.new(targetVelocity.X, root.AssemblyLinearVelocity.Y, targetVelocity.Z)
         else
             currentSpeed = 0
+            root.AssemblyLinearVelocity = Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
         end
         
         char:SetAttribute("RelativeSpeed", currentSpeed)
     else
-        -- 非滑行狀態重置
+        -- 離開 Downed 狀態時，重置所有變量
         currentSpeed = 0
+        wasSlidingLastFrame = false
+        hasAppliedDelayedBoost = false
         moveDir = Vector3.new(0,0,0)
-        -- (稍微補上這行，防止離開滑行時視角沒記錄到，下次滑行亂衝)
+        local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
+        lastCameraYaw = camYaw
+    end
+end)
+-- ====================================================
+-- === ⚙️ 核心數值設定區 ===
+-- ====================================================
+local BOOST_DELAY = 0.1         --  倒地後「延遲幾秒」才給予爆發推力
+local INITIAL_BOOST = 50       --  爆發推力
+
+local MAX_SLOPE_SPEED = 55.5  -- 地面基準限速
+local STRAFE_ACCEL = 5        -- 轉畫面時的【每秒】加速度
+local SLOPE_ACCEL = 10        -- 斜坡上的【每秒】重力加速
+local GROUND_FRICTION = 3     -- 平地時的【每秒】自然摩擦力減速
+local OVERSPEED_DECEL = 20    -- 落地超速時(大於55.5時)【每秒】的強烈煞車減速
+
+local MIN_SLIDE_SPEED = 20    -- 🌟 【新增】平地的「最低保底速度」，確保不會滑到一半停下來！(如果你希望他全程保持極速，可以把這個改成 55.5)
+-- ====================================================
+
+local currentSpeed = 0
+local lastCameraYaw = 0
+local moveDir = Vector3.new(0,0,0) 
+local wasSlidingLastFrame = false 
+local downedStartTime = 0             
+local hasAppliedDelayedBoost = false  
+
+local stateHistory = {"None", "None", "None", "None", "None"}
+local isSlidingActive = false
+
+local SLIDE_ORIGINS = {
+    ["Crouch"] = true, ["Slide"] = true, ["SlideAir"] = true,
+    ["EmotingSlide"] = true, ["EmotingSlideAir"] = true, ["CarryingSlide"] = true
+}
+local IGNORE_LIST = { ["Default"] = true, ["None"] = true }
+
+local groundRayParams = RaycastParams.new()
+groundRayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+-- 🌟 創建「線性速度控制器」，這能無視雙腳摩擦力，又不用關閉 Humanoid
+local function getLinearVelocity(root)
+    local att = root:FindFirstChild("SlideAttachment") or Instance.new("Attachment", root)
+    att.Name = "SlideAttachment"
+    
+    local lv = root:FindFirstChild("SlideLinearVelocity") or Instance.new("LinearVelocity", root)
+    lv.Name = "SlideLinearVelocity"
+    lv.Attachment0 = att
+    lv.RelativeTo = Enum.ActuatorRelativeTo.World
+    lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+    lv.ForceLimitMode = Enum.ForceLimitMode.PerAxis
+    -- 關鍵：X 和 Z 給予極大力量來輾壓摩擦力，Y 設為 0 讓地心引力正常發揮
+    lv.MaxAxesForce = Vector3.new(100000, 0, 100000) 
+    return lv
+end
+
+RunService.Heartbeat:Connect(function(dt)
+    local char = lp.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not root or not humanoid then return end
+
+    local lv = getLinearVelocity(root) -- 取得我們的速度控制器
+    groundRayParams.FilterDescendantsInstances = {char}
+    local currentState = char:GetAttribute("State") or "None"
+
+    if stateHistory[1] ~= currentState then
+        table.insert(stateHistory, 1, currentState)
+        if #stateHistory > 6 then table.remove(stateHistory, #stateHistory) end
+        
+        if currentState == "Downed" then
+            local foundSlideSource = false
+            for i = 2, #stateHistory do
+                local hState = stateHistory[i]
+                if SLIDE_ORIGINS[hState] then
+                    foundSlideSource = true
+                    break
+                elseif not IGNORE_LIST[hState] then
+                    break
+                end
+            end
+            if foundSlideSource then isSlidingActive = true end
+        else
+            if not SLIDE_ORIGINS[currentState] then isSlidingActive = false end
+        end
+    end
+
+    if currentState == "Downed" and isSlidingActive then
+        
+        -- 開啟控制器 (不使用 PlatformStand，保留動畫與支撐高度！)
+        lv.Enabled = true
+
+        if not wasSlidingLastFrame then
+            local engineSpeed = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z).Magnitude
+            currentSpeed = engineSpeed
+            downedStartTime = os.clock()
+            hasAppliedDelayedBoost = false
+            wasSlidingLastFrame = true
+        end
+
+        if not hasAppliedDelayedBoost and (os.clock() - downedStartTime) >= BOOST_DELAY then
+            currentSpeed = math.max(currentSpeed, INITIAL_BOOST)
+            hasAppliedDelayedBoost = true 
+        end
+
+        local isOnGround = humanoid.FloorMaterial ~= Enum.Material.Air
+        local groundRay = workspace:Raycast(root.Position, Vector3.new(0, -5, 0), groundRayParams)
+        
+        local camLook = camera.CFrame.LookVector
+        local camForward = Vector3.new(camLook.X, 0, camLook.Z).Unit
+        
+        local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
+        local yawDelta = camYaw - lastCameraYaw
+        if yawDelta > math.pi then yawDelta = yawDelta - (math.pi * 2) end
+        if yawDelta < -math.pi then yawDelta = yawDelta + (math.pi * 2) end
+        lastCameraYaw = camYaw
+
+        local canStrafe = false
+        local inputDir = humanoid.MoveDirection 
+        
+        if inputDir.Magnitude > 0.1 then
+            local relativeMove = camera.CFrame:VectorToObjectSpace(inputDir)
+            local isMovingLeft = relativeMove.X < -0.1
+            local isMovingRight = relativeMove.X > 0.1
+
+            if isMovingLeft and yawDelta > 0.001 then
+                moveDir = camForward
+                canStrafe = true
+            elseif isMovingRight and yawDelta < -0.001 then
+                moveDir = camForward
+                canStrafe = true
+            end
+        end
+
+        if moveDir.Magnitude < 0.1 then 
+            moveDir = camForward 
+        end
+
+        if canStrafe then
+            currentSpeed = currentSpeed + (STRAFE_ACCEL * dt)
+        else
+            if isOnGround then
+                local onSlope = false
+                if groundRay and groundRay.Instance then
+                    local isSteep = groundRay.Normal.Y < 0.98 
+                    local isGoingDownhill = moveDir.Unit:Dot(groundRay.Normal) < -0.05
+                    
+                    if isSteep and isGoingDownhill then 
+                        onSlope = true
+                        if currentSpeed < MAX_SLOPE_SPEED then
+                            currentSpeed = math.min(currentSpeed + (SLOPE_ACCEL * dt), MAX_SLOPE_SPEED)
+                        end
+                    end
+                end
+                
+                if not onSlope and currentSpeed <= MAX_SLOPE_SPEED then
+                    -- 🌟 【關鍵修改】平地減速時，最低只會降到 MIN_SLIDE_SPEED，不會變成 0！
+                    currentSpeed = math.max(MIN_SLIDE_SPEED, currentSpeed - (GROUND_FRICTION * dt))
+                end
+            end
+        end
+
+        if isOnGround and currentSpeed > MAX_SLOPE_SPEED then
+            currentSpeed = math.max(MAX_SLOPE_SPEED, currentSpeed - (OVERSPEED_DECEL * dt))
+        end
+
+        -- 最終速度套用：交給 LinearVelocity 強制執行，完全無視摩擦力
+        if currentSpeed > 0.5 then
+            local targetVelocity = moveDir.Unit * currentSpeed
+            lv.VectorVelocity = Vector3.new(targetVelocity.X, 0, targetVelocity.Z)
+        else
+            currentSpeed = 0
+            lv.VectorVelocity = Vector3.new(0, 0, 0)
+        end
+        
+        char:SetAttribute("RelativeSpeed", currentSpeed)
+    else
+        -- 離開狀態時關閉控制器，讓 Humanoid 接管正常走路
+        lv.Enabled = false
+        lv.VectorVelocity = Vector3.new(0, 0, 0)
+        
+        currentSpeed = 0
+        wasSlidingLastFrame = false
+        hasAppliedDelayedBoost = false
+        moveDir = Vector3.new(0,0,0)
         local _, camYaw, _ = camera.CFrame:ToEulerAnglesYXZ()
         lastCameraYaw = camYaw
     end
