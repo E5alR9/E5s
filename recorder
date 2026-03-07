@@ -1,0 +1,76 @@
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local recordedData = {} 
+local isRecording = false
+local isPlaying = false
+
+-- 函式：發送官方通知 (無確認按鈕版本)
+local function sendNotify(title, text, duration)
+    StarterGui:SetCore("SendNotification", {
+        Title = title;
+        Text = text;
+        Duration = duration or 3;
+    })
+end
+
+-- 錄製核心邏輯
+RunService.Heartbeat:Connect(function()
+    if isRecording and rootPart then
+        table.insert(recordedData, rootPart.CFrame)
+    end
+end)
+
+-- 按鍵偵測
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    -- Press L: Record control
+    if input.KeyCode == Enum.KeyCode.L then
+        if not isRecording then
+            recordedData = {} -- Reset data
+            isRecording = true
+            sendNotify("Recording System", "Started recording path...", 2)
+        else
+            isRecording = false
+            sendNotify("Recording System", "Recording stopped! (" .. #recordedData .. " frames)", 3)
+        end
+    end
+
+    -- Press P: Playback control
+    if input.KeyCode == Enum.KeyCode.P then
+        if isRecording then
+            sendNotify("Error", "Stop recording before playing!", 2)
+        elseif #recordedData == 0 then
+            sendNotify("Error", "No recorded data found!", 2)
+        elseif not isPlaying then
+            playRecording()
+        end
+    end
+end)
+
+-- 播放邏輯
+function playRecording()
+    isPlaying = true
+    sendNotify("Playback System", "Playing recorded path...", 2)
+    
+    -- Lock physics for accuracy
+    rootPart.Anchored = true 
+    
+    for _, frameCFrame in ipairs(recordedData) do
+        -- 如果在播放途中角色消失，則中斷
+        if not rootPart then break end
+        rootPart.CFrame = frameCFrame
+        task.wait() 
+    end
+    
+    if rootPart then
+        rootPart.Anchored = false
+    end
+    isPlaying = false
+    sendNotify("Playback System", "Playback finished!", 2)
+end
