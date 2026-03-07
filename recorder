@@ -1,76 +1,298 @@
-local UIS = game:GetService("UserInputService")
+local SoundService = game:GetService("SoundService")
+local TS = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
+local UIS = game:GetService("UserInputService")
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
-local recordedData = {} 
-local isRecording = false
-local isPlaying = false
+local ACCENT_COLOR = Color3.fromHex("D656FF")
+local _G = _G or {}
 
--- 函式：發送官方通知 (無確認按鈕版本)
-local function sendNotify(title, text, duration)
-    StarterGui:SetCore("SendNotification", {
-        Title = title;
-        Text = text;
-        Duration = duration or 3;
-    })
+-- ======================================================
+-- 🛑 [核心修改] 開關邏輯 (再次執行即關閉)
+-- ======================================================
+if _G.E5_Recorder_Instance then 
+    local target = _G.E5_Recorder_Instance:FindFirstChildWhichIsA("CanvasGroup")
+    if target then
+        TS:Create(target, TweenInfo.new(0.2), {GroupTransparency = 1}):Play()
+        local currentPos = target.Position
+        local currentSize = target.Size
+        local shrinkPos = UDim2.new(currentPos.X.Scale, currentPos.X.Offset + (currentSize.X.Offset / 2), currentPos.Y.Scale, currentPos.Y.Offset)
+
+        local shrink = TS:Create(target, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, target.Size.Y.Offset),
+            Position = shrinkPos
+        })
+        
+        shrink:Play()
+        shrink.Completed:Connect(function()
+            if _G.E5_Recorder_Instance then _G.E5_Recorder_Instance:Destroy() end
+            _G.E5_Recorder_Instance = nil
+        end)
+    else
+        _G.E5_Recorder_Instance:Destroy()
+        _G.E5_Recorder_Instance = nil
+    end
+    return 
 end
 
--- 錄製核心邏輯
+-- ======================================================
+-- 狀態控制
+-- ======================================================
+local recordedData = {}
+local isRecording = false
+local isPlaying = false
+local currentFrame = 1
+local isDraggingTime = false
+
+-- ======================================================
+-- 🎨 UI 建立 (緊湊型無框純文字 + 右上控制按鈕)
+-- ======================================================
+local sg = Instance.new("ScreenGui", game:GetService("CoreGui"))
+sg.Name = "E5_Movement_Recorder"
+_G.E5_Recorder_Instance = sg
+
+local mainFrame = Instance.new("CanvasGroup", sg)
+mainFrame.Size = UDim2.new(0, 0, 0, 95) 
+mainFrame.Position = UDim2.new(0.5, 0, 0.8, -47)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+mainFrame.BackgroundTransparency = 0.2
+mainFrame.GroupTransparency = 1
+mainFrame.ClipsDescendants = true
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12) 
+
+-- 標題 (最上方)
+local Title = Instance.new("TextLabel", mainFrame)
+Title.Text = "MOVEMENT RECORDER"
+Title.Size = UDim2.new(1, -100, 0, 25) -- 預留 100px 給右上角按鈕
+Title.Position = UDim2.new(0, 15, 0, 5)
+Title.BackgroundTransparency = 1
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- 🌟 [NEW] 右上角獨立三按鈕 (與標題同排) 🌟
+local xBtn = Instance.new("TextButton", mainFrame)
+xBtn.Size, xBtn.Position, xBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -30, 0, 2), "X"
+xBtn.TextColor3, xBtn.BackgroundTransparency, xBtn.TextSize = Color3.new(1, 0.3, 0.3), 1, 14
+xBtn.Font = Enum.Font.GothamBold
+
+local plusBtn = Instance.new("TextButton", mainFrame)
+plusBtn.Size, plusBtn.Position, plusBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -60, 0, 2), "+"
+plusBtn.TextColor3, plusBtn.BackgroundTransparency, plusBtn.TextSize = Color3.new(1, 1, 1), 1, 16
+plusBtn.Font = Enum.Font.GothamBold
+
+local minusBtn = Instance.new("TextButton", mainFrame)
+minusBtn.Size, minusBtn.Position, minusBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -90, 0, 2), "-"
+minusBtn.TextColor3, minusBtn.BackgroundTransparency, minusBtn.TextSize = Color3.new(1, 1, 1), 1, 18
+minusBtn.Font = Enum.Font.GothamBold
+
+-- 🎛️ 視窗控制邏輯 (關閉、展開、縮小)
+xBtn.MouseButton1Click:Connect(function()
+    local shrink = TS:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, mainFrame.Size.Y.Offset),
+        GroupTransparency = 1
+    })
+    shrink:Play()
+    shrink.Completed:Connect(function()
+        if _G.E5_Recorder_Instance then _G.E5_Recorder_Instance:Destroy() end
+        _G.E5_Recorder_Instance = nil
+    end)
+end)
+
+local isMin = false
+plusBtn.MouseButton1Click:Connect(function()
+    if not isMin then return end
+    isMin = false
+    -- 展開為原始大小
+    TS:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 400, 0, 95)
+    }):Play()
+    
+    -- [修正] 展開時讓標題重新顯示
+    TS:Create(Title, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+end)
+
+minusBtn.MouseButton1Click:Connect(function()
+    if isMin then return end
+    isMin = true
+    -- 縮小為小膠囊
+    TS:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 105, 0, 35) 
+    }):Play()
+    
+    -- [修正] 縮小時將標題隱藏，避免擋到按鈕
+    TS:Create(Title, TweenInfo.new(0.2), {TextTransparency = 1}):Play()
+end)
+
+-- 時間軸 Slider (移到中間)
+local TimeBarBG = Instance.new("TextButton", mainFrame)
+TimeBarBG.Text = ""
+TimeBarBG.Size = UDim2.new(1, -30, 0, 6)
+TimeBarBG.Position = UDim2.new(0, 15, 0, 38)
+TimeBarBG.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Instance.new("UICorner", TimeBarBG)
+
+local TimeBarFill = Instance.new("Frame", TimeBarBG)
+TimeBarFill.Size = UDim2.new(0, 0, 1, 0)
+TimeBarFill.BackgroundColor3 = ACCENT_COLOR
+Instance.new("UICorner", TimeBarFill)
+
+-- 按鈕容器 (移到最下方，靠左)
+local BtnContainer = Instance.new("Frame", mainFrame)
+BtnContainer.Size = UDim2.new(0.5, 0, 0, 35)
+BtnContainer.Position = UDim2.new(0, 15, 0, 50)
+BtnContainer.BackgroundTransparency = 1
+local layout = Instance.new("UIListLayout", BtnContainer)
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0, 15)
+layout.VerticalAlignment = Enum.VerticalAlignment.Center
+
+local function createTextBtn(text, textColor)
+    local b = Instance.new("TextButton", BtnContainer)
+    b.Size = UDim2.new(0, 70, 0, 35)
+    b.BackgroundTransparency = 1 
+    b.Text = text
+    b.TextColor3 = textColor
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 13
+    b.TextXAlignment = Enum.TextXAlignment.Left
+    return b
+end
+
+local RecBtn = createTextBtn("RECORD", Color3.fromRGB(255, 80, 80))
+local PlayBtn = createTextBtn("PLAY", Color3.new(1, 1, 1))
+
+-- 幀數文字 (移到最下方，靠右，與按鈕同排)
+local TimeText = Instance.new("TextLabel", mainFrame)
+TimeText.Text = "0 / 0 Frames"
+TimeText.Size = UDim2.new(0.5, -30, 0, 35)
+TimeText.Position = UDim2.new(0.5, 15, 0, 50)
+TimeText.BackgroundTransparency = 1
+TimeText.TextColor3 = Color3.fromRGB(180, 180, 180)
+TimeText.Font = Enum.Font.Code
+TimeText.TextSize = 12
+TimeText.TextXAlignment = Enum.TextXAlignment.Right
+
+-- ======================================================
+-- 🎮 拖動功能 (Draggable Logic)
+-- ======================================================
+local dragging, dragInput, dragStart, startPos
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+-- ======================================================
+-- ⚙️ 核心邏輯
+-- ======================================================
+
+-- 錄製
 RunService.Heartbeat:Connect(function()
     if isRecording and rootPart then
         table.insert(recordedData, rootPart.CFrame)
+        currentFrame = #recordedData
     end
 end)
 
--- 按鍵偵測
-UIS.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-
-    -- Press L: Record control
-    if input.KeyCode == Enum.KeyCode.L then
-        if not isRecording then
-            recordedData = {} -- Reset data
-            isRecording = true
-            sendNotify("Recording System", "Started recording path...", 2)
-        else
-            isRecording = false
-            sendNotify("Recording System", "Recording stopped! (" .. #recordedData .. " frames)", 3)
-        end
-    end
-
-    -- Press P: Playback control
-    if input.KeyCode == Enum.KeyCode.P then
-        if isRecording then
-            sendNotify("Error", "Stop recording before playing!", 2)
-        elseif #recordedData == 0 then
-            sendNotify("Error", "No recorded data found!", 2)
-        elseif not isPlaying then
-            playRecording()
-        end
-    end
-end)
-
--- 播放邏輯
-function playRecording()
-    isPlaying = true
-    sendNotify("Playback System", "Playing recorded path...", 2)
-    
-    -- Lock physics for accuracy
-    rootPart.Anchored = true 
-    
-    for _, frameCFrame in ipairs(recordedData) do
-        -- 如果在播放途中角色消失，則中斷
-        if not rootPart then break end
-        rootPart.CFrame = frameCFrame
-        task.wait() 
-    end
-    
-    if rootPart then
-        rootPart.Anchored = false
-    end
+-- 播放/暫停控制
+local playbackConn
+local function stopPlayback()
     isPlaying = false
-    sendNotify("Playback System", "Playback finished!", 2)
+    if playbackConn then playbackConn:Disconnect() end
+    if rootPart then rootPart.Anchored = false end
+    PlayBtn.Text = "PLAY"
+    PlayBtn.TextColor3 = Color3.new(1, 1, 1)
 end
+
+local function startPlayback()
+    if #recordedData == 0 then return end
+    
+    if currentFrame >= #recordedData then
+        currentFrame = 1
+    end
+    
+    isPlaying = true
+    rootPart.Anchored = true
+    PlayBtn.Text = "PAUSE"
+    PlayBtn.TextColor3 = ACCENT_COLOR
+    
+    playbackConn = RunService.Heartbeat:Connect(function()
+        if currentFrame < #recordedData then
+            currentFrame = currentFrame + 1
+            rootPart.CFrame = recordedData[currentFrame]
+        else
+            stopPlayback()
+        end
+    end)
+end
+
+-- 按鈕事件
+RecBtn.MouseButton1Click:Connect(function()
+    if not isRecording then
+        stopPlayback()
+        recordedData = {}
+        currentFrame = 1
+        isRecording = true
+        RecBtn.Text = "STOP"
+        RecBtn.TextColor3 = Color3.new(1, 1, 1)
+    else
+        isRecording = false
+        RecBtn.Text = "RECORD"
+        RecBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+    end
+end)
+
+PlayBtn.MouseButton1Click:Connect(function()
+    if isPlaying then stopPlayback() else startPlayback() end
+end)
+
+-- 時間軸拖動
+TimeBarBG.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDraggingTime = true
+        stopPlayback()
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if #recordedData > 0 then
+        if isDraggingTime then
+            local x = math.clamp((UIS:GetMouseLocation().X - TimeBarBG.AbsolutePosition.X) / TimeBarBG.AbsoluteSize.X, 0, 1)
+            currentFrame = math.max(1, math.floor(x * #recordedData))
+            rootPart.CFrame = recordedData[currentFrame]
+        end
+        
+        local progress = currentFrame / #recordedData
+        TimeBarFill.Size = UDim2.new(progress, 0, 1, 0)
+        TimeText.Text = currentFrame .. " / " .. #recordedData .. " Frames"
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then isDraggingTime = false end
+end)
+
+-- ======================================================
+-- 🚀 進場動畫
+-- ======================================================
+local expand = TS:Create(mainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    Size = UDim2.new(0, 400, 0, 95), 
+    Position = UDim2.new(0.5, -200, 0.8, -47),
+    GroupTransparency = 0
+})
+expand:Play()
