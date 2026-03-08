@@ -15,6 +15,7 @@ task.spawn(function()
     end)
 end)
 
+
 -----------------------------------------------------------
 -- 2. 建立 UI 主容器
 -----------------------------------------------------------
@@ -32,13 +33,20 @@ task.spawn(function()
             -- 執行特殊回合指令
             game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!specialround Plushie Hell")
             
-            -- 執行遊戲模式指令
-            game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("Gamemode", "Pro")
         end)
         task.wait(3)
     end
 end)
 
+task.spawn(function()
+    while true do
+        pcall(function()
+            -- 執行遊戲模式指令
+            game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("Gamemode", "Pro")
+        end)
+        task.wait(30)
+    end
+end)
 -----------------------------------------------------------
 -- 4. 復活自動按鍵功能 (G + 5)
 -----------------------------------------------------------
