@@ -1,0 +1,8 @@
+game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Sliding.Slide.AnimationId = "rbxassetid://11307978018"
+game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Crouching.Idle.AnimationId = "rbxassetid://9224101460"
+game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Crouching.MoveBackward.AnimationId = "rbxassetid://10219164515"
+game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Crouching.MoveForward.AnimationId = "rbxassetid://9381947548"
+game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Crouching.MoveLeft.AnimationId = "rbxassetid://9381957206"
+game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Crouching.MoveRight.AnimationId = "rbxassetid://9381958566"
+game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Jumping.Jump.AnimationId = "rbxassetid://10242911213"
+game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Moving.SprintForward.AnimationId = "rbxassetid://9873188504"
