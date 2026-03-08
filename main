@@ -611,7 +611,17 @@ local function createUI()
     capExBtn.Visible = not _G.isMinimized
     Instance.new("UICorner", capExBtn)
 
-	
+	-- [NEW] Recorder Button (4-3)
+    local recorderBtn = Instance.new("TextButton", m)
+    recorderBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    recorderBtn.Position = UDim2.new(getX(3), 0, 0, startY + rowGap * 3) -- 放在第四排的第3欄
+    recorderBtn.ZIndex = 10
+    recorderBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    recorderBtn.BackgroundTransparency = 0.7
+    recorderBtn.Text = "Recorder"
+    recorderBtn.TextColor3 = Color3.new(1, 1, 1)
+    recorderBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", recorderBtn)
 
 	-- [[ 2. 狀態樣式更新函式 (用來變更按鈕外觀) ]]
     local function updateOneTimeButtons()
@@ -799,6 +809,11 @@ local function createUI()
         end
     end)
 
+	-- [NEW] Recorder Click Event
+    recorderBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/recorder"))() end)
+    end)
+
     minBtn.MouseButton1Click:Connect(function()
         _G.isMinimized = not _G.isMinimized
         m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
@@ -818,6 +833,7 @@ local function createUI()
 		timeCtrlBtn.Visible = not _G.isMinimized
 		capBox.Visible = not _G.isMinimized
         capExBtn.Visible = not _G.isMinimized
+		recorderBtn.Visible = not _G.isMinimized
         minBtn.Text = _G.isMinimized and "+" or "-"
     end)
 end
