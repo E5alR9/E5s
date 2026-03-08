@@ -1,0 +1,46 @@
+-- [ 動態模糊開關腳本 ] --
+
+-- 初始化狀態：如果從沒執行過，預設為關閉 (false)
+if _G.MotionBlurEnabled == nil then
+    _G.MotionBlurEnabled = false
+end
+
+local Lighting = game:GetService("Lighting")
+local StarterGui = game:GetService("StarterGui")
+
+-- 切換狀態
+_G.MotionBlurEnabled = not _G.MotionBlurEnabled
+
+-- 執行邏輯
+if _G.MotionBlurEnabled then
+    -- 開啟：尋找或建立 BlurEffect
+    local blur = Lighting:FindFirstChild("MyCustomBlur") or Instance.new("BlurEffect")
+    blur.Name = "MyCustomBlur"
+    blur.Size = 10 -- 你可以把 10 改成 5 (微量) 到 20 (超強) 之間
+    blur.Enabled = true
+    blur.Parent = Lighting
+    
+    -- 發送開啟通知
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "動態模糊";
+            Text = "狀態：已開啟 (ON)";
+            Duration = 2;
+        })
+    end)
+else
+    -- 關閉：停用效果
+    local blur = Lighting:FindFirstChild("MyCustomBlur")
+    if blur then
+        blur.Enabled = false
+    end
+    
+    -- 發送關閉通知
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "動態模糊";
+            Text = "狀態：已關閉 (OFF)";
+            Duration = 2;
+        })
+    end)
+end
