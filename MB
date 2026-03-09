@@ -1,46 +1,50 @@
--- [ 動態模糊開關腳本 ] --
+-- [ 真·動態模糊開關 (Camera Motion Blur) ] --
 
--- 初始化狀態：如果從沒執行過，預設為關閉 (false)
-if _G.MotionBlurEnabled == nil then
-    _G.MotionBlurEnabled = false
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Camera = workspace.CurrentCamera
+
+-- 初始化狀態
+if _G.DynamicBlurConn == nil then
+    _G.MotionBlurActive = false
 end
 
-local Lighting = game:GetService("Lighting")
-local StarterGui = game:GetService("StarterGui")
+-- 切換開關
+_G.MotionBlurActive = not _G.MotionBlurActive
 
--- 切換狀態
-_G.MotionBlurEnabled = not _G.MotionBlurEnabled
+-- 清除舊的連接，避免重複執行導致卡頓
+if _G.DynamicBlurConn then
+    _G.DynamicBlurConn:Disconnect()
+    _G.DynamicBlurConn = nil
+end
 
--- 執行邏輯
-if _G.MotionBlurEnabled then
-    -- 開啟：尋找或建立 BlurEffect
-    local blur = Lighting:FindFirstChild("MyCustomBlur") or Instance.new("BlurEffect")
-    blur.Name = "MyCustomBlur"
-    blur.Size = 10 -- 你可以把 10 改成 5 (微量) 到 20 (超強) 之間
-    blur.Enabled = true
+if _G.MotionBlurActive then
+    -- 建立模糊物件
+    local blur = Lighting:FindFirstChild("DynamicMotionBlur") or Instance.new("BlurEffect")
+    blur.Name = "DynamicMotionBlur"
+    blur.Size = 0
     blur.Parent = Lighting
-    
-    -- 發送開啟通知
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = "動態模糊";
-            Text = "狀態：已開啟 (ON)";
-            Duration = 2;
-        })
+    blur.Enabled = true
+
+    local lastCFrame = Camera.CFrame
+
+    -- 每幀計算轉動速度
+    _G.DynamicBlurConn = RunService.RenderStepped:Connect(function()
+        local currentCFrame = Camera.CFrame
+        -- 計算兩幀之間的角度變化 (角速度)
+        local angDist = math.acos(math.clamp(currentCFrame.LookVector:Dot(lastCFrame.LookVector), -1, 1))
+        local speed = angDist * (1 / task.wait()) -- 轉向速度
+
+        -- 根據速度調整模糊強度 (0.15 是靈敏度，50 是最大模糊上限)
+        blur.Size = math.min(speed * 0.15, 50)
+        
+        lastCFrame = currentCFrame
     end)
+    
+    print("真·動態模糊：已開啟")
 else
-    -- 關閉：停用效果
-    local blur = Lighting:FindFirstChild("MyCustomBlur")
-    if blur then
-        blur.Enabled = false
-    end
-    
-    -- 發送關閉通知
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = "動態模糊";
-            Text = "狀態：已關閉 (OFF)";
-            Duration = 2;
-        })
-    end)
+    -- 關閉邏輯
+    local blur = Lighting:FindFirstChild("DynamicMotionBlur")
+    if blur then blur.Enabled = false end
+    print("真·動態模糊：已關閉")
 end
