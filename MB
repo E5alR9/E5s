@@ -1,53 +1,131 @@
--- [ CapCut Style Ghosting Blur ] --
+-- [ 3D 實體殘影 (視角優化版：只掃描面前 + 不擋 UI + 開關切換) ] --
 
 local RunService = game:GetService("RunService")
-local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
 local Camera = workspace.CurrentCamera
 
--- 初始化狀態
-_G.GhostingActive = not _G.GhostingActive
+-- 設定參數
+local FRAME_DELAY = 1.5    -- 殘影延遲 (幀數)
+local GHOST_COUNT = 3    -- 殘影層數
+local SCAN_RADIUS = 50   -- 掃描半徑 (視角過濾開啟後，半徑可以稍微調大一點)
 
--- 清除舊連接
-if _G.GhostingConn then
-    _G.GhostingConn:Disconnect()
-    _G.GhostingConn = nil
+-- [ 功能 1：系統通知 ]
+local function sendNotify(title, text)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = 3
+        })
+    end)
 end
 
--- 建立/清理效果組
-local function getBlur(name)
-    local b = Lighting:FindFirstChild(name) or Instance.new("BlurEffect")
-    b.Name = name
-    b.Parent = Lighting
-    b.Enabled = _G.GhostingActive
-    return b
+-- [ 功能 2：開關切換 ]
+if _G.Ghost3DActive == nil then _G.Ghost3DActive = false end
+_G.Ghost3DActive = not _G.Ghost3DActive
+
+-- [ 功能 3：清理函式 ]
+local function cleanup()
+    if _G.Ghost3DConn then 
+        _G.Ghost3DConn:Disconnect() 
+        _G.Ghost3DConn = nil 
+    end
+    if _G.GhostFolder then 
+        _G.GhostFolder:Destroy() 
+        _G.GhostFolder = nil 
+    end
 end
 
-local blurMain = getBlur("GB_Main")
-local blurTrail = getBlur("GB_Trail")
+cleanup() 
 
-if _G.GhostingActive then
-    local lastCFrame = Camera.CFrame
-    
-    _G.GhostingConn = RunService.RenderStepped:Connect(function(dt)
-        local currentCFrame = Camera.CFrame
+if _G.Ghost3DActive then
+    local ghostFolder = Instance.new("Folder")
+    ghostFolder.Name = "ActiveGhosts_FOV_Optimized"
+    ghostFolder.Parent = workspace
+    _G.GhostFolder = ghostFolder
+
+    local cframeHistory = {}
+    local ghostModels = {}
+
+    for i = 1, GHOST_COUNT do
+        local model = Instance.new("Model")
+        model.Name = "Layer_" .. i
+        model.Parent = ghostFolder
+        ghostModels[i] = model
+    end
+
+    -- [ 核心優化 1：空氣牆過濾 ]
+    local function isInvalid(part)
+        if part.Transparency >= 0.9 then return true end
+        local name = part.Name:lower()
+        if name:find("clip") or name:find("collision") or name:find("invisible") or name:find("airwall") then
+            return true
+        end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character and part:IsDescendantOf(p.Character) then return true end
+        end
+        return false
+    end
+
+    -- [ 核心優化 2：視角檢查 ]
+    local function isInFront(part)
+        local _, onScreen = Camera:WorldToViewportPoint(part.Position)
+        return onScreen -- 只有在螢幕範圍內的零件才回傳 true
+    end
+
+    local function getVisibleParts()
+        local parts = {}
+        local found = workspace:GetPartBoundsInRadius(Camera.CFrame.Position, SCAN_RADIUS)
+        for _, part in ipairs(found) do
+            if part:IsA("BasePart") and not part:IsDescendantOf(ghostFolder) then
+                -- 必須同時滿足：不是空氣牆 且 在視角內
+                if not isInvalid(part) and isInFront(part) then
+                    table.insert(parts, part)
+                end
+            end
+        end
+        return parts
+    end
+
+    _G.Ghost3DConn = RunService.RenderStepped:Connect(function()
+        table.insert(cframeHistory, 1, Camera.CFrame)
+        if #cframeHistory > (GHOST_COUNT * FRAME_DELAY) + 1 then
+            table.remove(cframeHistory)
+        end
+
+        local visibleParts = getVisibleParts()
         
-        -- 計算旋轉速度 (角速度)
-        local dot = currentCFrame.LookVector:Dot(lastCFrame.LookVector)
-        local angDist = math.acos(math.clamp(dot, -1, 1))
-        local speed = angDist / dt
-        
-        -- CapCut 重影核心邏輯：
-        -- Main 負責即時模糊，Trail 負責模擬視覺殘留
-        blurMain.Size = math.clamp(speed * 0.2, 0, 25)
-        blurTrail.Size = math.clamp(speed * 0.5, 0, 56) -- 較大的數值產生重疊感
-        
-        -- 模擬重影的「淡出」延遲感
-        lastCFrame = lastCFrame:Lerp(currentCFrame, 0.2) -- 這裡的 0.2 決定重影的長度
+        for i = 1, GHOST_COUNT do
+            local layer = ghostModels[i]
+            layer:ClearAllChildren()
+            
+            local historyIndex = i * FRAME_DELAY
+            local pastCFrame = cframeHistory[historyIndex]
+            
+            if pastCFrame then
+                local rel = pastCFrame:Inverse() * Camera.CFrame
+                
+                for _, part in ipairs(visibleParts) do
+                    local clone = Instance.new("Part")
+                    clone.Size = part.Size
+                    clone.Color = part.Color
+                    clone.Material = Enum.Material.SmoothPlastic
+                    clone.CanCollide = false
+                    clone.CanQuery = false
+                    clone.CanTouch = false
+                    clone.CastShadow = false
+                    clone.Anchored = true
+                    clone.Transparency = 0.6 + (i * 0.1)
+                    
+                    clone.CFrame = Camera.CFrame * rel:Inverse() * (Camera.CFrame:Inverse() * part.CFrame)
+                    clone.Parent = layer
+                end
+            end
+        end
     end)
     
-    print("CapCut 重影效果：已開啟")
+    sendNotify("3D 殘影系統", "開啟：僅加載視野內物件")
 else
-    blurMain.Enabled = false
-    blurTrail.Enabled = false
-    print("CapCut 重影效果：已關閉")
+    sendNotify("3D 殘影系統", "關閉：殘影已完全清除")
 end
