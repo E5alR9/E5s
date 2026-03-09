@@ -1,50 +1,53 @@
--- [ 真·動態模糊開關 (Camera Motion Blur) ] --
+-- [ CapCut Style Ghosting Blur ] --
 
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local Camera = workspace.CurrentCamera
 
 -- 初始化狀態
-if _G.DynamicBlurConn == nil then
-    _G.MotionBlurActive = false
+_G.GhostingActive = not _G.GhostingActive
+
+-- 清除舊連接
+if _G.GhostingConn then
+    _G.GhostingConn:Disconnect()
+    _G.GhostingConn = nil
 end
 
--- 切換開關
-_G.MotionBlurActive = not _G.MotionBlurActive
-
--- 清除舊的連接，避免重複執行導致卡頓
-if _G.DynamicBlurConn then
-    _G.DynamicBlurConn:Disconnect()
-    _G.DynamicBlurConn = nil
+-- 建立/清理效果組
+local function getBlur(name)
+    local b = Lighting:FindFirstChild(name) or Instance.new("BlurEffect")
+    b.Name = name
+    b.Parent = Lighting
+    b.Enabled = _G.GhostingActive
+    return b
 end
 
-if _G.MotionBlurActive then
-    -- 建立模糊物件
-    local blur = Lighting:FindFirstChild("DynamicMotionBlur") or Instance.new("BlurEffect")
-    blur.Name = "DynamicMotionBlur"
-    blur.Size = 0
-    blur.Parent = Lighting
-    blur.Enabled = true
+local blurMain = getBlur("GB_Main")
+local blurTrail = getBlur("GB_Trail")
 
+if _G.GhostingActive then
     local lastCFrame = Camera.CFrame
-
-    -- 每幀計算轉動速度
-    _G.DynamicBlurConn = RunService.RenderStepped:Connect(function()
+    
+    _G.GhostingConn = RunService.RenderStepped:Connect(function(dt)
         local currentCFrame = Camera.CFrame
-        -- 計算兩幀之間的角度變化 (角速度)
-        local angDist = math.acos(math.clamp(currentCFrame.LookVector:Dot(lastCFrame.LookVector), -1, 1))
-        local speed = angDist * (1 / task.wait()) -- 轉向速度
-
-        -- 根據速度調整模糊強度 (0.15 是靈敏度，50 是最大模糊上限)
-        blur.Size = math.min(speed * 0.15, 50)
         
-        lastCFrame = currentCFrame
+        -- 計算旋轉速度 (角速度)
+        local dot = currentCFrame.LookVector:Dot(lastCFrame.LookVector)
+        local angDist = math.acos(math.clamp(dot, -1, 1))
+        local speed = angDist / dt
+        
+        -- CapCut 重影核心邏輯：
+        -- Main 負責即時模糊，Trail 負責模擬視覺殘留
+        blurMain.Size = math.clamp(speed * 0.2, 0, 25)
+        blurTrail.Size = math.clamp(speed * 0.5, 0, 56) -- 較大的數值產生重疊感
+        
+        -- 模擬重影的「淡出」延遲感
+        lastCFrame = lastCFrame:Lerp(currentCFrame, 0.2) -- 這裡的 0.2 決定重影的長度
     end)
     
-    print("真·動態模糊：已開啟")
+    print("CapCut 重影效果：已開啟")
 else
-    -- 關閉邏輯
-    local blur = Lighting:FindFirstChild("DynamicMotionBlur")
-    if blur then blur.Enabled = false end
-    print("真·動態模糊：已關閉")
+    blurMain.Enabled = false
+    blurTrail.Enabled = false
+    print("CapCut 重影效果：已關閉")
 end
