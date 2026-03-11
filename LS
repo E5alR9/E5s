@@ -1,8 +1,12 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
 
 local p = Players.LocalPlayer
 local pGui = p:WaitForChild("PlayerGui")
+
+-- 初始化全域變數 (預設為 300 毫秒)
+_G.freezeMS = _G.freezeMS or 300
 
 -- 建立一個專用的 UI 容器
 local freezeSystemGui = Instance.new("ScreenGui")
@@ -63,8 +67,19 @@ applyDraggable(lagBtn, function()
         lagBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
         lagBtn.Text = "FREEZING"
         
+        -- 發送系統通知 (使用 pcall 防止核心 UI 尚未載入導致報錯)
+        pcall(function()
+            StarterGui:SetCore("SendNotification", { 
+                Title = "SYSTEM"; 
+                Text = "Freeze: " .. tostring(_G.freezeMS) .. "ms"; 
+                Duration = 0.5; 
+            })
+        end)
+        
+        -- 將毫秒轉換為秒並執行卡頓
+        local freezeDuration = _G.freezeMS / 1000
         local t = os.clock()
-        while os.clock() - t < 0.3 do end
+        while os.clock() - t < freezeDuration do end
         
         lagBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
         lagBtn.Text = "LAG ONCE"
@@ -75,7 +90,7 @@ end)
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "CloseButton"
 closeBtn.Size = UDim2.new(0, 70, 0, 35)
-closeBtn.Position = UDim2.new(0.96, 0, 0.52, 0) -- 放在 LAG 按鈕正下方
+closeBtn.Position = UDim2.new(0.96, 0, 0.52, 0)
 closeBtn.AnchorPoint = Vector2.new(1, 0.5)
 closeBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 closeBtn.BackgroundTransparency = 0.4
@@ -87,6 +102,5 @@ closeBtn.Parent = freezeSystemGui
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
 
 applyDraggable(closeBtn, function()
-    -- 只刪除這個腳本建立的 UI 容器
     freezeSystemGui:Destroy()
 end)
