@@ -1,0 +1,244 @@
+local Lighting = game:GetService("Lighting")
+local Terrain = workspace:WaitForChild("Terrain")
+local Workspace = game:GetService("Workspace")
+local StarterGui = game:GetService("StarterGui")
+
+-- ==========================================
+-- 🛠️ Core UI Notification Function (English)
+-- ==========================================
+local function sendNotif(title, text)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = 4,
+        })
+    end)
+end
+
+-- ==========================================
+-- ⚙️ Main Logic: Toggle, Detect & Apply RTX
+-- ==========================================
+local toggleFolderName = "UltimateSmartRTXFolder"
+
+if Lighting:FindFirstChild(toggleFolderName) then
+    -- ==========================================
+    -- 🔴 STATE: ON -> TURN OFF & RESTORE
+    -- ==========================================
+    -- 停止背景迴圈
+    Lighting:SetAttribute("RTX_AutoEngine_Active", false)
+    Lighting[toggleFolderName]:Destroy()
+    
+    if Terrain:FindFirstChild("RealisticClouds") then
+        Terrain.RealisticClouds:Destroy()
+    end
+    
+    -- 1. Restore Lighting Settings
+    if Lighting:GetAttribute("Orig_Saved") then
+        Lighting.ClockTime = Lighting:GetAttribute("Orig_ClockTime")
+        Lighting.GeographicLatitude = Lighting:GetAttribute("Orig_GeographicLatitude")
+        Lighting.Brightness = Lighting:GetAttribute("Orig_Brightness")
+        Lighting.GlobalShadows = Lighting:GetAttribute("Orig_GlobalShadows")
+        Lighting.ShadowSoftness = Lighting:GetAttribute("Orig_ShadowSoftness")
+        Lighting.OutdoorAmbient = Lighting:GetAttribute("Orig_OutdoorAmbient")
+        Lighting.EnvironmentDiffuseScale = Lighting:GetAttribute("Orig_EnvDiffuse")
+        Lighting.EnvironmentSpecularScale = Lighting:GetAttribute("Orig_EnvSpecular")
+    end
+
+    -- 2. Restore Workspace Parts (Dry the puddles)
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj:GetAttribute("Orig_Reflectance") then
+            obj.Reflectance = obj:GetAttribute("Orig_Reflectance")
+        end
+    end
+    
+    sendNotif("Graphics Engine", "🔴 Auto-RTX Engine Disabled.\nOriginal environment restored.")
+
+else
+    -- ==========================================
+    -- 🟢 STATE: OFF -> SAVE, SETUP & START ENGINE
+    -- ==========================================
+    sendNotif("Graphics Engine", "🟢 Starting Auto-RTX Engine...\nScanning weather in real-time.")
+
+    -- 啟動背景迴圈的標記
+    Lighting:SetAttribute("RTX_AutoEngine_Active", true)
+
+    -- 1. Backup Original Lighting Settings
+    Lighting:SetAttribute("Orig_Saved", true)
+    Lighting:SetAttribute("Orig_ClockTime", Lighting.ClockTime)
+    Lighting:SetAttribute("Orig_GeographicLatitude", Lighting.GeographicLatitude)
+    Lighting:SetAttribute("Orig_Brightness", Lighting.Brightness)
+    Lighting:SetAttribute("Orig_GlobalShadows", Lighting.GlobalShadows)
+    Lighting:SetAttribute("Orig_ShadowSoftness", Lighting.ShadowSoftness)
+    Lighting:SetAttribute("Orig_OutdoorAmbient", Lighting.OutdoorAmbient)
+    Lighting:SetAttribute("Orig_EnvDiffuse", Lighting.EnvironmentDiffuseScale)
+    Lighting:SetAttribute("Orig_EnvSpecular", Lighting.EnvironmentSpecularScale)
+
+    local folder = Instance.new("Folder")
+    folder.Name = toggleFolderName
+    folder.Parent = Lighting
+
+    -- ==========================================
+    -- 🌟 2. Create Core Cinematic Filters (Persistent)
+    -- ==========================================
+    Lighting.EnvironmentDiffuseScale = 1
+    Lighting.EnvironmentSpecularScale = 1
+    Lighting.GlobalShadows = true
+
+    local bloom = Instance.new("BloomEffect", folder)
+    local dof = Instance.new("DepthOfFieldEffect", folder)
+    local sunRays = Instance.new("SunRaysEffect", folder)
+    local color = Instance.new("ColorCorrectionEffect", folder)
+    local atmosphere = Instance.new("Atmosphere", folder)
+    
+    local clouds = Instance.new("Clouds")
+    clouds.Name = "RealisticClouds"
+    clouds.Parent = Terrain
+
+    -- 記錄當前天氣狀態，避免重複渲染卡頓
+    local currentWeatherState = "None" 
+
+    -- ==========================================
+    -- 🔄 3. The Real-Time Engine (Background Loop)
+    -- ==========================================
+    task.spawn(function()
+        -- 每 2 秒檢查一次天氣 (節省效能)
+        while Lighting:GetAttribute("RTX_AutoEngine_Active") and folder.Parent do
+            
+            -- [A] 偵測天氣邏輯
+            local isRaining = false
+            local currentAmbient = Lighting.Ambient
+            
+            if math.abs((currentAmbient.R * 255) - 59) < 2 and math.abs((currentAmbient.G * 255) - 59) < 2 then
+                isRaining = true
+            end
+            
+            local existingClouds = Terrain:FindFirstChildOfClass("Clouds")
+            if existingClouds and existingClouds ~= clouds then
+                if math.abs(Lighting.ClockTime - 1) < 0.1 and math.abs(existingClouds.Cover - 0.5) < 0.1 then
+                    isRaining = true
+                end
+            end
+
+            if not isRaining then
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj:IsA("ParticleEmitter") and (string.find(string.lower(obj.Name), "rain") or obj.Texture == "rbxassetid://1822858547") then
+                        isRaining = true
+                        break
+                    elseif obj:IsA("Sound") and string.find(string.lower(obj.Name), "rain") and obj.Playing then
+                        isRaining = true
+                        break
+                    end
+                end
+            end
+
+            -- [B] 狀態比對與套用
+            local newState = isRaining and "Rain" or "Clear"
+
+            -- 只有今天氣發生「改變」時，才執行畫質切換
+            if currentWeatherState ~= newState then
+                currentWeatherState = newState
+
+                -- 先將所有地板反光恢復原狀，防止反光度無限疊加
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") and obj:GetAttribute("Orig_Reflectance") then
+                        obj.Reflectance = obj:GetAttribute("Orig_Reflectance")
+                    end
+                end
+
+                if isRaining then
+                    -- 🌧️ 切換至：RAIN MODE
+                    sendNotif("Weather Update", "🌧️ Rain detected.\nSwitching to Wet RTX Shadows.")
+                    
+                    Lighting.Brightness = 1.5
+                    Lighting.OutdoorAmbient = Color3.fromRGB(80, 85, 95)
+                    Lighting.ShadowSoftness = 0.8 
+
+                    bloom.Intensity = 0.4
+                    bloom.Size = 30
+                    bloom.Threshold = 1.0
+
+                    dof.FocusDistance = 15
+                    dof.InFocusRadius = 20
+                    dof.NearIntensity = 0.3
+                    dof.FarIntensity = 0.85
+
+                    sunRays.Intensity = 0 
+
+                    color.Contrast = 0.3
+                    color.Saturation = -0.15
+                    color.TintColor = Color3.fromRGB(220, 230, 245)
+
+                    atmosphere.Density = 0.4
+                    atmosphere.Offset = 0.25
+                    atmosphere.Color = Color3.fromRGB(130, 135, 140)
+                    atmosphere.Decay = Color3.fromRGB(90, 95, 100)
+                    atmosphere.Glare = 0
+                    atmosphere.Haze = 2.5
+                    
+                    clouds.Cover = 0.9 -- 烏雲密布
+
+                    -- 增加積水反光
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        if obj:IsA("BasePart") and not (obj.Parent and obj.Parent:FindFirstChildOfClass("Humanoid")) then
+                            if not obj:GetAttribute("Orig_Reflectance") then
+                                obj:SetAttribute("Orig_Reflectance", obj.Reflectance)
+                            end
+                            obj.Reflectance = math.clamp(obj.Reflectance + 0.25, 0, 1)
+                        end
+                    end
+
+                else
+                    -- ☀️ 切換至：CLEAR MODE
+                    sendNotif("Weather Update", "☀️ Skies are clear.\nSwitching to God Rays RTX.")
+                    
+                    Lighting.ClockTime = 14.5 
+                    Lighting.GeographicLatitude = 80 
+                    Lighting.Brightness = 3.5
+                    Lighting.OutdoorAmbient = Color3.fromRGB(70, 75, 80)
+                    Lighting.ShadowSoftness = 0.1 
+
+                    bloom.Intensity = 0.25
+                    bloom.Size = 24
+                    bloom.Threshold = 1.5
+
+                    dof.FocusDistance = 25
+                    dof.InFocusRadius = 35
+                    dof.NearIntensity = 0.1
+                    dof.FarIntensity = 0.6
+
+                    sunRays.Intensity = 0.08
+                    sunRays.Spread = 0.7
+
+                    color.Contrast = 0.3 
+                    color.Saturation = 0.05
+                    color.TintColor = Color3.fromRGB(255, 255, 255) -- 恢復正常色調
+
+                    atmosphere.Density = 0.28
+                    atmosphere.Offset = 0.25
+                    atmosphere.Color = Color3.fromRGB(199, 199, 199)
+                    atmosphere.Decay = Color3.fromRGB(106, 112, 125)
+                    atmosphere.Glare = 0.4
+                    atmosphere.Haze = 1.5
+                    
+                    clouds.Cover = 0.6 -- 晴天白雲
+                    
+                    -- 增加微弱光線追蹤質感
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        if obj:IsA("BasePart") and not (obj.Parent and obj.Parent:FindFirstChildOfClass("Humanoid")) then
+                            if not obj:GetAttribute("Orig_Reflectance") then
+                                obj:SetAttribute("Orig_Reflectance", obj.Reflectance)
+                            end
+                            if obj.Size.X > 5 or obj.Size.Z > 5 then
+                                obj.Reflectance = math.clamp(obj.Reflectance + 0.1, 0, 1)
+                            end
+                        end
+                    end
+                end
+            end
+            
+            -- 等待 1200 秒再掃描下一次 (非常重要，避免卡死遊戲)
+            task.wait(1200)
+        end
+    end)
+end
