@@ -5,7 +5,7 @@ local LocalPlayer = Players.LocalPlayer
 -- 執行初始伺服器設定
 pcall(function()
     game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("AddMap", "WorkFacility")
-	game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!map WorkFacility")
+    game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!map WorkFacility")
 end)
 
 -----------------------------------------------------------
@@ -124,7 +124,7 @@ task.spawn(function()
 end)
 
 -----------------------------------------------------------
--- 4. 復活自動按鍵功能 (G + 5)
+-- 4. 復活自動按鍵功能 (G + 5) - 【已更新預設開啟】
 -----------------------------------------------------------
 local KeyBtn = Instance.new("TextButton")
 local UICornerKey = Instance.new("UICorner")
@@ -132,15 +132,18 @@ KeyBtn.Name = "AutoKeyToggle"
 KeyBtn.Parent = ScreenGui
 KeyBtn.Size = UDim2.new(0, 140, 0, 45)
 KeyBtn.Position = UDim2.new(0.1, 0, 0.5, 0)
-KeyBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 150)
-KeyBtn.Text = "G5按鍵: 關閉off"
+
+-- 設定初始狀態為「開啟」
+local isAutoKeyEnabled = true 
+KeyBtn.BackgroundColor3 = Color3.fromRGB(130, 0, 255)
+KeyBtn.Text = "G5按鍵: 開啟on"
+
 KeyBtn.TextColor3 = Color3.new(1, 1, 1)
 KeyBtn.Font = Enum.Font.GothamBold
 KeyBtn.TextSize = 14
 KeyBtn.Draggable = true
 UICornerKey.Parent = KeyBtn
 
-local isAutoKeyEnabled = false
 KeyBtn.MouseButton1Click:Connect(function()
     isAutoKeyEnabled = not isAutoKeyEnabled
     KeyBtn.Text = isAutoKeyEnabled and "G5按鍵: 開啟on" or "G5按鍵: 關閉off"
@@ -173,9 +176,6 @@ end
 -- 5. 狀態檢測與自動復活 (Workspace 實體檢測法)
 -----------------------------------------------------------
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
 local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
     and ReplicatedStorage.Events:FindFirstChild("Player")
     and ReplicatedStorage.Events.Player:FindFirstChild("ChangePlayerMode")
@@ -186,34 +186,27 @@ task.spawn(function()
         
         if reviveRemote then
             pcall(function()
-                -- 尋找 Workspace -> Game -> Players 資料夾
                 local gameFolder = workspace:FindFirstChild("Game")
                 local playersFolder = gameFolder and gameFolder:FindFirstChild("Players")
                 
-                -- 1. 檢測你是否在遊戲場上 (找名字 或 找ID)
                 local inGameCharacter = nil
                 if playersFolder then
                     inGameCharacter = playersFolder:FindFirstChild(LocalPlayer.Name) 
-                                   or playersFolder:FindFirstChild(tostring(LocalPlayer.UserId))
+                                       or playersFolder:FindFirstChild(tostring(LocalPlayer.UserId))
                 end
                 
                 if not inGameCharacter then
                     -- 【情況 A】不在遊戲裡 (代表卡在菜單/大廳)
-                    -- 直接觸發漏洞，嘗試強制部署進場
                     reviveRemote:FireServer(true)
                     task.wait(2) -- 冷卻避免斷線
                 else
                     -- 【情況 B】在遊戲場上，檢查是否需要復活
                     local humanoid = inGameCharacter:FindFirstChild("Humanoid")
-                    
-                    -- 檢查是否死亡
                     local isDead = humanoid and (humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead)
                     
-                    -- 檢查是否倒地
                     local state = inGameCharacter:GetAttribute("State") or ""
                     local isDowned = inGameCharacter:GetAttribute("Downed") or (state == "Downed") or (state == "Dead")
 
-                    -- 嚴格限制：只有死亡或倒地才觸發
                     if isDead or isDowned then
                         reviveRemote:FireServer(true)
                         task.wait(2) 
@@ -224,12 +217,61 @@ task.spawn(function()
     end
 end)
 
-print([[                                        
-  ________  ________  ________  ___       ________   _______
- |\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \
- \ \  \___|\ \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \
-  \ \  \___\\ \_____  \ \   __  \ \  \    \ \  _____\ \_____  \
-   \ \  \__|_\| _____\ \ \  \ \  \ \  \____\ \  \\_ \_|_____\  \
-    \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
-     \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
+-----------------------------------------------------------
+-- 6. 自動時間加速 (UI 檢測法)
+-----------------------------------------------------------
+-- 嚴格檢測 UI 是否真實可見
+local function IsTrulyVisible(element)
+    if not element.Visible then return false end
+    local current = element.Parent
+    while current do
+        if current:IsA("ScreenGui") then
+            return current.Enabled
+        elseif current:IsA("GuiObject") then
+            if not current.Visible then
+                return false
+            end
+        end
+        current = current.Parent
+    end
+    return true
+end
+
+-- 尋找特定計時器
+local function IsTimerVisible(timerName)
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    for _, element in pairs(PlayerGui:GetDescendants()) do
+        if element.Name == timerName and element:IsA("GuiObject") then
+            if IsTrulyVisible(element) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+task.spawn(function()
+    while true do
+        if IsTimerVisible("IntermissionTimer") or IsTimerVisible("RoundTimer") then
+            pcall(function()
+                ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!time 1")
+            end)
+        
+            task.wait(2) 
+        else
+            -- 沒看到 UI 時，每 0.5 秒檢查一次
+            task.wait(0.5)
+        end
+    end
+end)
+
+-----------------------------------------------------------
+print([[                                                
+ ________  ________  ________  ___       ________   _______
+|\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \
+\ \  \___|\ \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \
+ \ \  \___\\ \_____  \ \   __  \ \  \    \ \  _____\ \_____  \
+  \ \  \__|_\| _____ \ \ \  \ \  \ \  \____\ \  \\_ \_|_____  \
+   \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
+    \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
     ]])
