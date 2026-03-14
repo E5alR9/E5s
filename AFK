@@ -218,79 +218,114 @@ task.spawn(function()
 end)
 
 -----------------------------------------------------------
--- 6. 自動時間加速 (UI 檢測法 - 修正死亡觸發)
+-- 6. 自動時間加速 (環境優先偵測版：先看雜質，再看 UI)
 -----------------------------------------------------------
 
--- 嚴格檢測 UI 是否真實可見
 local function IsTrulyVisible(element)
-    if not element.Visible then return false end
+    if not element or not element.Visible then return false end
     local current = element.Parent
     while current do
-        if current:IsA("ScreenGui") then
-            return current.Enabled
-        elseif current:IsA("GuiObject") then
-            if not current.Visible then
-                return false
-            end
-        end
+        if current:IsA("ScreenGui") then return current.Enabled
+        elseif current:IsA("GuiObject") and not current.Visible then return false end
         current = current.Parent
     end
     return true
 end
 
--- 尋找特定計時器
-local function IsTimerVisible(timerName)
-    local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if not PlayerGui then return false end
+-- 🕵️ 核心偵測：檢查是否有「非真人玩家」的實體在場
+local function IsFieldClean()
+    local gameFolder = workspace:FindFirstChild("Game")
+    local playersFolder = gameFolder and gameFolder:FindFirstChild("Players")
     
-    for _, element in pairs(PlayerGui:GetDescendants()) do
-        if element.Name == timerName and element:IsA("GuiObject") then
-            if IsTrulyVisible(element) then
-                return true
-            end
+    -- 如果資料夾不存在，通常代表還在大廳，視為「不乾淨」以保安全
+    if not playersFolder then return false end
+
+    local entities = playersFolder:GetChildren()
+    for _, entity in pairs(entities) do
+        -- 檢查這是否為真人玩家
+        local isActualPlayer = game.Players:GetPlayerFromCharacter(entity)
+        
+        -- 只要掃描到任何一個東西不是真人（Wolf, Rebel, Nextbot）
+        if not isActualPlayer then
+            -- 發現雜質，立刻判定「不乾淨」
+            return false 
         end
     end
-    return false
+    
+    -- 掃描完畢，場上只有真人，判定「乾淨」
+    return true
 end
 
 task.spawn(function()
     while true do
-        -- 檢查 UI 是否顯示
-        local timerActive = IsTimerVisible("IntermissionTimer") or IsTimerVisible("RoundTimer")
-        
-        if timerActive then
-            -- 【新增安全檢測】：確保角色存在且血量大於 0
-            local char = LocalPlayer.Character
-            local hum = char and char:FindFirstChild("Humanoid")
-            local isAlive = hum and hum.Health > 0
+        -- 第一步：優先檢查環境
+        if IsFieldClean() then
+            -- 第二步：環境乾淨了，才去檢查 UI 是否顯示
+            local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            local foundVisibleTimer = false
             
-            -- 【新增狀態檢測】：確保不是正在重生的瞬間 (State 不為 Dead)
-            local isNotDeadState = char and char:GetAttribute("State") ~= "Dead"
+            if PlayerGui then
+                for _, name in pairs({"IntermissionTimer", "RoundTimer"}) do
+                    -- 這裡改用遍歷 Descendants 以確保抓到所有可能的計時器位置
+                    for _, element in pairs(PlayerGui:GetDescendants()) do
+                        if element.Name == name and element:IsA("GuiObject") then
+                            if IsTrulyVisible(element) then
+                                foundVisibleTimer = true
+                                break
+                            end
+                        end
+                    end
+                    if foundVisibleTimer then break end
+                end
+            end
 
-            if isAlive and isNotDeadState then
-                pcall(function()
-                    ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!time 1")
-                end)
-                -- 執行後拉長冷卻，避免重生過程中的 UI 殘影重複觸發
-                task.wait(2) 
+            -- 第三步：環境乾淨 + UI 顯示 = 執行指令
+            if foundVisibleTimer then
+                -- 執行前的微秒確認，確保這瞬間沒有怪跳出來
+                task.wait(0.1) 
+                if IsFieldClean() then
+                    pcall(function()
+                        ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!time 1")
+                    end)
+                    -- print("✨ 環境純淨且 UI 顯示，執行 !time 1")
+                    task.wait(2.5) -- 執行後冷卻，防止重複發送
+                end
             else
-                -- 如果人死了或正在重生，稍微等一下再檢查
-                task.wait(1)
+                -- 環境乾淨但 UI 沒亮，正常循環
+                task.wait(0.5)
             end
         else
-            -- 沒看到 UI 時，每 0.5 秒檢查一次
-            task.wait(0.5)
+            -- 場上有 Wolf 或 Rebel，絕對保持沉默
+            -- print("🛡️ 偵測到實體 NPC，停止所有加速指令")
+            task.wait(1) -- 有怪在場時，降低掃描頻率減輕負擔
         end
     end
 end)
 
 -----------------------------------------------------------
+-- 7. 自動上浮功能 (每 10 秒傳送到上方 3000)
+-----------------------------------------------------------
+task.spawn(function()
+    while true do
+        task.wait(10)
+        pcall(function()
+            local char = LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root then
+                -- 將當前位置的 Y 軸增加 3000
+                root.CFrame = root.CFrame * CFrame.new(0, 3000, 0)
+            end
+        end)
+    end
+end)
+
+-----------------------------------------------------------
 print([[                                                
- ________  ________  ________  ___       ________   _______
-|\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \
-\ \  \___|\ \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \
- \ \  \___\\ \_____  \ \   __  \ \  \    \ \  _____\ \_____  \
-  \ \  \__|_\| _____ \ \ \  \ \  \ \  \____\ \  \\_ \_|_____  \
-   \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
-    \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
+  ________  ________  ________  ___       ________   _______
+ |\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \
+ \ \  \___|\ \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \
+  \ \  \___\\ \_____  \ \   __  \ \  \    \ \  _____\ \_____  \
+   \ \  \__|_\| _____\ \ \  \ \  \ \  \____\ \  \\_ \_|_____\  \
+    \ \_______\ \_______\ \__\ \__\ \_______\ \__\ \ _\\\_______\
+     \|_______|\|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|
     ]])
