@@ -303,16 +303,170 @@ task.spawn(function()
 end)
 
 -----------------------------------------------------------
--- 7. 自動上浮功能 
+-- 7. 高空平台掛機功能 (終極動態版：流體矩陣 + 螺旋扭曲)
 -----------------------------------------------------------
+local SAFE_POSITION = Vector3.new(3000, 3000, 3000)
+local SYSTEM_CENTER = SAFE_POSITION + Vector3.new(0, 15, -45) 
+local PLATFORM_SIZE = 30
+local platform = nil
+local systemModel = nil
+
+local fractalNodes = {}
+local NUM_NODES = 250 
+local GOLDEN_RATIO = (1 + math.sqrt(5)) / 2
+local ANGLE_INCREMENT = math.pi * 2 * GOLDEN_RATIO
+
+local function CreateDetailedFractal()
+    if not workspace:FindFirstChild("SafeAFKPlatform") then
+        platform = Instance.new("Part")
+        platform.Name = "SafeAFKPlatform"
+        platform.Size = Vector3.new(PLATFORM_SIZE, 1, PLATFORM_SIZE)
+        platform.Position = SAFE_POSITION
+        platform.Anchored = true 
+        platform.Transparency = 0.5
+        platform.Material = Enum.Material.Glass
+        platform.Color = Color3.fromRGB(5, 10, 25) 
+        platform.Parent = workspace
+    else
+        platform = workspace.SafeAFKPlatform
+    end
+
+    if workspace:FindFirstChild("UltimateFractalSystem") then
+        workspace.UltimateFractalSystem:Destroy() 
+    end
+
+    systemModel = Instance.new("Model")
+    systemModel.Name = "UltimateFractalSystem"
+    systemModel.Parent = workspace
+    fractalNodes = {}
+
+    -- 核心力場球
+    local coreGlow = Instance.new("Part")
+    coreGlow.Shape = Enum.PartType.Ball
+    coreGlow.Size = Vector3.new(4, 4, 4)
+    coreGlow.Color = Color3.fromRGB(0, 150, 255)
+    coreGlow.Material = Enum.Material.ForceField
+    coreGlow.Anchored = true
+    coreGlow.CanCollide = false
+    coreGlow.Position = SYSTEM_CENTER
+    coreGlow.Parent = systemModel
+
+    local coreLight = Instance.new("PointLight")
+    coreLight.Color = Color3.fromRGB(100, 200, 255)
+    coreLight.Range = 60
+    coreLight.Brightness = 2
+    coreLight.Parent = coreGlow
+
+    -- 生成光點與光軌
+    for i = 1, NUM_NODES do
+        local node = Instance.new("Part")
+        node.Shape = Enum.PartType.Ball
+        node.Size = Vector3.new(0.5, 0.5, 0.5) 
+        node.Material = Enum.Material.Neon
+        node.Anchored = true
+        node.CanCollide = false
+        node.Parent = systemModel
+
+        local att0 = Instance.new("Attachment", node)
+        att0.Position = Vector3.new(0, 0.2, 0)
+        local att1 = Instance.new("Attachment", node)
+        att1.Position = Vector3.new(0, -0.2, 0)
+
+        local trail = Instance.new("Trail")
+        trail.Attachment0 = att0
+        trail.Attachment1 = att1
+        trail.Lifetime = 0.8 -- 拉長殘影時間
+        trail.MinLength = 0.1
+        trail.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),    
+            NumberSequenceKeypoint.new(1, 1)     
+        })
+        trail.LightEmission = 1
+        trail.Parent = node
+
+        table.insert(fractalNodes, { part = node, trail = trail, index = i })
+    end
+end
+
+CreateDetailedFractal()
+
+-- ⏱️ 超複雜數學幾何動畫邏輯 (多重運動版)
 task.spawn(function()
     while true do
-        task.wait(10)
+        task.wait(1/60) 
+
+        if not systemModel or not systemModel.Parent then
+            CreateDetailedFractal()
+            task.wait(1)
+        end
+
+        local t = tick() 
+
+        -- 1. 形體變異 (Morphing)：隨時間改變 Y 軸的拉伸比例
+        -- 讓它在「扁平飛碟狀」與「長條沙漏狀」之間變換
+        local stretchY = math.sin(t * 0.5) * 0.8 + 1 
+
+        -- 2. 呼吸脈動 (Breathing)：整體的半徑收縮與膨脹
+        local globalRadius = math.sin(t * 1.2) * 3 + 12
+
+        for _, data in ipairs(fractalNodes) do
+            if data.part then
+                local i = data.index
+                
+                -- 動態調整顏色 (彩虹漸變)
+                local hue = (i / NUM_NODES + t * 0.15) % 1
+                local nodeColor = Color3.fromHSV(hue, 0.9, 1)
+                data.part.Color = nodeColor
+                data.trail.Color = ColorSequence.new(nodeColor)
+
+                -- 計算基本費波那契高度
+                local y = 1 - (i / NUM_NODES) * 2 
+                local radius = math.sqrt(1 - y * y)
+                
+                -- 3. 漩渦扭曲 (Vortex Twist)：不同高度的點，旋轉速度和方向不同
+                local twist = math.sin(t * 0.8) * 3 * y 
+                
+                -- 4. 表面高速流動 (Surface Flow)：讓點在水平面上瘋狂公轉
+                -- ANGLE_INCREMENT 保持幾何美感，(t * 3) 讓所有點繞著中心跑
+                local theta = ANGLE_INCREMENT * i + twist + (t * 3)
+                
+                -- 5. 表面波紋 (Surface Ripple)：讓球體表面產生高低起伏
+                local ripple = math.sin(theta * 3 + t * 4) * 1.5
+
+                -- 計算最終局部座標
+                local currentRadius = globalRadius + ripple
+                local baseX = math.cos(theta) * radius * currentRadius
+                local baseY = y * currentRadius * stretchY
+                local baseZ = math.sin(theta) * radius * currentRadius
+                
+                local localPos = Vector3.new(baseX, baseY, baseZ)
+
+                -- 6. 整體空間翻滾 (Global Rotation)
+                local rotCFrame = CFrame.Angles(t * 0.3, t * 0.5, t * 0.2)
+                local worldPos = (CFrame.new(SYSTEM_CENTER) * rotCFrame * CFrame.new(localPos)).Position
+
+                -- 更新位置
+                data.part.CFrame = CFrame.new(worldPos)
+            end
+        end
+    end
+end)
+
+-- 🛡️ 玩家保護與傳送邏輯
+task.spawn(function()
+    while true do
+        task.wait(5)
         pcall(function()
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             if root then
-                root.CFrame = root.CFrame * CFrame.new(0, 1500, 0)
+                local currentPos = root.Position
+                local distXZ = Vector2.new(currentPos.X - SAFE_POSITION.X, currentPos.Z - SAFE_POSITION.Z).Magnitude
+                local distY = math.abs(currentPos.Y - SAFE_POSITION.Y)
+
+                if distXZ > (PLATFORM_SIZE / 2 - 2) or distY > 8 then
+                    root.CFrame = CFrame.new(SAFE_POSITION + Vector3.new(0, 4, 0))
+                end
             end
         end)
     end
