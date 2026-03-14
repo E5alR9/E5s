@@ -1,7 +1,12 @@
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("AddMap", "WorkFacility")
+
+-- 執行初始伺服器設定
+pcall(function()
+    game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("AddMap", "WorkFacility")
+end)
+
 -----------------------------------------------------------
 -- 1. 載入外部腳本 (EvadeEvent & E5s)
 -----------------------------------------------------------
@@ -14,7 +19,6 @@ task.spawn(function()
         pcall(loadstring(game:HttpGet('https://raw.githubusercontent.com/zReal-King/Evade/main/Main.lua')))
     end)
 end)
-
 
 -----------------------------------------------------------
 -- 2. 建立 UI 主容器
@@ -32,7 +36,7 @@ local UICornerDot = Instance.new("UICorner")
 local TargetLabel = Instance.new("TextLabel")
 
 TargetCircle.Name = "TargetCircle"
-TargetCircle.Parent = ScreenGui -- 確保此處指向你的 ScreenGui 變數
+TargetCircle.Parent = ScreenGui 
 TargetCircle.Size = UDim2.new(0, 50, 0, 50)
 TargetCircle.Position = UDim2.new(0.8, 0, 0.55, 0)
 TargetCircle.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -94,15 +98,15 @@ task.spawn(function()
         task.wait(1)
     end
 end)
+
 -----------------------------------------------------------
--- 3. 自動指令循環 (每 3 秒執行一次)
+-- 3. 自動指令循環
 -----------------------------------------------------------
 task.spawn(function()
     while true do
         pcall(function()
             -- 執行特殊回合指令
             game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!specialround Plushie Hell")
-            
         end)
         task.wait(3)
     end
@@ -117,6 +121,7 @@ task.spawn(function()
         task.wait(60)
     end
 end)
+
 -----------------------------------------------------------
 -- 4. 復活自動按鍵功能 (G + 5)
 -----------------------------------------------------------
@@ -145,12 +150,10 @@ local function simulateCombo()
     if not isAutoKeyEnabled then return end
     task.wait(2)
     pcall(function()
-        -- 按下 G
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
         task.wait(0.1)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
         task.wait(0.5)
-        -- 按下 5
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Five, false, game)
         task.wait(0.1)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Five, false, game)
@@ -161,11 +164,45 @@ LocalPlayer.CharacterAdded:Connect(function()
     simulateCombo()
 end)
 
--- 初始檢查
 if LocalPlayer.Character then
     task.spawn(simulateCombo)
 end
-print([[										
+
+-----------------------------------------------------------
+-- 5. 狀態檢測與自動復活 (Downed / Dead)
+-----------------------------------------------------------
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
+    and ReplicatedStorage.Events:FindFirstChild("Player")
+    and ReplicatedStorage.Events.Player:FindFirstChild("ChangePlayerMode")
+
+task.spawn(function()
+    while true do
+        task.wait(0.5) -- 每 0.5 秒檢測一次狀態
+        
+        local character = LocalPlayer.Character
+        if character and reviveRemote then
+            pcall(function()
+                local humanoid = character:FindFirstChild("Humanoid")
+                
+                -- 1. 檢測是否死亡 (血量歸零)
+                local isDead = humanoid and humanoid.Health <= 0
+                
+                -- 2. 檢測是否倒地 (讀取遊戲 Attribute 狀態)
+                local state = character:GetAttribute("State") or ""
+                local isDowned = character:GetAttribute("Downed") or (state == "Downed") or (state == "Dead")
+
+                if isDead or isDowned then
+                    -- 觸發復活漏洞
+                    reviveRemote:FireServer(true)
+                    task.wait(2) -- 復活後稍微冷卻，避免狂發指令導致斷線
+                end
+            end)
+        end
+    end
+end)
+
+print([[                                        
   ________  ________  ________  ___       ________   _______
  |\   ____\|\   ____\|\   __  \|\  \     |\   __  \|\   __  \
  \ \  \___|\ \  \____| \  \|\  \ \  \    \ \  \|\  \ \  \|\  \
