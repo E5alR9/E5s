@@ -303,7 +303,7 @@ task.spawn(function()
 end)
 
 -----------------------------------------------------------
--- 7. 自動上浮功能 (每 10 秒傳送到上方 3000)
+-- 7. 自動上浮功能 
 -----------------------------------------------------------
 task.spawn(function()
     while true do
@@ -312,8 +312,7 @@ task.spawn(function()
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             if root then
-                -- 將當前位置的 Y 軸增加 3000
-                root.CFrame = root.CFrame * CFrame.new(0, 3000, 0)
+                root.CFrame = root.CFrame * CFrame.new(0, 1500, 0)
             end
         end)
     end
