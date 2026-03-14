@@ -198,7 +198,8 @@ task.spawn(function()
                 if not inGameCharacter then
                     -- 【情況 A】不在遊戲裡 (代表卡在菜單/大廳)
                     reviveRemote:FireServer(true)
-                    task.wait(2) -- 冷卻避免斷線
+                    task.wait(3) -- 冷卻避免斷線
+					reviveRemote:FireServer(true)
                 else
                     -- 【情況 B】在遊戲場上，檢查是否需要復活
                     local humanoid = inGameCharacter:FindFirstChild("Humanoid")
