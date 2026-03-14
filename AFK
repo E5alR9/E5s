@@ -5,6 +5,7 @@ local LocalPlayer = Players.LocalPlayer
 -- 執行初始伺服器設定
 pcall(function()
     game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("AddMap", "WorkFacility")
+	game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!map WorkFacility")
 end)
 
 -----------------------------------------------------------
@@ -169,9 +170,12 @@ if LocalPlayer.Character then
 end
 
 -----------------------------------------------------------
--- 5. 狀態檢測與自動復活 (Downed / Dead)
+-- 5. 狀態檢測與自動復活 (Workspace 實體檢測法)
 -----------------------------------------------------------
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
 local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
     and ReplicatedStorage.Events:FindFirstChild("Player")
     and ReplicatedStorage.Events.Player:FindFirstChild("ChangePlayerMode")
@@ -180,22 +184,40 @@ task.spawn(function()
     while true do
         task.wait(0.5) -- 每 0.5 秒檢測一次狀態
         
-        local character = LocalPlayer.Character
-        if character and reviveRemote then
+        if reviveRemote then
             pcall(function()
-                local humanoid = character:FindFirstChild("Humanoid")
+                -- 尋找 Workspace -> Game -> Players 資料夾
+                local gameFolder = workspace:FindFirstChild("Game")
+                local playersFolder = gameFolder and gameFolder:FindFirstChild("Players")
                 
-                -- 1. 檢測是否死亡 (血量歸零)
-                local isDead = humanoid and humanoid.Health <= 0
+                -- 1. 檢測你是否在遊戲場上 (找名字 或 找ID)
+                local inGameCharacter = nil
+                if playersFolder then
+                    inGameCharacter = playersFolder:FindFirstChild(LocalPlayer.Name) 
+                                   or playersFolder:FindFirstChild(tostring(LocalPlayer.UserId))
+                end
                 
-                -- 2. 檢測是否倒地 (讀取遊戲 Attribute 狀態)
-                local state = character:GetAttribute("State") or ""
-                local isDowned = character:GetAttribute("Downed") or (state == "Downed") or (state == "Dead")
-
-                if isDead or isDowned then
-                    -- 觸發復活漏洞
+                if not inGameCharacter then
+                    -- 【情況 A】不在遊戲裡 (代表卡在菜單/大廳)
+                    -- 直接觸發漏洞，嘗試強制部署進場
                     reviveRemote:FireServer(true)
-                    task.wait(2) -- 復活後稍微冷卻，避免狂發指令導致斷線
+                    task.wait(2) -- 冷卻避免斷線
+                else
+                    -- 【情況 B】在遊戲場上，檢查是否需要復活
+                    local humanoid = inGameCharacter:FindFirstChild("Humanoid")
+                    
+                    -- 檢查是否死亡
+                    local isDead = humanoid and (humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead)
+                    
+                    -- 檢查是否倒地
+                    local state = inGameCharacter:GetAttribute("State") or ""
+                    local isDowned = inGameCharacter:GetAttribute("Downed") or (state == "Downed") or (state == "Dead")
+
+                    -- 嚴格限制：只有死亡或倒地才觸發
+                    if isDead or isDowned then
+                        reviveRemote:FireServer(true)
+                        task.wait(2) 
+                    end
                 end
             end)
         end
