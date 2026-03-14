@@ -182,7 +182,7 @@ local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
 
 task.spawn(function()
     while true do
-        task.wait(0.5) -- 每 0.5 秒檢測一次狀態
+        task.wait(2) -- 每  秒檢測一次狀態
         
         if reviveRemote then
             pcall(function()
