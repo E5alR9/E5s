@@ -303,20 +303,30 @@ task.spawn(function()
 end)
 
 -----------------------------------------------------------
--- 7. 高空平台掛機功能 (終極動態版：流體矩陣 + 螺旋扭曲)
+-- 7. 高空平台掛機功能 (向內細節化多層電子軌域 + 表面混沌軌跡)
 -----------------------------------------------------------
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
 local SAFE_POSITION = Vector3.new(3000, 3000, 3000)
-local SYSTEM_CENTER = SAFE_POSITION + Vector3.new(0, 15, -45) 
+local SYSTEM_CENTER = SAFE_POSITION + Vector3.new(0, 18, -45) 
 local PLATFORM_SIZE = 30
 local platform = nil
 local systemModel = nil
 
-local fractalNodes = {}
-local NUM_NODES = 250 
-local GOLDEN_RATIO = (1 + math.sqrt(5)) / 2
-local ANGLE_INCREMENT = math.pi * 2 * GOLDEN_RATIO
+local chaosNodes = {}
+local NUM_NODES = 180 -- 增加總數，讓內部細節更豐富
+local NUM_LAYERS = 4  -- 🌟 總共 4 層，往內堆疊
+local OUTER_RADIUS = 20 -- 🌟 最外圈的半徑界線
+local LAYER_SPACING = 4.5 -- 🌟 每一層往內縮減的距離 (20 -> 15.5 -> 11 -> 6.5)
 
-local function CreateDetailedFractal()
+-- 羅倫茲混沌常數
+local SIGMA = 10
+local RHO = 28
+local BETA = 8/3
+local TIME_STEP = 0.008 
+
+local function CreateSphericalChaos()
     if not workspace:FindFirstChild("SafeAFKPlatform") then
         platform = Instance.new("Part")
         platform.Name = "SafeAFKPlatform"
@@ -325,47 +335,59 @@ local function CreateDetailedFractal()
         platform.Anchored = true 
         platform.Transparency = 0.5
         platform.Material = Enum.Material.Glass
-        platform.Color = Color3.fromRGB(5, 10, 25) 
+        platform.Color = Color3.fromRGB(5, 10, 20) 
         platform.Parent = workspace
     else
         platform = workspace.SafeAFKPlatform
     end
 
-    if workspace:FindFirstChild("UltimateFractalSystem") then
-        workspace.UltimateFractalSystem:Destroy() 
+    if workspace:FindFirstChild("SphericalChaosSystem") then
+        workspace.SphericalChaosSystem:Destroy() 
     end
 
     systemModel = Instance.new("Model")
-    systemModel.Name = "UltimateFractalSystem"
+    systemModel.Name = "SphericalChaosSystem"
     systemModel.Parent = workspace
-    fractalNodes = {}
+    chaosNodes = {}
 
-    -- 核心力場球
+    -- 🌐 核心原子核 (縮小實體，增加內部軌道的空間)
     local coreGlow = Instance.new("Part")
     coreGlow.Shape = Enum.PartType.Ball
-    coreGlow.Size = Vector3.new(4, 4, 4)
-    coreGlow.Color = Color3.fromRGB(0, 150, 255)
-    coreGlow.Material = Enum.Material.ForceField
+    coreGlow.Size = Vector3.new(3.5, 3.5, 3.5) -- 🌟 核心縮小，讓內層細節展現出來
+    coreGlow.Color = Color3.fromRGB(255, 255, 255) -- 核心改為超高溫的純白
+    coreGlow.Material = Enum.Material.Neon
     coreGlow.Anchored = true
     coreGlow.CanCollide = false
     coreGlow.Position = SYSTEM_CENTER
     coreGlow.Parent = systemModel
 
     local coreLight = Instance.new("PointLight")
-    coreLight.Color = Color3.fromRGB(100, 200, 255)
-    coreLight.Range = 60
-    coreLight.Brightness = 2
+    coreLight.Color = Color3.fromRGB(150, 200, 255)
+    coreLight.Range = 50
+    coreLight.Brightness = 4
     coreLight.Parent = coreGlow
 
-    -- 生成光點與光軌
+    -- 生成多層電子光點與光軌
     for i = 1, NUM_NODES do
         local node = Instance.new("Part")
         node.Shape = Enum.PartType.Ball
-        node.Size = Vector3.new(0.5, 0.5, 0.5) 
+        node.Size = Vector3.new(0.3, 0.3, 0.3) -- 點稍微縮小，看起來更精緻
         node.Material = Enum.Material.Neon
         node.Anchored = true
         node.CanCollide = false
         node.Parent = systemModel
+        
+        -- 🌟 計算層級 (1 是最外層，4 是最內層)
+        local layerIndex = (i % NUM_LAYERS) + 1
+        
+        -- 🌟 由外向內計算半徑
+        local targetRadius = OUTER_RADIUS - ((layerIndex - 1) * LAYER_SPACING)
+        
+        -- 🌟 顏色設定：越往內越接近高溫的青白色，越往外越偏向冷色調的深藍/紫
+        local hue = 0.6 + (layerIndex * 0.05) 
+        local saturation = 1 - (layerIndex * 0.15) -- 內層飽和度低(偏白)，外層飽和度高
+        local nodeColor = Color3.fromHSV(hue, math.clamp(saturation, 0, 1), 1)
+        node.Color = nodeColor
 
         local att0 = Instance.new("Attachment", node)
         att0.Position = Vector3.new(0, 0.2, 0)
@@ -375,84 +397,83 @@ local function CreateDetailedFractal()
         local trail = Instance.new("Trail")
         trail.Attachment0 = att0
         trail.Attachment1 = att1
-        trail.Lifetime = 0.8 -- 拉長殘影時間
-        trail.MinLength = 0.1
+        -- 🌟 內層(layerIndex大)軌跡短且密集，外層軌跡長且飄渺
+        trail.Lifetime = 1.5 - (layerIndex * 0.25) 
+        trail.MinLength = 0.05
+        trail.Color = ColorSequence.new(nodeColor)
         trail.Transparency = NumberSequence.new({
             NumberSequenceKeypoint.new(0, 0),    
             NumberSequenceKeypoint.new(1, 1)     
         })
-        trail.LightEmission = 1
+        trail.LightEmission = 1 + (layerIndex * 0.2) -- 越內層越發光
         trail.Parent = node
 
-        table.insert(fractalNodes, { part = node, trail = trail, index = i })
+        -- 初始的混沌變數
+        local initialX = 0.1 + (i * 0.05)
+        local initialY = 0.1 - (i * 0.02)
+        local initialZ = 0.1
+
+        table.insert(chaosNodes, { 
+            part = node, 
+            x = initialX, 
+            y = initialY, 
+            z = initialZ,
+            radius = targetRadius,        
+            speedMult = 0.5 + (layerIndex * 0.6) -- 🌟 越內層，速度倍率越高，越瘋狂
+        })
     end
 end
 
-CreateDetailedFractal()
+CreateSphericalChaos()
 
--- ⏱️ 超複雜數學幾何動畫邏輯 (多重運動版)
+-- ⏱️ 球面混沌映射邏輯
 task.spawn(function()
     while true do
         task.wait(1/60) 
 
         if not systemModel or not systemModel.Parent then
-            CreateDetailedFractal()
+            CreateSphericalChaos()
             task.wait(1)
         end
 
-        local t = tick() 
+        local t = tick()
+        -- 整體緩慢自轉
+        local globalRot = CFrame.Angles(t * 0.05, t * 0.08, t * 0.02)
 
-        -- 1. 形體變異 (Morphing)：隨時間改變 Y 軸的拉伸比例
-        -- 讓它在「扁平飛碟狀」與「長條沙漏狀」之間變換
-        local stretchY = math.sin(t * 0.5) * 0.8 + 1 
-
-        -- 2. 呼吸脈動 (Breathing)：整體的半徑收縮與膨脹
-        local globalRadius = math.sin(t * 1.2) * 3 + 12
-
-        for _, data in ipairs(fractalNodes) do
+        for _, data in ipairs(chaosNodes) do
             if data.part then
-                local i = data.index
-                
-                -- 動態調整顏色 (彩虹漸變)
-                local hue = (i / NUM_NODES + t * 0.15) % 1
-                local nodeColor = Color3.fromHSV(hue, 0.9, 1)
-                data.part.Color = nodeColor
-                data.trail.Color = ColorSequence.new(nodeColor)
+                -- 1. 計算羅倫茲混沌微分
+                local dx = SIGMA * (data.y - data.x) * TIME_STEP
+                local dy = (data.x * (RHO - data.z) - data.y) * TIME_STEP
+                local dz = (data.x * data.y - BETA * data.z) * TIME_STEP
 
-                -- 計算基本費波那契高度
-                local y = 1 - (i / NUM_NODES) * 2 
-                local radius = math.sqrt(1 - y * y)
-                
-                -- 3. 漩渦扭曲 (Vortex Twist)：不同高度的點，旋轉速度和方向不同
-                local twist = math.sin(t * 0.8) * 3 * y 
-                
-                -- 4. 表面高速流動 (Surface Flow)：讓點在水平面上瘋狂公轉
-                -- ANGLE_INCREMENT 保持幾何美感，(t * 3) 讓所有點繞著中心跑
-                local theta = ANGLE_INCREMENT * i + twist + (t * 3)
-                
-                -- 5. 表面波紋 (Surface Ripple)：讓球體表面產生高低起伏
-                local ripple = math.sin(theta * 3 + t * 4) * 1.5
+                data.x = data.x + dx
+                data.y = data.y + dy
+                data.z = data.z + dz
 
-                -- 計算最終局部座標
-                local currentRadius = globalRadius + ripple
-                local baseX = math.cos(theta) * radius * currentRadius
-                local baseY = y * currentRadius * stretchY
-                local baseZ = math.sin(theta) * radius * currentRadius
+                -- 2. 映射座標 (加入內部狂飆的 speedMult)
+                local theta = data.x * 0.2 + (t * 0.8 * data.speedMult) 
+                local phi = data.y * 0.15               
                 
-                local localPos = Vector3.new(baseX, baseY, baseZ)
+                -- 半徑使用算好的目標半徑，保留微小的混沌呼吸感
+                local r = data.radius + (data.z * 0.08) - 1
 
-                -- 6. 整體空間翻滾 (Global Rotation)
-                local rotCFrame = CFrame.Angles(t * 0.3, t * 0.5, t * 0.2)
-                local worldPos = (CFrame.new(SYSTEM_CENTER) * rotCFrame * CFrame.new(localPos)).Position
+                -- 3. 轉換為 3D 直角座標
+                local plotX = r * math.sin(phi) * math.cos(theta)
+                local plotY = r * math.cos(phi)
+                local plotZ = r * math.sin(phi) * math.sin(theta)
 
-                -- 更新位置
+                -- 4. 套用位置與旋轉
+                local localPos = Vector3.new(plotX, plotY, plotZ)
+                local worldPos = (CFrame.new(SYSTEM_CENTER) * globalRot * CFrame.new(localPos)).Position
+
                 data.part.CFrame = CFrame.new(worldPos)
             end
         end
     end
 end)
 
--- 🛡️ 玩家保護與傳送邏輯
+-- 🛡️ 玩家保護與傳送邏輯 (不變)
 task.spawn(function()
     while true do
         task.wait(5)
