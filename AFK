@@ -218,8 +218,9 @@ task.spawn(function()
 end)
 
 -----------------------------------------------------------
--- 6. 自動時間加速 (UI 檢測法)
+-- 6. 自動時間加速 (UI 檢測法 - 修正死亡觸發)
 -----------------------------------------------------------
+
 -- 嚴格檢測 UI 是否真實可見
 local function IsTrulyVisible(element)
     if not element.Visible then return false end
@@ -239,7 +240,9 @@ end
 
 -- 尋找特定計時器
 local function IsTimerVisible(timerName)
-    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not PlayerGui then return false end
+    
     for _, element in pairs(PlayerGui:GetDescendants()) do
         if element.Name == timerName and element:IsA("GuiObject") then
             if IsTrulyVisible(element) then
@@ -252,12 +255,28 @@ end
 
 task.spawn(function()
     while true do
-        if IsTimerVisible("IntermissionTimer") or IsTimerVisible("RoundTimer") then
-            pcall(function()
-                ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!time 1")
-            end)
+        -- 檢查 UI 是否顯示
+        local timerActive = IsTimerVisible("IntermissionTimer") or IsTimerVisible("RoundTimer")
         
-            task.wait(2) 
+        if timerActive then
+            -- 【新增安全檢測】：確保角色存在且血量大於 0
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            local isAlive = hum and hum.Health > 0
+            
+            -- 【新增狀態檢測】：確保不是正在重生的瞬間 (State 不為 Dead)
+            local isNotDeadState = char and char:GetAttribute("State") ~= "Dead"
+
+            if isAlive and isNotDeadState then
+                pcall(function()
+                    ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!time 1")
+                end)
+                -- 執行後拉長冷卻，避免重生過程中的 UI 殘影重複觸發
+                task.wait(2) 
+            else
+                -- 如果人死了或正在重生，稍微等一下再檢查
+                task.wait(1)
+            end
         else
             -- 沒看到 UI 時，每 0.5 秒檢查一次
             task.wait(0.5)
