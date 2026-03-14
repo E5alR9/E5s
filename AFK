@@ -2,6 +2,51 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- 遠端事件路徑
+local voteEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Player"):WaitForChild("Vote")
+
+-- UI 偵測路徑
+local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+local choicesFolder = playerGui:WaitForChild("Global"):WaitForChild("CanDisable"):WaitForChild("Vote"):WaitForChild("Choices")
+
+-- 用來防止重複投票的標記
+local hasVotedThisRound = false
+
+task.spawn(function()
+    while true do
+        -- 每 0.5 秒檢查一次，反應速度夠快且不佔資源
+        task.wait(0.5)
+
+        -- 檢查「1」是否存在
+        local firstOption = choicesFolder:FindFirstChild("1")
+
+        if firstOption and not hasVotedThisRound then
+            -- 發現目標！直接開火
+            
+            
+            -- 執行地圖投票
+            voteEvent:FireServer(1)
+            
+            -- 稍微停 0.1 秒確保伺服器能收兩個訊號
+            task.wait(0.1)
+            
+            -- 執行模式投票
+            voteEvent:FireServer(1, true)
+            
+            hasVotedThisRound = true
+            
+            
+        elseif not firstOption then
+            -- 如果「1」消失了，代表投票結束或選單關閉，重置標記等待下一輪
+            hasVotedThisRound = false
+        end
+    end
+end)
+
 -- 執行初始伺服器設定
 pcall(function()
     game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("AddMap", "WorkFacility")
