@@ -2,6 +2,7 @@ local Lighting = game:GetService("Lighting")
 local Terrain = workspace:WaitForChild("Terrain")
 local Workspace = game:GetService("Workspace")
 local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService") -- 引入渲染服務(用於塵埃跟隨)
 
 -- ==========================================
 -- 🛠️ Core UI Notification Function (English)
@@ -25,7 +26,6 @@ if Lighting:FindFirstChild(toggleFolderName) then
     -- ==========================================
     -- 🔴 STATE: ON -> TURN OFF & RESTORE
     -- ==========================================
-    -- 停止背景迴圈
     Lighting:SetAttribute("RTX_AutoEngine_Active", false)
     Lighting[toggleFolderName]:Destroy()
     
@@ -45,7 +45,7 @@ if Lighting:FindFirstChild(toggleFolderName) then
         Lighting.EnvironmentSpecularScale = Lighting:GetAttribute("Orig_EnvSpecular")
     end
 
-    -- 2. Restore Workspace Parts (Dry the puddles)
+    -- 2. Restore Workspace Parts
     for _, obj in pairs(Workspace:GetDescendants()) do
         if obj:IsA("BasePart") and obj:GetAttribute("Orig_Reflectance") then
             obj.Reflectance = obj:GetAttribute("Orig_Reflectance")
@@ -60,7 +60,6 @@ else
     -- ==========================================
     sendNotif("Graphics Engine", "🟢 Starting Auto-RTX Engine...\nScanning weather in real-time.")
 
-    -- 啟動背景迴圈的標記
     Lighting:SetAttribute("RTX_AutoEngine_Active", true)
 
     -- 1. Backup Original Lighting Settings
@@ -79,7 +78,7 @@ else
     folder.Parent = Lighting
 
     -- ==========================================
-    -- 🌟 2. Create Core Cinematic Filters (Persistent)
+    -- 🌟 2. Create Core Cinematic Filters
     -- ==========================================
     Lighting.EnvironmentDiffuseScale = 1
     Lighting.EnvironmentSpecularScale = 1
@@ -95,17 +94,63 @@ else
     clouds.Name = "RealisticClouds"
     clouds.Parent = Terrain
 
-    -- 記錄當前天氣狀態，避免重複渲染卡頓
+    -- ==========================================
+    -- ✨ 3. Create Smart Dust System (模擬光影塵埃)
+    -- ==========================================
+    local dustPart = Instance.new("Part")
+    dustPart.Name = "RTX_DustEmitter"
+    dustPart.Size = Vector3.new(25, 20, 25) -- 在相機周圍形成一個大盒子
+    dustPart.Transparency = 1
+    dustPart.CanCollide = false
+    dustPart.Anchored = true
+    dustPart.Parent = folder -- 放在 folder 裡，關閉 RTX 時會自動刪除
+
+    local dust = Instance.new("ParticleEmitter", dustPart)
+    dust.Name = "DustMotes"
+    dust.Texture = "rbxassetid://243664009" -- 柔和的發光圓點
+    dust.Rate = 40 -- 塵埃密度
+    dust.Lifetime = NumberRange.new(4, 8) -- 存活時間
+    dust.Speed = NumberRange.new(0.05, 0.2) -- 飄動速度極慢
+    dust.VelocitySpread = 360 -- 四面八方隨機飄
+    dust.EmissionDirection = Enum.NormalId.Front
+    dust.Shape = Enum.ParticleEmitterShape.Box
+    dust.ShapeInOut = Enum.ParticleEmitterShapeInOut.InAndOut
+    
+    -- 讓塵埃具有真實光影的魔法屬性：
+    dust.LightInfluence = 1 -- 🌟 1=完美接收環境光！在陰影變暗，在陽光下發亮
+    dust.LightEmission = 0.1 -- 微微的自發光
+    dust.Size = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0),
+        NumberSequenceKeypoint.new(0.2, 0.04), -- 灰塵極小
+        NumberSequenceKeypoint.new(0.8, 0.04),
+        NumberSequenceKeypoint.new(1, 0)
+    })
+    dust.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.5, 0.75), -- 微微透明
+        NumberSequenceKeypoint.new(1, 1)
+    })
+
+    -- 讓塵埃發射器永遠跟隨玩家相機
+    local dustConnection
+    dustConnection = RunService.RenderStepped:Connect(function()
+        if dustPart.Parent and workspace.CurrentCamera then
+            -- 鎖定在相機前方 10 格的位置
+            dustPart.CFrame = workspace.CurrentCamera.CFrame * CFrame.new(0, 0, -10)
+        else
+            dustConnection:Disconnect() -- 系統關閉時自動解除綁定，節省效能
+        end
+    end)
+
+
     local currentWeatherState = "None" 
 
     -- ==========================================
-    -- 🔄 3. The Real-Time Engine (Background Loop)
+    -- 🔄 4. The Real-Time Engine (Background Loop)
     -- ==========================================
     task.spawn(function()
-        -- 每 2 秒檢查一次天氣 (節省效能)
         while Lighting:GetAttribute("RTX_AutoEngine_Active") and folder.Parent do
             
-            -- [A] 偵測天氣邏輯
             local isRaining = false
             local currentAmbient = Lighting.Ambient
             
@@ -132,14 +177,11 @@ else
                 end
             end
 
-            -- [B] 狀態比對與套用
             local newState = isRaining and "Rain" or "Clear"
 
-            -- 只有今天氣發生「改變」時，才執行畫質切換
             if currentWeatherState ~= newState then
                 currentWeatherState = newState
 
-                -- 先將所有地板反光恢復原狀，防止反光度無限疊加
                 for _, obj in pairs(Workspace:GetDescendants()) do
                     if obj:IsA("BasePart") and obj:GetAttribute("Orig_Reflectance") then
                         obj.Reflectance = obj:GetAttribute("Orig_Reflectance")
@@ -150,6 +192,8 @@ else
                     -- 🌧️ 切換至：RAIN MODE
                     sendNotif("Weather Update", "🌧️ Rain detected.\nSwitching to Wet RTX Shadows.")
                     
+                    dust.Enabled = false -- 🌟 雨天時空氣乾淨，關閉塵埃
+
                     Lighting.Brightness = 1.5
                     Lighting.OutdoorAmbient = Color3.fromRGB(80, 85, 95)
                     Lighting.ShadowSoftness = 0.8 
@@ -176,9 +220,8 @@ else
                     atmosphere.Glare = 0
                     atmosphere.Haze = 2.5
                     
-                    clouds.Cover = 0.9 -- 烏雲密布
+                    clouds.Cover = 0.9 
 
-                    -- 增加積水反光
                     for _, obj in pairs(Workspace:GetDescendants()) do
                         if obj:IsA("BasePart") and not (obj.Parent and obj.Parent:FindFirstChildOfClass("Humanoid")) then
                             if not obj:GetAttribute("Orig_Reflectance") then
@@ -192,6 +235,8 @@ else
                     -- ☀️ 切換至：CLEAR MODE
                     sendNotif("Weather Update", "☀️ Skies are clear.\nSwitching to God Rays RTX.")
                     
+                    dust.Enabled = true -- 🌟 晴天開啟塵埃，讓光線照亮它們！
+
                     Lighting.ClockTime = 14.5 
                     Lighting.GeographicLatitude = 80 
                     Lighting.Brightness = 3.5
@@ -212,7 +257,7 @@ else
 
                     color.Contrast = 0.3 
                     color.Saturation = 0.05
-                    color.TintColor = Color3.fromRGB(255, 255, 255) -- 恢復正常色調
+                    color.TintColor = Color3.fromRGB(255, 255, 255) 
 
                     atmosphere.Density = 0.28
                     atmosphere.Offset = 0.25
@@ -221,9 +266,8 @@ else
                     atmosphere.Glare = 0.4
                     atmosphere.Haze = 1.5
                     
-                    clouds.Cover = 0.6 -- 晴天白雲
+                    clouds.Cover = 0.6 
                     
-                    -- 增加微弱光線追蹤質感
                     for _, obj in pairs(Workspace:GetDescendants()) do
                         if obj:IsA("BasePart") and not (obj.Parent and obj.Parent:FindFirstChildOfClass("Humanoid")) then
                             if not obj:GetAttribute("Orig_Reflectance") then
@@ -237,7 +281,7 @@ else
                 end
             end
             
-            -- 等待 1200 秒再掃描下一次 (非常重要，避免卡死遊戲)
+            -- 注意：這裡你設定了 1200 秒 (等於 20 分鐘) 才偵測一次天氣
             task.wait(1200)
         end
     end)
