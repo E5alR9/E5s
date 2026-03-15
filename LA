@@ -6,3 +6,175 @@ game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterC
 game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Crouching.MoveRight.AnimationId = "rbxassetid://9381958566"
 game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Jumping.Jump.AnimationId = "rbxassetid://10242911213"
 game:GetService("ReplicatedStorage").Modules.Character.CharacterTable.CharacterController.Global.Rig.Animator.Animations.ClassicAnimations.Animations.Moving.SprintForward.AnimationId = "rbxassetid://9873188504"
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local animator = humanoid:WaitForChild("Animator")
+
+local animId = "rbxassetid://17418483149"
+local speedMultiplier = 5 
+
+local continueChance = 50 
+local graceDuration = 0.5 
+
+-- 🔇 測試通知開關 (設為 false 關閉所有畫面提示，設為 true 開啟)
+local showNotifications = false 
+
+---------------------------------------------------------
+-- 畫面通知函數
+---------------------------------------------------------
+local function sendNotif(message, duration)
+    if not showNotifications then return end -- 如果開關是關的，就什麼都不做直接結束
+    
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "🤸 動畫系統",
+            Text = message,
+            Duration = duration or 2,
+        })
+    end)
+end
+
+---------------------------------------------------------
+-- 清理舊紀錄
+---------------------------------------------------------
+if _G.AirAnimConnection then
+    _G.AirAnimConnection:Disconnect()
+    _G.AirAnimConnection = nil
+end
+if _G.MyCustomAnimTrack then
+    _G.MyCustomAnimTrack:Stop()
+    _G.MyCustomAnimTrack:Destroy()
+    _G.MyCustomAnimTrack = nil
+end
+
+local animation = Instance.new("Animation")
+animation.AnimationId = animId
+_G.MyCustomAnimTrack = animator:LoadAnimation(animation)
+_G.MyCustomAnimTrack.Priority = Enum.AnimationPriority.Action4
+
+---------------------------------------------------------
+-- 全新防護機制：直接比對動畫名稱
+---------------------------------------------------------
+local function isSlidingOrEmoting()
+    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+        if track.Animation then
+            local trackName = string.lower(track.Animation.Name)
+            if string.find(trackName, "animationclassic") or string.find(trackName, "slide") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+---------------------------------------------------------
+-- 計數與監測邏輯
+---------------------------------------------------------
+local jumpCount = 0
+local targetJump = math.random(2, 5)
+local targetAirTime = 0
+local wasInAir = false
+
+local airTime = 0
+local isPlaying = false
+local stopTime = 0
+local hasPlayedThisJump = false
+
+local inGracePeriod = false 
+local landingTime = 0       
+
+_G.AirAnimConnection = RunService.Heartbeat:Connect(function(deltaTime)
+    local state = humanoid:GetState()
+    local inAir = (state == Enum.HumanoidStateType.Freefall) or (state == Enum.HumanoidStateType.Jumping)
+
+    -- 呼叫名稱判斷：如果是 AnimationClassic 或 Slide，強制不當作空中
+    if isSlidingOrEmoting() then
+        inAir = false
+    end
+
+    if isPlaying and os.clock() >= stopTime then
+        _G.MyCustomAnimTrack:Stop()
+        isPlaying = false
+        inGracePeriod = false
+        sendNotif("⏳ 達到隨機時間限制，動畫結束")
+        if not inAir and jumpCount >= targetJump then
+            jumpCount = 0
+            targetJump = math.random(2, 5)
+        end
+    end
+
+    if inAir then
+        if inGracePeriod then
+            inGracePeriod = false
+            sendNotif("🦘 連跳成功！動畫無縫繼續播放")
+        elseif not wasInAir then
+            wasInAir = true
+            jumpCount = jumpCount + 1
+            hasPlayedThisJump = false
+            airTime = 0
+            
+            if jumpCount == targetJump then
+                targetAirTime = math.random() * 2 
+                sendNotif("☁️ 升空！目標達成，將在滯空 " .. string.format("%.2f", targetAirTime) .. " 秒後觸發")
+            end
+        end
+
+        airTime = airTime + deltaTime
+
+        if jumpCount == targetJump and airTime >= targetAirTime and not isPlaying and not hasPlayedThisJump then
+            isPlaying = true
+            hasPlayedThisJump = true
+            
+            local randomDuration = math.random(3, 10)
+            stopTime = os.clock() + randomDuration
+            
+            _G.MyCustomAnimTrack:Play()
+            _G.MyCustomAnimTrack:AdjustSpeed(speedMultiplier)
+            sendNotif("▶️ 播放動畫持續: " .. randomDuration .. " 秒", 3)
+        end
+
+    else
+        if wasInAir then
+            wasInAir = false
+            if isPlaying then
+                -- 落地連跳判定
+                if math.random(1, 100) <= continueChance then
+                    inGracePeriod = true
+                    landingTime = os.clock()
+                    sendNotif("🎲 觸發連續判定！")
+                else
+                    _G.MyCustomAnimTrack:Stop()
+                    isPlaying = false
+                    sendNotif("🛑 動畫中斷")
+                    if jumpCount >= targetJump then
+                        jumpCount = 0
+                        targetJump = math.random(2, 5)
+                    end
+                end
+            else
+                if jumpCount >= targetJump then
+                    jumpCount = 0
+                    targetJump = math.random(2, 5)
+                end
+            end
+        end
+
+        if inGracePeriod and (os.clock() - landingTime > graceDuration) then
+            inGracePeriod = false
+            _G.MyCustomAnimTrack:Stop()
+            isPlaying = false
+            sendNotif("⏱️ 停留地面太久，判定結束")
+            if jumpCount >= targetJump then
+                jumpCount = 0
+                targetJump = math.random(2, 5)
+            end
+        end
+    end
+end)
+
+sendNotif("✅ 系統已啟動 (通知已靜音)", 4)
