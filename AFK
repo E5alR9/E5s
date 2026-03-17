@@ -555,7 +555,7 @@ local Z_OFFSET = -25         -- 前後調整
 
 -- 🌟 旋轉微調 (單位為「度 Degree」，直接填入你想轉的度數，例如 90, 180, -45)
 local ROTATION_X = 0   -- 往前/後傾斜
-local ROTATION_Y = 80   -- 像陀螺一樣水平旋轉 (最常用)
+local ROTATION_Y = 45   -- 像陀螺一樣水平旋轉 (最常用)
 local ROTATION_Z = 0   -- 往左/右傾斜
 
 print("🔧 V7 自動加載版啟動... (地圖將生成於 3000, 3000, 3000，支援整體旋轉與遺失監控)")
