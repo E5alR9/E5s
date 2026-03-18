@@ -1138,7 +1138,7 @@ local function loadFullMap()
     corePoint.Position = BLUE_LIGHT_POS
     corePoint.Anchored = true
     corePoint.CanCollide = false
-    corePoint.Transparency = 0 -- 🌟 0代表完全可見 (原本是1隱藏)
+    corePoint.Transparency = 1 -- 🌟 0代表完全可見 (原本是1隱藏)
     corePoint.Material = Enum.Material.Neon -- 🌟 霓虹材質，讓球體本身自帶高亮發光效果
     corePoint.Color = Color3.fromRGB(0, 100, 255) -- 🌟 讓實體球的顏色也是藍色
     corePoint.Parent = Workspace
