@@ -355,7 +355,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 local SAFE_POSITION = Vector3.new(3000, 3000, 3000)
-local SYSTEM_CENTER = SAFE_POSITION + Vector3.new(0, 18, -45) 
+local SYSTEM_CENTER = SAFE_POSITION + Vector3.new(0, -13, -80) 
 local PLATFORM_SIZE = 30
 local platform = nil
 local systemModel = nil
@@ -363,8 +363,8 @@ local systemModel = nil
 local chaosNodes = {}
 local NUM_NODES = 180 -- 增加總數，讓內部細節更豐富
 local NUM_LAYERS = 4  -- 🌟 總共 4 層，往內堆疊
-local OUTER_RADIUS = 20 -- 🌟 最外圈的半徑界線
-local LAYER_SPACING = 4.5 -- 🌟 每一層往內縮減的距離 (20 -> 15.5 -> 11 -> 6.5)
+local OUTER_RADIUS = 15 -- 🌟 最外圈的半徑界線
+local LAYER_SPACING = 3 -- 🌟 每一層往內縮減的距離
 
 -- 羅倫茲混沌常數
 local SIGMA = 10
