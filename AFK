@@ -599,12 +599,19 @@ local function parseCFrame(str)
     return CFrame.new()
 end
 
-local function createObject(block)
+local function createMapObject(block)
     local data = {}
     for _, line in ipairs(block) do
         line = line:match("^%s*(.-)%s*$")
         if line == "" or line:match("^%-%-") then continue end
-        if line:find("Path:") then data.Path = line:match("Path:%s*(.+)")
+        
+        -- 🌟 在這裡做攔截與替換
+        if line:find("Path:") then 
+            local rawPath = line:match("Path:%s*(.+)")
+            -- 如果遇到 Workspace.AG2.Circle.001，直接強制改成 Workspace.AG2.001
+            rawPath = rawPath:gsub("Workspace%.AG2%.Circle%.001", "Workspace.AG2.001")
+            data.Path = rawPath
+            
         elseif line:find("CFrame:") then data.CFrame = line:match("CFrame:%s*(.+)")
         elseif line:find("Size:") then data.Size = line:match("Size:%s*(.+)")
         elseif line:find("Material:") then data.Material = line:match("Material:%s*(.+)")
