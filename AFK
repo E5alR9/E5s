@@ -869,7 +869,8 @@ local function loadFullMap()
     for line in (scanData .. "\n"):gmatch("([^\n]*)\n") do
         if line:match("^%[%d+%]") then
             if #currentBlock > 0 then
-                local topLevelName = createObject(currentBlock)
+                -- 🌟 修正這裡：改成 createMapObject
+                local topLevelName = createMapObject(currentBlock)
                 if topLevelName then generatedTopModels[topLevelName] = true end
                 count = count + 1
                 currentBlock = {}
@@ -877,8 +878,10 @@ local function loadFullMap()
         end
         if line:match("%S") then table.insert(currentBlock, line) end
     end
+    -- 處理最後一個區塊
     if #currentBlock > 0 then 
-        local topLevelName = createObject(currentBlock)
+        -- 🌟 修正這裡：改成 createMapObject
+        local topLevelName = createMapObject(currentBlock)
         if topLevelName then generatedTopModels[topLevelName] = true end
         count = count + 1 
     end
