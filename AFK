@@ -907,8 +907,8 @@ local function startRotation(modelName, anglePerFrame)
     end)
 end
 
-startRotation("AG1",   0.000025)
-startRotation("AG2",  -0.00002)
+startRotation("AG1",   0.00025)
+startRotation("AG2",  -0.0002)
 startRotation("Solar",  0.0001)
 
 -- =============================================
