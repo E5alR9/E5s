@@ -43,7 +43,7 @@ local function SetupCharacter(character)
     local humanoid = character:WaitForChild("Humanoid")
     local animator = humanoid:WaitForChild("Animator")
 
-    -- 清理舊的監聽器與動畫，避免重複執行導致效能問題或卡頓
+    -- 清理舊的監聽器與動畫
     if _G.AirAnimConnection then
         _G.AirAnimConnection:Disconnect()
         _G.AirAnimConnection = nil
@@ -59,6 +59,8 @@ local function SetupCharacter(character)
     animation.AnimationId = animId
     _G.MyCustomAnimTrack = animator:LoadAnimation(animation)
     _G.MyCustomAnimTrack.Priority = Enum.AnimationPriority.Action4
+    -- ✨ 新增：強制開啟循環，確保長時間滯空時動畫不會卡死在最後一幀
+    _G.MyCustomAnimTrack.Looped = true 
 
     -- 判斷動畫名稱
     local function isSlidingOrEmoting()
@@ -99,14 +101,21 @@ local function SetupCharacter(character)
             inAir = false
         end
 
+        -- ✨ 修改：時間到了的判斷
         if isPlaying and os.clock() >= stopTime then
-            _G.MyCustomAnimTrack:Stop()
-            isPlaying = false
-            inGracePeriod = false
-            sendNotif("⏳ 達到隨機時間限制，動畫結束")
-            if not inAir and jumpCount >= targetJump then
-                jumpCount = 0
-                targetJump = math.random(2, 5)
+            if inAir then
+                -- 如果時間到了但人還在空中，自動將停止時間往後延，讓動畫繼續播
+                stopTime = os.clock() + 1
+            else
+                -- 如果不在空中 (已經落地或在恩典時間內)，時間到了就停止
+                _G.MyCustomAnimTrack:Stop()
+                isPlaying = false
+                inGracePeriod = false
+                sendNotif("⏳ 達到隨機時間限制，動畫結束")
+                if jumpCount >= targetJump then
+                    jumpCount = 0
+                    targetJump = math.random(2, 5)
+                end
             end
         end
 
@@ -190,4 +199,4 @@ end
 -- 2. 監聽未來的每次重生
 player.CharacterAdded:Connect(SetupCharacter)
 
-sendNotif("✅ 系統已啟動 (自動重新載入機制已開啟)", 4)
+sendNotif("✅ 系統已啟動 (自動重新載入與滯空不中斷已開啟)", 4)
