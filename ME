@@ -14,13 +14,12 @@ local BG_IMAGE_ID = "rbxassetid://111155526484816"
 local parentGui = pcall(function() return CoreGui.Name end) and CoreGui or player:WaitForChild("PlayerGui")
 
 -- ==========================================
--- [開關核心邏輯] 檢查是否已經開啟，若開啟則執行退場動畫後關閉
+-- [開關核心邏輯]
 -- ==========================================
 local existingGui = parentGui:FindFirstChild("PartTabEditorGui")
 if existingGui then
     local target = existingGui:FindFirstChild("MainFrame")
     if target and target:IsA("CanvasGroup") then
-        -- 執行退場縮小動畫
         TS:Create(target, TweenInfo.new(0.2), {GroupTransparency = 1}):Play()
         local shrink = TS:Create(target, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, target.Size.Y.Offset)
@@ -89,10 +88,8 @@ local dimX, txtX = createDimLabel(Color3.fromRGB(255, 100, 100), "X: ")
 local dimY, txtY = createDimLabel(Color3.fromRGB(100, 255, 100), "Y: ")
 local dimZ, txtZ = createDimLabel(Color3.fromRGB(100, 150, 255), "Z: ")
 
--- 升級為 CanvasGroup 以支援 GroupTransparency 整體透明度與動畫
 local MainFrame = Instance.new("CanvasGroup")
 MainFrame.Name = "MainFrame"
--- 初始設為透明、0大小，準備播放入場動畫
 MainFrame.Size = UDim2.new(0, 0, 0, 410) 
 MainFrame.Position = UDim2.new(0, 100, 0, 100)
 MainFrame.BackgroundColor3 = Color3.new(0, 0, 0) 
@@ -105,7 +102,6 @@ MainFrame.ClipsDescendants = true
 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
--- 自訂拖曳邏輯 (CanvasGroup 不支援 Draggable，改用此寫法)
 local dragging, dragInput, dragStart, startPos
 MainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -138,7 +134,7 @@ BgImage.Parent = MainFrame
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 10)
 
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, -100, 0, 40) -- 預留右側空間給按鈕
+Title.Size = UDim2.new(1, -100, 0, 40) 
 Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Title.BackgroundTransparency = 0.6 
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -148,9 +144,6 @@ Title.TextSize = 20
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.ZIndex = 2
 
--- ==========================================
--- 🌟 右上角控制按鈕 (+, -, X) 🌟
--- ==========================================
 local xBtn = Instance.new("TextButton", MainFrame)
 xBtn.Size, xBtn.Position, xBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "X"
 xBtn.TextColor3, xBtn.BackgroundTransparency, xBtn.TextSize = Color3.new(1, 0.3, 0.3), 1, 16
@@ -169,7 +162,6 @@ minusBtn.TextColor3, minusBtn.BackgroundTransparency, minusBtn.TextSize = Color3
 minusBtn.Font = Enum.Font.GothamBold
 minusBtn.ZIndex = 5
 
--- 視窗控制邏輯
 xBtn.MouseButton1Click:Connect(function()
     local shrink = TS:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
         Size = UDim2.new(0, 0, 0, MainFrame.Size.Y.Offset),
@@ -188,7 +180,6 @@ local isMin = false
 plusBtn.MouseButton1Click:Connect(function()
     if not isMin then return end
     isMin = false
-    -- 展開為原始大小
     TS:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
         Size = UDim2.new(0, 500, 0, 410)
     }):Play()
@@ -198,15 +189,12 @@ end)
 minusBtn.MouseButton1Click:Connect(function()
     if isMin then return end
     isMin = true
-    -- 縮小為小膠囊/標題列大小
     TS:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
         Size = UDim2.new(0, 130, 0, 40) 
     }):Play()
-    -- 隱藏標題避免擋到
     TS:Create(Title, TweenInfo.new(0.2), {TextTransparency = 1, BackgroundTransparency = 1}):Play()
 end)
 
--- 補齊上方背景底色
 local TopBarBG = Instance.new("Frame", MainFrame)
 TopBarBG.Size = UDim2.new(1, 0, 0, 40)
 TopBarBG.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -232,7 +220,7 @@ PathBox.Position = UDim2.new(0, 0, 0, 70)
 PathBox.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 PathBox.BackgroundTransparency = 0.6
 PathBox.TextColor3 = Color3.fromRGB(150, 255, 150)
-PathBox.Text = " Path: None (Select to copy)"
+PathBox.Text = " Path: None"
 PathBox.Font = Enum.Font.Code
 PathBox.TextSize = 14
 PathBox.TextXAlignment = Enum.TextXAlignment.Left
@@ -257,11 +245,11 @@ PageContainer.BackgroundTransparency = 1
 PageContainer.ZIndex = 2
 
 -- ==========================================
--- 2. State Variables & Helpers
+-- 2. State Variables & Helpers (Multi-select)
 -- ==========================================
 local isSelecting = false
-local selectedPart = nil
-local clipboardPart = nil 
+local selectedParts = {}   -- [改為陣列] 儲存多個選取的物件
+local clipboardParts = {}  -- [改為陣列] 剪貼簿支援多物件
 local sliderUpdaters = {}
 local currentValues = {
     PosX = 0, PosY = 0, PosZ = 0,
@@ -270,35 +258,54 @@ local currentValues = {
 }
 local pages = {}
 
-local function getAABB(part)
-    local cf = part.CFrame
-    local size = part.Size
-    local sx, sy, sz = size.X/2, size.Y/2, size.Z/2
-    local corners = {
-        cf * Vector3.new(sx, sy, sz), cf * Vector3.new(-sx, sy, sz),
-        cf * Vector3.new(sx, -sy, sz), cf * Vector3.new(-sx, -sy, sz),
-        cf * Vector3.new(sx, sy, -sz), cf * Vector3.new(-sx, sy, -sz),
-        cf * Vector3.new(sx, -sy, -sz), cf * Vector3.new(-sx, -sy, -sz)
-    }
-    local minX, minY, minZ = corners[1].X, corners[1].Y, corners[1].Z
-    local maxX, maxY, maxZ = minX, minY, minZ
-    for i = 2, 8 do
-        local c = corners[i]
-        if c.X < minX then minX = c.X elseif c.X > maxX then maxX = c.X end
-        if c.Y < minY then minY = c.Y elseif c.Y > maxY then maxY = c.Y end
-        if c.Z < minZ then minZ = c.Z elseif c.Z > maxZ then maxZ = c.Z end
+-- 計算多個物件的群組 AABB 包圍盒
+local function getGroupAABB(parts)
+    if #parts == 0 then return Vector3.zero, Vector3.zero end
+    local minX, minY, minZ = math.huge, math.huge, math.huge
+    local maxX, maxY, maxZ = -math.huge, -math.huge, -math.huge
+    
+    for _, part in ipairs(parts) do
+        local cf = part.CFrame
+        local size = part.Size
+        local sx, sy, sz = size.X/2, size.Y/2, size.Z/2
+        local corners = {
+            cf * Vector3.new(sx, sy, sz), cf * Vector3.new(-sx, sy, sz),
+            cf * Vector3.new(sx, -sy, sz), cf * Vector3.new(-sx, -sy, sz),
+            cf * Vector3.new(sx, sy, -sz), cf * Vector3.new(-sx, sy, -sz),
+            cf * Vector3.new(sx, -sy, -sz), cf * Vector3.new(-sx, -sy, -sz)
+        }
+        for i = 1, 8 do
+            local c = corners[i]
+            if c.X < minX then minX = c.X elseif c.X > maxX then maxX = c.X end
+            if c.Y < minY then minY = c.Y elseif c.Y > maxY then maxY = c.Y end
+            if c.Z < minZ then minZ = c.Z elseif c.Z > maxZ then maxZ = c.Z end
+        end
     end
-    return Vector3.new((minX + maxX)/2, (minY + maxY)/2, (minZ + maxZ)/2), Vector3.new(maxX - minX, maxY - minY, maxZ - minZ)
+    
+    local center = Vector3.new((minX + maxX)/2, (minY + maxY)/2, (minZ + maxZ)/2)
+    local boxSize = Vector3.new(maxX - minX, maxY - minY, maxZ - minZ)
+    return center, boxSize
 end
 
+-- 渲染 AABB 尺寸線
 local renderConn
 renderConn = RunService.RenderStepped:Connect(function()
     if not ScreenGui.Parent then
         renderConn:Disconnect()
         return
     end
-    if selectedPart and selectedPart.Parent then
-        local center, boxSize = getAABB(selectedPart)
+    
+    -- 過濾掉被外部刪除的物件
+    local validParts = {}
+    for _, p in ipairs(selectedParts) do
+        if p and p.Parent then table.insert(validParts, p) end
+    end
+    if #validParts ~= #selectedParts then
+        selectedParts = validParts
+    end
+
+    if #selectedParts > 0 then
+        local center, boxSize = getGroupAABB(selectedParts)
         boundingPart.CFrame = CFrame.new(center)
         boundingPart.Size = boxSize
         SelectBox.Visible = true
@@ -311,9 +318,6 @@ renderConn = RunService.RenderStepped:Connect(function()
         local tX = math.clamp(camPos.X, minP.X, maxP.X)
         local tY = math.clamp(camPos.Y, minP.Y, maxP.Y)
         local tZ = math.clamp(camPos.Z, minP.Z, maxP.Z)
-        local dirX = (center.X > cX) and 1 or -1
-        local dirY = (center.Y > cY) and 1 or -1
-        local dirZ = (center.Z > cZ) and 1 or -1
         
         local off_xY = (cY == maxP.Y) and padding or -padding
         local off_xZ = (cZ == maxP.Z) and padding or -padding
@@ -321,40 +325,17 @@ renderConn = RunService.RenderStepped:Connect(function()
         local off_yZ = (cZ == maxP.Z) and padding or -padding
         local off_zX = (cX == maxP.X) and padding or -padding
         local off_zY = (cY == maxP.Y) and padding or -padding
-        local minPixelDist = 75 
         
-        for i = 1, 5 do
-            local wX, wY, wZ = Vector3.new(tX, cY + off_xY, cZ + off_xZ), Vector3.new(cX + off_yX, tY, cZ + off_yZ), Vector3.new(cX + off_zX, cY + off_zY, tZ)
-            local sX, vX = camera:WorldToScreenPoint(wX)
-            local sY, vY = camera:WorldToScreenPoint(wY)
-            local sZ, vZ = camera:WorldToScreenPoint(wZ)
-            if not (vX and vY and vZ) then break end
-            
-            local pX, pY, pZ = Vector2.new(sX.X, sX.Y), Vector2.new(sY.X, sY.Y), Vector2.new(sZ.X, sZ.Y)
-            local function checkPush(pA, pB, wA)
-                local dist = (pA - pB).Magnitude
-                if dist < minPixelDist and dist > 0.1 then
-                    local overlap = minPixelDist - dist
-                    local distToCam = (wA - camPos).Magnitude
-                    local vpH = camera.ViewportSize.Y
-                    if vpH == 0 then vpH = 1080 end
-                    return overlap * ((2 * distToCam * math.tan(math.rad(camera.FieldOfView) / 2)) / vpH) * 0.5 
-                end
-                return 0
-            end
-            local pushX, pushY, pushZ = checkPush(pX, pY, wX) + checkPush(pX, pZ, wX), checkPush(pY, pX, wY) + checkPush(pY, pZ, wY), checkPush(pZ, pX, wZ) + checkPush(pZ, pY, wZ)
-            tX = math.clamp(tX + pushX * dirX, minP.X, maxP.X)
-            tY = math.clamp(tY + pushY * dirY, minP.Y, maxP.Y)
-            tZ = math.clamp(tZ + pushZ * dirZ, minP.Z, maxP.Z)
-        end
         dimX.Adornee = boundingPart
         dimX.StudsOffsetWorldSpace = Vector3.new(tX, cY + off_xY, cZ + off_xZ) - center
         txtX.Text = string.format("X: %.1f", boxSize.X)
         dimX.Enabled = true
+        
         dimY.Adornee = boundingPart
         dimY.StudsOffsetWorldSpace = Vector3.new(cX + off_yX, tY, cZ + off_yZ) - center
         txtY.Text = string.format("Y: %.1f", boxSize.Y)
         dimY.Enabled = true
+        
         dimZ.Adornee = boundingPart
         dimZ.StudsOffsetWorldSpace = Vector3.new(cX + off_zX, cY + off_zY, tZ) - center
         txtZ.Text = string.format("Z: %.1f", boxSize.Z)
@@ -549,17 +530,23 @@ local function createSlider(name, minLimit, maxLimit, valKey, callback, parentPa
     end
 end
 
+-- 變更將一次套用到所有選取的物件上
 local function applyTransform()
-    if not selectedPart then return end
-    selectedPart.CFrame = CFrame.new(currentValues.PosX, currentValues.PosY, currentValues.PosZ) 
+    for _, part in ipairs(selectedParts) do
+        if part and part.Parent then
+            part.CFrame = CFrame.new(currentValues.PosX, currentValues.PosY, currentValues.PosZ) 
                         * CFrame.Angles(math.rad(currentValues.RotX), math.rad(currentValues.RotY), math.rad(currentValues.RotZ))
+        end
+    end
 end
 local function applySize()
-    if not selectedPart then return end
-    selectedPart.Size = Vector3.new(currentValues.SizeX, currentValues.SizeY, currentValues.SizeZ)
+    for _, part in ipairs(selectedParts) do
+        if part and part.Parent then
+            part.Size = Vector3.new(currentValues.SizeX, currentValues.SizeY, currentValues.SizeZ)
+        end
+    end
 end
 
--- UI 生成區塊
 local pagePos = createPage("Position")
 createSlider("X", -10000, 10000, "PosX", applyTransform, pagePos)
 createSlider("Y", -10000, 10000, "PosY", applyTransform, pagePos)
@@ -587,25 +574,66 @@ DestroyBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
 
 switchPage("Tools")
 
+-- 更新獨立物件的橘色選取框
+local function updateIndividualHighlights()
+    for _, box in ipairs(ScreenGui:GetChildren()) do
+        if box.Name == "IndividualSelectBox" then box:Destroy() end
+    end
+    for _, part in ipairs(selectedParts) do
+        local box = Instance.new("SelectionBox")
+        box.Name = "IndividualSelectBox"
+        box.Color3 = Color3.fromRGB(255, 170, 0) -- 橘色提示單個物件
+        box.LineThickness = 0.03
+        box.Adornee = part
+        box.Parent = ScreenGui
+    end
+end
+
 local function syncUIWithPart()
-    if not selectedPart then return end
-    StatusLabel.Text = " Selected: " .. selectedPart.Name
-    PathBox.Text = " Path: " .. getObjectPath(selectedPart)
+    updateIndividualHighlights()
     
-    sliderUpdaters.PosX(selectedPart.Position.X)
-    sliderUpdaters.PosY(selectedPart.Position.Y)
-    sliderUpdaters.PosZ(selectedPart.Position.Z)
-    sliderUpdaters.SizeX(selectedPart.Size.X)
-    sliderUpdaters.SizeY(selectedPart.Size.Y)
-    sliderUpdaters.SizeZ(selectedPart.Size.Z)
-    
-    local rx, ry, rz = selectedPart.CFrame:ToEulerAnglesXYZ()
-    sliderUpdaters.RotX(math.deg(rx))
-    sliderUpdaters.RotY(math.deg(ry))
-    sliderUpdaters.RotZ(math.deg(rz))
-    
-    ColBtn.Text = "CanCollide: " .. tostring(selectedPart.CanCollide)
-    AnchorBtn.Text = "Anchored: " .. tostring(selectedPart.Anchored)
+    if #selectedParts == 0 then
+        StatusLabel.Text = " Selected: None"
+        PathBox.Text = " Path: None"
+        return
+    elseif #selectedParts == 1 then
+        local p = selectedParts[1]
+        StatusLabel.Text = " Selected: " .. p.Name
+        PathBox.Text = " Path: " .. getObjectPath(p)
+        
+        sliderUpdaters.PosX(p.Position.X)
+        sliderUpdaters.PosY(p.Position.Y)
+        sliderUpdaters.PosZ(p.Position.Z)
+        sliderUpdaters.SizeX(p.Size.X)
+        sliderUpdaters.SizeY(p.Size.Y)
+        sliderUpdaters.SizeZ(p.Size.Z)
+        
+        local rx, ry, rz = p.CFrame:ToEulerAnglesXYZ()
+        sliderUpdaters.RotX(math.deg(rx))
+        sliderUpdaters.RotY(math.deg(ry))
+        sliderUpdaters.RotZ(math.deg(rz))
+        
+        ColBtn.Text = "CanCollide: " .. tostring(p.CanCollide)
+        AnchorBtn.Text = "Anchored: " .. tostring(p.Anchored)
+    else
+        StatusLabel.Text = " Selected: Multiple (" .. #selectedParts .. ")"
+        PathBox.Text = " Path: [Multiple Objects]"
+        
+        -- 多選時，將 Slider 顯示為總包圍盒的中心與大小
+        local center, size = getGroupAABB(selectedParts)
+        sliderUpdaters.PosX(center.X)
+        sliderUpdaters.PosY(center.Y)
+        sliderUpdaters.PosZ(center.Z)
+        sliderUpdaters.SizeX(size.X)
+        sliderUpdaters.SizeY(size.Y)
+        sliderUpdaters.SizeZ(size.Z)
+        sliderUpdaters.RotX(0)
+        sliderUpdaters.RotY(0)
+        sliderUpdaters.RotZ(0)
+        
+        ColBtn.Text = "CanCollide: Mixed"
+        AnchorBtn.Text = "Anchored: Mixed"
+    end
 end
 
 ToggleSelectBtn.MouseButton1Click:Connect(function()
@@ -618,26 +646,40 @@ local mouseClickConn
 mouseClickConn = mouse.Button1Down:Connect(function()
     if not ScreenGui.Parent then mouseClickConn:Disconnect() return end
     if isSelecting and mouse.Target and mouse.Target:IsA("BasePart") and mouse.Target ~= boundingPart then
-        selectedPart = mouse.Target
+        local target = mouse.Target
+        local index = table.find(selectedParts, target)
+        
+        -- 核心：如果有找到就移除（反選），沒有就加入（多選）
+        if index then
+            table.remove(selectedParts, index)
+        else
+            table.insert(selectedParts, target)
+        end
         syncUIWithPart()
     end
 end)
 
 CopyBtn.MouseButton1Click:Connect(function()
-    if selectedPart then
-        if clipboardPart then clipboardPart:Destroy() end
-        clipboardPart = selectedPart:Clone()
-        CopyBtn.Text = "Copied!"
+    if #selectedParts > 0 then
+        for _, p in ipairs(clipboardParts) do p:Destroy() end
+        clipboardParts = {}
+        for _, p in ipairs(selectedParts) do
+            table.insert(clipboardParts, p:Clone())
+        end
+        CopyBtn.Text = "Copied ("..#clipboardParts..")!"
         task.delay(1, function() if CopyBtn then CopyBtn.Text = "Copy Selected" end end)
     end
 end)
 
 PasteBtn.MouseButton1Click:Connect(function()
-    if clipboardPart then
-        local newPart = clipboardPart:Clone()
-        newPart.Parent = workspace
-        newPart.CFrame = clipboardPart.CFrame
-        selectedPart = newPart
+    if #clipboardParts > 0 then
+        selectedParts = {} -- 貼上時自動選取新貼上的物件
+        for _, p in ipairs(clipboardParts) do
+            local newPart = p:Clone()
+            newPart.Parent = workspace
+            newPart.CFrame = p.CFrame
+            table.insert(selectedParts, newPart)
+        end
         syncUIWithPart()
         PasteBtn.Text = "Pasted!"
         task.delay(1, function() if PasteBtn then PasteBtn.Text = "Paste" end end)
@@ -649,32 +691,35 @@ SpawnBtn.MouseButton1Click:Connect(function()
     newPart.Size = Vector3.new(4, 1, 4)
     newPart.Position = player.Character and player.Character.PrimaryPart and player.Character.PrimaryPart.Position + Vector3.new(0, 5, 0) or Vector3.new(0, 10, 0)
     newPart.Parent = workspace
-    selectedPart = newPart
+    
+    selectedParts = {newPart} -- 生成時直接替換選取
     syncUIWithPart()
 end)
 
 ColBtn.MouseButton1Click:Connect(function()
-    if selectedPart then
-        selectedPart.CanCollide = not selectedPart.CanCollide
-        ColBtn.Text = "CanCollide: " .. tostring(selectedPart.CanCollide)
+    if #selectedParts > 0 then
+        -- 統一設為第一顆物件的相反狀態
+        local newState = not selectedParts[1].CanCollide
+        for _, p in ipairs(selectedParts) do p.CanCollide = newState end
+        ColBtn.Text = "CanCollide: " .. tostring(newState)
     end
 end)
 
 AnchorBtn.MouseButton1Click:Connect(function()
-    if selectedPart then
-        selectedPart.Anchored = not selectedPart.Anchored
-        AnchorBtn.Text = "Anchored: " .. tostring(selectedPart.Anchored)
+    if #selectedParts > 0 then
+        local newState = not selectedParts[1].Anchored
+        for _, p in ipairs(selectedParts) do p.Anchored = newState end
+        AnchorBtn.Text = "Anchored: " .. tostring(newState)
     end
 end)
 
 local function deleteSelectedPart()
-    if selectedPart then
-        selectedPart:Destroy()
-        selectedPart = nil
-        StatusLabel.Text = " Selected: None"
-        PathBox.Text = " Path: None (Select to copy)"
-        ColBtn.Text = "CanCollide"
-        AnchorBtn.Text = "Anchored"
+    if #selectedParts > 0 then
+        for _, p in ipairs(selectedParts) do
+            if p and p.Parent then p:Destroy() end
+        end
+        selectedParts = {}
+        syncUIWithPart()
         SelectBox.Visible = false
         dimX.Enabled = false
         dimY.Enabled = false
