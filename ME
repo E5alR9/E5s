@@ -1,0 +1,703 @@
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TS = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+local camera = workspace.CurrentCamera
+
+-- --- [CONFIGURATION] Settings ---
+local BG_IMAGE_ID = "rbxassetid://111155526484816" 
+
+-- Attempt to put in CoreGui, fallback to PlayerGui
+local parentGui = pcall(function() return CoreGui.Name end) and CoreGui or player:WaitForChild("PlayerGui")
+
+-- ==========================================
+-- [開關核心邏輯] 檢查是否已經開啟，若開啟則執行退場動畫後關閉
+-- ==========================================
+local existingGui = parentGui:FindFirstChild("PartTabEditorGui")
+if existingGui then
+    local target = existingGui:FindFirstChild("MainFrame")
+    if target and target:IsA("CanvasGroup") then
+        -- 執行退場縮小動畫
+        TS:Create(target, TweenInfo.new(0.2), {GroupTransparency = 1}):Play()
+        local shrink = TS:Create(target, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, target.Size.Y.Offset)
+        })
+        shrink:Play()
+        shrink.Completed:Connect(function()
+            existingGui:Destroy()
+            if workspace:FindFirstChild("EditorBoundingBox_AABB") then
+                workspace.EditorBoundingBox_AABB:Destroy()
+            end
+        end)
+    else
+        existingGui:Destroy()
+        if workspace:FindFirstChild("EditorBoundingBox_AABB") then
+            workspace.EditorBoundingBox_AABB:Destroy()
+        end
+    end
+    print("[Part Editor] Closed.")
+    return 
+end
+print("[Part Editor] Opened.")
+
+-- ==========================================
+-- 1. Create Main UI Framework & AABB Box
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PartTabEditorGui"
+ScreenGui.Parent = parentGui
+
+local boundingPart = Instance.new("Part")
+boundingPart.Name = "EditorBoundingBox_AABB"
+boundingPart.Transparency = 1
+boundingPart.CanCollide = false
+boundingPart.Anchored = true
+boundingPart.Parent = workspace
+
+mouse.TargetFilter = boundingPart
+
+local SelectBox = Instance.new("SelectionBox")
+SelectBox.Color3 = Color3.fromRGB(0, 170, 255)
+SelectBox.LineThickness = 0.05
+SelectBox.Adornee = boundingPart 
+SelectBox.Visible = false
+SelectBox.Parent = ScreenGui
+
+local function createDimLabel(color, prefix)
+    local bg = Instance.new("BillboardGui")
+    bg.Size = UDim2.new(0, 100, 0, 30)
+    bg.AlwaysOnTop = true
+    bg.Enabled = false
+    bg.Parent = ScreenGui
+    
+    local txt = Instance.new("TextLabel", bg)
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.TextStrokeTransparency = 0 
+    txt.TextColor3 = color
+    txt.Font = Enum.Font.Code
+    txt.TextSize = 16
+    txt.Text = prefix
+    
+    return bg, txt
+end
+
+local dimX, txtX = createDimLabel(Color3.fromRGB(255, 100, 100), "X: ")
+local dimY, txtY = createDimLabel(Color3.fromRGB(100, 255, 100), "Y: ")
+local dimZ, txtZ = createDimLabel(Color3.fromRGB(100, 150, 255), "Z: ")
+
+-- 升級為 CanvasGroup 以支援 GroupTransparency 整體透明度與動畫
+local MainFrame = Instance.new("CanvasGroup")
+MainFrame.Name = "MainFrame"
+-- 初始設為透明、0大小，準備播放入場動畫
+MainFrame.Size = UDim2.new(0, 0, 0, 410) 
+MainFrame.Position = UDim2.new(0, 100, 0, 100)
+MainFrame.BackgroundColor3 = Color3.new(0, 0, 0) 
+MainFrame.BackgroundTransparency = 0.5 
+MainFrame.GroupTransparency = 1
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+MainFrame.ClipsDescendants = true
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+-- 自訂拖曳邏輯 (CanvasGroup 不支援 Draggable，改用此寫法)
+local dragging, dragInput, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+local BgImage = Instance.new("ImageLabel")
+BgImage.Name = "BackgroundImage"
+BgImage.Size = UDim2.new(1, 0, 1, 0)
+BgImage.Position = UDim2.new(0, 0, 0, 0)
+BgImage.Image = BG_IMAGE_ID
+BgImage.ScaleType = Enum.ScaleType.Stretch 
+BgImage.BackgroundTransparency = 1
+BgImage.ImageTransparency = 0.3 
+BgImage.ZIndex = 0 
+BgImage.Parent = MainFrame
+
+Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 10)
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, -100, 0, 40) -- 預留右側空間給按鈕
+Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Title.BackgroundTransparency = 0.6 
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Text = " Part Editor"
+Title.Font = Enum.Font.Code
+Title.TextSize = 20
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 2
+
+-- ==========================================
+-- 🌟 右上角控制按鈕 (+, -, X) 🌟
+-- ==========================================
+local xBtn = Instance.new("TextButton", MainFrame)
+xBtn.Size, xBtn.Position, xBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "X"
+xBtn.TextColor3, xBtn.BackgroundTransparency, xBtn.TextSize = Color3.new(1, 0.3, 0.3), 1, 16
+xBtn.Font = Enum.Font.GothamBold
+xBtn.ZIndex = 5
+
+local plusBtn = Instance.new("TextButton", MainFrame)
+plusBtn.Size, plusBtn.Position, plusBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -65, 0, 5), "+"
+plusBtn.TextColor3, plusBtn.BackgroundTransparency, plusBtn.TextSize = Color3.new(1, 1, 1), 1, 18
+plusBtn.Font = Enum.Font.GothamBold
+plusBtn.ZIndex = 5
+
+local minusBtn = Instance.new("TextButton", MainFrame)
+minusBtn.Size, minusBtn.Position, minusBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -95, 0, 5), "-"
+minusBtn.TextColor3, minusBtn.BackgroundTransparency, minusBtn.TextSize = Color3.new(1, 1, 1), 1, 22
+minusBtn.Font = Enum.Font.GothamBold
+minusBtn.ZIndex = 5
+
+-- 視窗控制邏輯
+xBtn.MouseButton1Click:Connect(function()
+    local shrink = TS:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, MainFrame.Size.Y.Offset),
+        GroupTransparency = 1
+    })
+    shrink:Play()
+    shrink.Completed:Connect(function()
+        if ScreenGui then ScreenGui:Destroy() end
+        if workspace:FindFirstChild("EditorBoundingBox_AABB") then
+            workspace.EditorBoundingBox_AABB:Destroy()
+        end
+    end)
+end)
+
+local isMin = false
+plusBtn.MouseButton1Click:Connect(function()
+    if not isMin then return end
+    isMin = false
+    -- 展開為原始大小
+    TS:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 500, 0, 410)
+    }):Play()
+    TS:Create(Title, TweenInfo.new(0.3), {TextTransparency = 0, BackgroundTransparency = 0.6}):Play()
+end)
+
+minusBtn.MouseButton1Click:Connect(function()
+    if isMin then return end
+    isMin = true
+    -- 縮小為小膠囊/標題列大小
+    TS:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 130, 0, 40) 
+    }):Play()
+    -- 隱藏標題避免擋到
+    TS:Create(Title, TweenInfo.new(0.2), {TextTransparency = 1, BackgroundTransparency = 1}):Play()
+end)
+
+-- 補齊上方背景底色
+local TopBarBG = Instance.new("Frame", MainFrame)
+TopBarBG.Size = UDim2.new(1, 0, 0, 40)
+TopBarBG.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+TopBarBG.BackgroundTransparency = 0.6
+TopBarBG.BorderSizePixel = 0
+TopBarBG.ZIndex = 1
+
+local StatusLabel = Instance.new("TextLabel", MainFrame)
+StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+StatusLabel.Position = UDim2.new(0, 0, 0, 40)
+StatusLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+StatusLabel.BackgroundTransparency = 0.6
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+StatusLabel.Text = " Selected: None"
+StatusLabel.Font = Enum.Font.Code
+StatusLabel.TextSize = 18
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.ZIndex = 2
+
+local PathBox = Instance.new("TextBox", MainFrame)
+PathBox.Size = UDim2.new(1, 0, 0, 30)
+PathBox.Position = UDim2.new(0, 0, 0, 70)
+PathBox.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+PathBox.BackgroundTransparency = 0.6
+PathBox.TextColor3 = Color3.fromRGB(150, 255, 150)
+PathBox.Text = " Path: None (Select to copy)"
+PathBox.Font = Enum.Font.Code
+PathBox.TextSize = 14
+PathBox.TextXAlignment = Enum.TextXAlignment.Left
+PathBox.ClearTextOnFocus = false
+PathBox.TextEditable = false 
+PathBox.ZIndex = 2
+
+local Sidebar = Instance.new("Frame", MainFrame)
+Sidebar.Size = UDim2.new(0, 130, 1, -100)
+Sidebar.Position = UDim2.new(0, 0, 0, 100)
+Sidebar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Sidebar.BackgroundTransparency = 0.5 
+Sidebar.ZIndex = 2
+
+local SidebarLayout = Instance.new("UIListLayout", Sidebar)
+SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local PageContainer = Instance.new("Frame", MainFrame)
+PageContainer.Size = UDim2.new(1, -130, 1, -100)
+PageContainer.Position = UDim2.new(0, 130, 0, 100)
+PageContainer.BackgroundTransparency = 1
+PageContainer.ZIndex = 2
+
+-- ==========================================
+-- 2. State Variables & Helpers
+-- ==========================================
+local isSelecting = false
+local selectedPart = nil
+local clipboardPart = nil 
+local sliderUpdaters = {}
+local currentValues = {
+    PosX = 0, PosY = 0, PosZ = 0,
+    SizeX = 1, SizeY = 1, SizeZ = 1,
+    RotX = 0, RotY = 0, RotZ = 0
+}
+local pages = {}
+
+local function getAABB(part)
+    local cf = part.CFrame
+    local size = part.Size
+    local sx, sy, sz = size.X/2, size.Y/2, size.Z/2
+    local corners = {
+        cf * Vector3.new(sx, sy, sz), cf * Vector3.new(-sx, sy, sz),
+        cf * Vector3.new(sx, -sy, sz), cf * Vector3.new(-sx, -sy, sz),
+        cf * Vector3.new(sx, sy, -sz), cf * Vector3.new(-sx, sy, -sz),
+        cf * Vector3.new(sx, -sy, -sz), cf * Vector3.new(-sx, -sy, -sz)
+    }
+    local minX, minY, minZ = corners[1].X, corners[1].Y, corners[1].Z
+    local maxX, maxY, maxZ = minX, minY, minZ
+    for i = 2, 8 do
+        local c = corners[i]
+        if c.X < minX then minX = c.X elseif c.X > maxX then maxX = c.X end
+        if c.Y < minY then minY = c.Y elseif c.Y > maxY then maxY = c.Y end
+        if c.Z < minZ then minZ = c.Z elseif c.Z > maxZ then maxZ = c.Z end
+    end
+    return Vector3.new((minX + maxX)/2, (minY + maxY)/2, (minZ + maxZ)/2), Vector3.new(maxX - minX, maxY - minY, maxZ - minZ)
+end
+
+local renderConn
+renderConn = RunService.RenderStepped:Connect(function()
+    if not ScreenGui.Parent then
+        renderConn:Disconnect()
+        return
+    end
+    if selectedPart and selectedPart.Parent then
+        local center, boxSize = getAABB(selectedPart)
+        boundingPart.CFrame = CFrame.new(center)
+        boundingPart.Size = boxSize
+        SelectBox.Visible = true
+        local camPos = camera.CFrame.Position
+        local minP, maxP = center - boxSize/2, center + boxSize/2
+        local padding = 0.5 
+        local cX = (camPos.X > center.X) and maxP.X or minP.X
+        local cY = (camPos.Y > center.Y) and maxP.Y or minP.Y
+        local cZ = (camPos.Z > center.Z) and maxP.Z or minP.Z
+        local tX = math.clamp(camPos.X, minP.X, maxP.X)
+        local tY = math.clamp(camPos.Y, minP.Y, maxP.Y)
+        local tZ = math.clamp(camPos.Z, minP.Z, maxP.Z)
+        local dirX = (center.X > cX) and 1 or -1
+        local dirY = (center.Y > cY) and 1 or -1
+        local dirZ = (center.Z > cZ) and 1 or -1
+        
+        local off_xY = (cY == maxP.Y) and padding or -padding
+        local off_xZ = (cZ == maxP.Z) and padding or -padding
+        local off_yX = (cX == maxP.X) and padding or -padding
+        local off_yZ = (cZ == maxP.Z) and padding or -padding
+        local off_zX = (cX == maxP.X) and padding or -padding
+        local off_zY = (cY == maxP.Y) and padding or -padding
+        local minPixelDist = 75 
+        
+        for i = 1, 5 do
+            local wX, wY, wZ = Vector3.new(tX, cY + off_xY, cZ + off_xZ), Vector3.new(cX + off_yX, tY, cZ + off_yZ), Vector3.new(cX + off_zX, cY + off_zY, tZ)
+            local sX, vX = camera:WorldToScreenPoint(wX)
+            local sY, vY = camera:WorldToScreenPoint(wY)
+            local sZ, vZ = camera:WorldToScreenPoint(wZ)
+            if not (vX and vY and vZ) then break end
+            
+            local pX, pY, pZ = Vector2.new(sX.X, sX.Y), Vector2.new(sY.X, sY.Y), Vector2.new(sZ.X, sZ.Y)
+            local function checkPush(pA, pB, wA)
+                local dist = (pA - pB).Magnitude
+                if dist < minPixelDist and dist > 0.1 then
+                    local overlap = minPixelDist - dist
+                    local distToCam = (wA - camPos).Magnitude
+                    local vpH = camera.ViewportSize.Y
+                    if vpH == 0 then vpH = 1080 end
+                    return overlap * ((2 * distToCam * math.tan(math.rad(camera.FieldOfView) / 2)) / vpH) * 0.5 
+                end
+                return 0
+            end
+            local pushX, pushY, pushZ = checkPush(pX, pY, wX) + checkPush(pX, pZ, wX), checkPush(pY, pX, wY) + checkPush(pY, pZ, wY), checkPush(pZ, pX, wZ) + checkPush(pZ, pY, wZ)
+            tX = math.clamp(tX + pushX * dirX, minP.X, maxP.X)
+            tY = math.clamp(tY + pushY * dirY, minP.Y, maxP.Y)
+            tZ = math.clamp(tZ + pushZ * dirZ, minP.Z, maxP.Z)
+        end
+        dimX.Adornee = boundingPart
+        dimX.StudsOffsetWorldSpace = Vector3.new(tX, cY + off_xY, cZ + off_xZ) - center
+        txtX.Text = string.format("X: %.1f", boxSize.X)
+        dimX.Enabled = true
+        dimY.Adornee = boundingPart
+        dimY.StudsOffsetWorldSpace = Vector3.new(cX + off_yX, tY, cZ + off_yZ) - center
+        txtY.Text = string.format("Y: %.1f", boxSize.Y)
+        dimY.Enabled = true
+        dimZ.Adornee = boundingPart
+        dimZ.StudsOffsetWorldSpace = Vector3.new(cX + off_zX, cY + off_zY, tZ) - center
+        txtZ.Text = string.format("Z: %.1f", boxSize.Z)
+        dimZ.Enabled = true
+    else
+        SelectBox.Visible = false
+        dimX.Enabled = false
+        dimY.Enabled = false
+        dimZ.Enabled = false
+    end
+end)
+
+local function getObjectPath(obj)
+    if not obj then return "None" end
+    local path = obj.Name
+    local current = obj.Parent
+    while current and current ~= game do
+        path = current.Name .. "." .. path
+        current = current.Parent
+    end
+    return path
+end
+
+local function switchPage(pageName)
+    for name, pageData in pairs(pages) do
+        pageData.frame.Visible = (name == pageName)
+        pageData.btn.BackgroundTransparency = (name == pageName) and 0.2 or 0.6
+        pageData.btn.BackgroundColor3 = (name == pageName) and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(45, 45, 45)
+    end
+end
+
+local function createPage(pageName)
+    local btn = Instance.new("TextButton", Sidebar)
+    btn.Size = UDim2.new(1, 0, 0, 45)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.BackgroundTransparency = 0.6
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Text = pageName
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 16
+    btn.BorderSizePixel = 0
+    btn.ZIndex = 3
+
+    local pageFrame = Instance.new("ScrollingFrame", PageContainer)
+    pageFrame.Size = UDim2.new(1, 0, 1, 0)
+    pageFrame.BackgroundTransparency = 1
+    pageFrame.ScrollBarThickness = 6
+    pageFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y 
+    pageFrame.Visible = false
+    pageFrame.ZIndex = 3
+    
+    local layout = Instance.new("UIListLayout", pageFrame)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 10)
+    
+    local padding = Instance.new("UIPadding", pageFrame)
+    padding.PaddingTop = UDim.new(0, 10)
+    padding.PaddingLeft = UDim.new(0, 10)
+    padding.PaddingBottom = UDim.new(0, 10)
+
+    pages[pageName] = {btn = btn, frame = pageFrame}
+    btn.MouseButton1Click:Connect(function() switchPage(pageName) end)
+    return pageFrame
+end
+
+local function createActionButton(text, parentPage)
+    local container = Instance.new("Frame", parentPage)
+    container.Size = UDim2.new(1, -20, 0, 45)
+    container.BackgroundTransparency = 1
+    local btn = Instance.new("TextButton", container)
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    btn.BackgroundTransparency = 0.4
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Text = text
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 16
+    btn.ZIndex = 4
+    return btn
+end
+
+-- ==========================================
+-- 3. Relative Fine-tune Slider
+-- ==========================================
+local function createSlider(name, minLimit, maxLimit, valKey, callback, parentPage)
+    local fineTuneRange = 50 
+    local container = Instance.new("Frame", parentPage)
+    container.Size = UDim2.new(1, -20, 0, 40)
+    container.BackgroundTransparency = 1
+
+    local label = Instance.new("TextLabel", container)
+    label.Size = UDim2.new(0.2, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.Text = name
+    label.Font = Enum.Font.Code
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.ZIndex = 4
+
+    local box = Instance.new("TextBox", container)
+    box.Size = UDim2.new(0.2, 0, 0.8, 0)
+    box.Position = UDim2.new(0.2, 0, 0.1, 0)
+    box.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    box.BackgroundTransparency = 0.4
+    box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    box.Text = "0"
+    box.Font = Enum.Font.Code
+    box.TextSize = 16
+    box.ClearTextOnFocus = false
+    box.ZIndex = 4
+
+    local track = Instance.new("TextButton", container)
+    track.Size = UDim2.new(0.55, 0, 0.4, 0)
+    track.Position = UDim2.new(0.42, 0, 0.3, 0)
+    track.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    track.BackgroundTransparency = 0.4
+    track.Text = ""
+    track.AutoButtonColor = false
+    track.ZIndex = 4
+
+    local centerLine = Instance.new("Frame", track)
+    centerLine.Size = UDim2.new(0, 2, 1, 0)
+    centerLine.Position = UDim2.new(0.5, -1, 0, 0)
+    centerLine.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+    centerLine.BorderSizePixel = 0
+    centerLine.ZIndex = 5
+
+    local knob = Instance.new("Frame", track)
+    knob.Size = UDim2.new(0, 14, 1.4, 0)
+    knob.Position = UDim2.new(0.5, -7, -0.2, 0)
+    knob.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    knob.BorderSizePixel = 0
+    knob.ZIndex = 6
+
+    local draggingSlider, baseValue = false, 0
+    local function updateTextBox(val)
+        val = math.clamp(val, minLimit, maxLimit)
+        box.Text = string.format("%.1f", val)
+        return val
+    end
+    local function resetKnob()
+        knob.Position = UDim2.new(0.5, -7, -0.2, 0)
+        knob.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    end
+
+    track.MouseButton1Down:Connect(function() 
+        draggingSlider = true 
+        baseValue = currentValues[valKey] or 0
+        knob.BackgroundColor3 = Color3.fromRGB(100, 200, 255) 
+    end)
+
+    local inputEndConn
+    inputEndConn = UIS.InputEnded:Connect(function(input)
+        if not ScreenGui.Parent then inputEndConn:Disconnect() return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and draggingSlider then
+            draggingSlider = false 
+            resetKnob() 
+        end
+    end)
+
+    local inputChangedConn
+    inputChangedConn = UIS.InputChanged:Connect(function(input)
+        if not ScreenGui.Parent then inputChangedConn:Disconnect() return end
+        if draggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local pct = math.clamp((mouse.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+            knob.Position = UDim2.new(pct, -7, -0.2, 0)
+            local offset = (pct - 0.5) * (fineTuneRange * 2) 
+            local newVal = math.clamp(baseValue + offset, minLimit, maxLimit)
+            updateTextBox(newVal)
+            currentValues[valKey] = newVal
+            if callback then callback() end
+        end
+    end)
+
+    box.FocusLost:Connect(function()
+        local num = tonumber(box.Text)
+        if num then
+            local val = math.clamp(num, minLimit, maxLimit)
+            updateTextBox(val)
+            currentValues[valKey] = val
+            if callback then callback() end
+        else
+            updateTextBox(currentValues[valKey])
+        end
+    end)
+
+    sliderUpdaters[valKey] = function(newVal)
+        currentValues[valKey] = newVal
+        updateTextBox(newVal)
+        if not draggingSlider then resetKnob() end
+    end
+end
+
+local function applyTransform()
+    if not selectedPart then return end
+    selectedPart.CFrame = CFrame.new(currentValues.PosX, currentValues.PosY, currentValues.PosZ) 
+                        * CFrame.Angles(math.rad(currentValues.RotX), math.rad(currentValues.RotY), math.rad(currentValues.RotZ))
+end
+local function applySize()
+    if not selectedPart then return end
+    selectedPart.Size = Vector3.new(currentValues.SizeX, currentValues.SizeY, currentValues.SizeZ)
+end
+
+-- UI 生成區塊
+local pagePos = createPage("Position")
+createSlider("X", -10000, 10000, "PosX", applyTransform, pagePos)
+createSlider("Y", -10000, 10000, "PosY", applyTransform, pagePos)
+createSlider("Z", -10000, 10000, "PosZ", applyTransform, pagePos)
+
+local pageSize = createPage("Size")
+createSlider("X", 0.01, 5000, "SizeX", applySize, pageSize)
+createSlider("Y", 0.01, 5000, "SizeY", applySize, pageSize)
+createSlider("Z", 0.01, 5000, "SizeZ", applySize, pageSize)
+
+local pageRot = createPage("Rotation")
+createSlider("X", -3600, 3600, "RotX", applyTransform, pageRot)
+createSlider("Y", -3600, 3600, "RotY", applyTransform, pageRot)
+createSlider("Z", -3600, 3600, "RotZ", applyTransform, pageRot)
+
+local pageTool = createPage("Tools")
+local ToggleSelectBtn = createActionButton("Click to Select: OFF", pageTool)
+local CopyBtn = createActionButton("Copy Selected", pageTool) 
+local PasteBtn = createActionButton("Paste", pageTool)        
+local SpawnBtn = createActionButton("Spawn Part", pageTool)
+local ColBtn = createActionButton("CanCollide", pageTool)
+local AnchorBtn = createActionButton("Anchored", pageTool) 
+local DestroyBtn = createActionButton("Destroy Selected", pageTool)
+DestroyBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 40) 
+
+switchPage("Tools")
+
+local function syncUIWithPart()
+    if not selectedPart then return end
+    StatusLabel.Text = " Selected: " .. selectedPart.Name
+    PathBox.Text = " Path: " .. getObjectPath(selectedPart)
+    
+    sliderUpdaters.PosX(selectedPart.Position.X)
+    sliderUpdaters.PosY(selectedPart.Position.Y)
+    sliderUpdaters.PosZ(selectedPart.Position.Z)
+    sliderUpdaters.SizeX(selectedPart.Size.X)
+    sliderUpdaters.SizeY(selectedPart.Size.Y)
+    sliderUpdaters.SizeZ(selectedPart.Size.Z)
+    
+    local rx, ry, rz = selectedPart.CFrame:ToEulerAnglesXYZ()
+    sliderUpdaters.RotX(math.deg(rx))
+    sliderUpdaters.RotY(math.deg(ry))
+    sliderUpdaters.RotZ(math.deg(rz))
+    
+    ColBtn.Text = "CanCollide: " .. tostring(selectedPart.CanCollide)
+    AnchorBtn.Text = "Anchored: " .. tostring(selectedPart.Anchored)
+end
+
+ToggleSelectBtn.MouseButton1Click:Connect(function()
+    isSelecting = not isSelecting
+    ToggleSelectBtn.Text = "Click to Select: " .. (isSelecting and "ON" or "OFF")
+    ToggleSelectBtn.TextColor3 = isSelecting and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
+end)
+
+local mouseClickConn
+mouseClickConn = mouse.Button1Down:Connect(function()
+    if not ScreenGui.Parent then mouseClickConn:Disconnect() return end
+    if isSelecting and mouse.Target and mouse.Target:IsA("BasePart") and mouse.Target ~= boundingPart then
+        selectedPart = mouse.Target
+        syncUIWithPart()
+    end
+end)
+
+CopyBtn.MouseButton1Click:Connect(function()
+    if selectedPart then
+        if clipboardPart then clipboardPart:Destroy() end
+        clipboardPart = selectedPart:Clone()
+        CopyBtn.Text = "Copied!"
+        task.delay(1, function() if CopyBtn then CopyBtn.Text = "Copy Selected" end end)
+    end
+end)
+
+PasteBtn.MouseButton1Click:Connect(function()
+    if clipboardPart then
+        local newPart = clipboardPart:Clone()
+        newPart.Parent = workspace
+        newPart.CFrame = clipboardPart.CFrame
+        selectedPart = newPart
+        syncUIWithPart()
+        PasteBtn.Text = "Pasted!"
+        task.delay(1, function() if PasteBtn then PasteBtn.Text = "Paste" end end)
+    end
+end)
+
+SpawnBtn.MouseButton1Click:Connect(function()
+    local newPart = Instance.new("Part")
+    newPart.Size = Vector3.new(4, 1, 4)
+    newPart.Position = player.Character and player.Character.PrimaryPart and player.Character.PrimaryPart.Position + Vector3.new(0, 5, 0) or Vector3.new(0, 10, 0)
+    newPart.Parent = workspace
+    selectedPart = newPart
+    syncUIWithPart()
+end)
+
+ColBtn.MouseButton1Click:Connect(function()
+    if selectedPart then
+        selectedPart.CanCollide = not selectedPart.CanCollide
+        ColBtn.Text = "CanCollide: " .. tostring(selectedPart.CanCollide)
+    end
+end)
+
+AnchorBtn.MouseButton1Click:Connect(function()
+    if selectedPart then
+        selectedPart.Anchored = not selectedPart.Anchored
+        AnchorBtn.Text = "Anchored: " .. tostring(selectedPart.Anchored)
+    end
+end)
+
+local function deleteSelectedPart()
+    if selectedPart then
+        selectedPart:Destroy()
+        selectedPart = nil
+        StatusLabel.Text = " Selected: None"
+        PathBox.Text = " Path: None (Select to copy)"
+        ColBtn.Text = "CanCollide"
+        AnchorBtn.Text = "Anchored"
+        SelectBox.Visible = false
+        dimX.Enabled = false
+        dimY.Enabled = false
+        dimZ.Enabled = false
+    end
+end
+
+DestroyBtn.MouseButton1Click:Connect(deleteSelectedPart)
+
+local inputBeganConn
+inputBeganConn = UIS.InputBegan:Connect(function(input, gameProcessed)
+    if not ScreenGui.Parent then inputBeganConn:Disconnect() return end
+    if gameProcessed then return end 
+    if input.KeyCode == Enum.KeyCode.Delete or input.KeyCode == Enum.KeyCode.Backspace then
+        deleteSelectedPart()
+    end
+end)
+
+-- ==========================================
+-- 🚀 進場動畫
+-- ==========================================
+local expandAnim = TS:Create(MainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    Size = UDim2.new(0, 500, 0, 410), 
+    GroupTransparency = 0
+})
+expandAnim:Play()
