@@ -4,7 +4,18 @@ local Players = game:GetService("Players")
 
 -- [ 參數設定 ] --
 local MIN_SIZE_TO_DELETE = 200    
-local SPECIFIC_PATH = Workspace:FindFirstChild("Game") and Workspace.Game:FindFirstChild("Map") and Workspace.Game.Map:FindFirstChild("InvisParts")
+
+-- 動態獲取特定路徑 (避免地圖刷新導致抓到已刪除的舊資料夾)
+local function getSpecificPath()
+	local gameFolder = Workspace:FindFirstChild("Game")
+	if gameFolder then
+		local mapFolder = gameFolder:FindFirstChild("Map")
+		if mapFolder then
+			return mapFolder:FindFirstChild("InvisParts")
+		end
+	end
+	return nil
+end
 
 -- 初始化變數
 if _G.WallMode == nil then _G.WallMode = 0 end 
@@ -29,16 +40,29 @@ local function isSlope(part)
 	return false
 end
 
--- 核心檢查邏輯
-local function checkAndRemove(v, forceAll)
+-- 核心檢查邏輯 (統一傳入 mode 進行動態判斷)
+local function checkAndRemove(v, mode)
 	if not v:IsA("BasePart") then return false end
+	
 	-- 只要是透明且有碰撞體
 	if v.Transparency == 1 and v.CanCollide then
 		if isSlope(v) then return false end
 
-		-- 模式 1: 尺寸門檻
-		-- 模式 2 & 3: 直接處理 (forceAll = true)
-		if forceAll or (math.max(v.Size.X, v.Size.Y, v.Size.Z) >= MIN_SIZE_TO_DELETE) then
+		local shouldDelete = false
+
+		if mode == 1 then
+			-- 模式 1: 尺寸門檻 (全圖)
+			shouldDelete = (math.max(v.Size.X, v.Size.Y, v.Size.Z) >= MIN_SIZE_TO_DELETE)
+		elseif mode == 2 then
+			-- 模式 2: 限定資料夾內部 (忽略尺寸)
+			local targetFolder = getSpecificPath()
+			shouldDelete = targetFolder and v:IsDescendantOf(targetFolder)
+		elseif mode == 3 then
+			-- 模式 3: 暴力全刪 (全圖)
+			shouldDelete = true
+		end
+
+		if shouldDelete then
 			table.insert(_G.StoredWalls, v)
 			v.CanCollide = false
 			return true
@@ -47,13 +71,12 @@ local function checkAndRemove(v, forceAll)
 	return false
 end
 
--- 持續偵測
-local function startAutoDetection(targetFolder, forceAll)
+-- 持續偵測 (統一監聽 Workspace，內部交由 checkAndRemove 過濾)
+local function startAutoDetection(mode)
 	local autoDeletedCount = 0
-	local source = targetFolder or Workspace
-	_G.AutoDetectConnection = source.DescendantAdded:Connect(function(descendant)
+	_G.AutoDetectConnection = Workspace.DescendantAdded:Connect(function(descendant)
 		task.delay(0.5, function()
-			if descendant and descendant.Parent and checkAndRemove(descendant, forceAll) then
+			if descendant and descendant.Parent and checkAndRemove(descendant, mode) then
 				autoDeletedCount = autoDeletedCount + 1
 				pcall(function()
 					StarterGui:SetCore("SendNotification", {
@@ -75,39 +98,57 @@ if _G.WallMode == 0 then
     -- [ 模式 0 ] : 恢復
 	local restoreCount = 0
 	for _, v in pairs(_G.StoredWalls) do
-		if v and v.Parent then v.CanCollide = true restoreCount = restoreCount + 1 end
+		if v and v.Parent then 
+			v.CanCollide = true 
+			restoreCount = restoreCount + 1 
+		end
 	end
 	_G.StoredWalls = {}
-	StarterGui:SetCore("SendNotification", {Title = "Restored", Text = "Restored " .. restoreCount .. " parts.", Duration = 3})
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {Title = "Restored", Text = "Restored " .. restoreCount .. " parts.", Duration = 3})
+	end)
 
 elseif _G.WallMode == 1 then
     -- [ 模式 1 ] : 全圖掃描 (大尺寸)
 	local deletedCount = 0
 	for _, v in pairs(Workspace:GetDescendants()) do
-		if checkAndRemove(v, false) then deletedCount = deletedCount + 1 end
+		if checkAndRemove(v, 1) then deletedCount = deletedCount + 1 end
 	end
-	startAutoDetection(Workspace, false)
-	StarterGui:SetCore("SendNotification", {Title = "Size Delete", Text = "Deleted " .. deletedCount .. " large walls.", Duration = 3})
+	startAutoDetection(1)
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {Title = "Size Delete", Text = "Deleted " .. deletedCount .. " large walls.", Duration = 3})
+	end)
 
 elseif _G.WallMode == 2 then
     -- [ 模式 2 ] : 精確刪除 (特定資料夾)
 	local deletedCount = 0
-	if SPECIFIC_PATH then
-		for _, v in pairs(SPECIFIC_PATH:GetChildren()) do
-			if checkAndRemove(v, true) then deletedCount = deletedCount + 1 end
+	local targetFolder = getSpecificPath()
+	
+	if targetFolder then
+		-- 改用 GetDescendants() 避免忽略嵌套的物件
+		for _, v in pairs(targetFolder:GetDescendants()) do
+			if checkAndRemove(v, 2) then deletedCount = deletedCount + 1 end
 		end
-		startAutoDetection(SPECIFIC_PATH, true)
-		StarterGui:SetCore("SendNotification", {Title = "Specific Clear", Text = "Cleared " .. deletedCount .. " parts in InvisParts.", Duration = 3})
+		pcall(function()
+			StarterGui:SetCore("SendNotification", {Title = "Specific Clear", Text = "Cleared " .. deletedCount .. " parts in InvisParts.", Duration = 3})
+		end)
 	else
-		StarterGui:SetCore("SendNotification", {Title = "Error", Text = "InvisParts path not found!", Duration = 3})
+		pcall(function()
+			StarterGui:SetCore("SendNotification", {Title = "Waiting", Text = "InvisParts path not found! Auto-detecting...", Duration = 3})
+		end)
 	end
+	
+	-- 無論有沒有找到資料夾，都開啟自動偵測 (地圖生成時會自動生效)
+	startAutoDetection(2)
 
 elseif _G.WallMode == 3 then
     -- [ 模式 3 ] : 暴力全刪 (全圖掃描)
 	local deletedCount = 0
 	for _, v in pairs(Workspace:GetDescendants()) do
-		if checkAndRemove(v, true) then deletedCount = deletedCount + 1 end
+		if checkAndRemove(v, 3) then deletedCount = deletedCount + 1 end
 	end
-	startAutoDetection(Workspace, true)
-	StarterGui:SetCore("SendNotification", {Title = "Nuclear Option", Text = "Cleared ALL " .. deletedCount .. " hidden walls.", Duration = 3})
+	startAutoDetection(3)
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {Title = "Nuclear Option", Text = "Cleared ALL " .. deletedCount .. " hidden walls.", Duration = 3})
+	end)
 end
