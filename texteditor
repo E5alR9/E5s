@@ -1,0 +1,281 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local UserInputService = game:GetService("UserInputService")
+
+-- 創建主介面
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FindAndReplaceGui"
+screenGui.Parent = playerGui
+
+-- 主面板
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 320, 0, 250)
+frame.Position = UDim2.new(0.5, -160, 0.5, -125)
+frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+frame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 10)
+uiCorner.Parent = frame
+
+-- 1. 搜尋輸入框
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(0, 280, 0, 40)
+searchBox.Position = UDim2.new(0, 20, 0, 20)
+searchBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+searchBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+searchBox.TextScaled = true
+searchBox.PlaceholderText = "輸入要尋找的文字 (例: 123)"
+searchBox.ClearTextOnFocus = false
+searchBox.Parent = frame
+
+-- 2. 搜尋按鈕
+local searchButton = Instance.new("TextButton")
+searchButton.Size = UDim2.new(0, 280, 0, 40)
+searchButton.Position = UDim2.new(0, 20, 0, 70)
+searchButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+searchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+searchButton.Font = Enum.Font.SourceSansBold
+searchButton.TextScaled = true
+searchButton.Text = "🔍 搜尋並列出結果"
+searchButton.Parent = frame
+
+-- 3. 替換輸入框
+local replaceBox = Instance.new("TextBox")
+replaceBox.Size = UDim2.new(0, 280, 0, 40)
+replaceBox.Position = UDim2.new(0, 20, 0, 130)
+replaceBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+replaceBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+replaceBox.TextScaled = true
+replaceBox.PlaceholderText = "輸入新的文字..."
+replaceBox.ClearTextOnFocus = false
+replaceBox.Parent = frame
+
+-- 4. 替換按鈕
+local replaceButton = Instance.new("TextButton")
+replaceButton.Size = UDim2.new(0, 280, 0, 40)
+replaceButton.Position = UDim2.new(0, 20, 0, 180)
+replaceButton.BackgroundColor3 = Color3.fromRGB(85, 255, 127)
+replaceButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+replaceButton.Font = Enum.Font.SourceSansBold
+replaceButton.TextScaled = true
+replaceButton.Text = "✏️ 替換文字 (沒選則全替換)"
+replaceButton.Parent = frame
+
+-- 5. 右側的搜尋結果清單 (ScrollingFrame)
+local resultsScroll = Instance.new("ScrollingFrame")
+resultsScroll.Size = UDim2.new(0, 200, 1, 0) -- 和主面板一樣高
+resultsScroll.Position = UDim2.new(1, 10, 0, 0) -- 放在主面板右側 10 像素處
+resultsScroll.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+resultsScroll.BorderSizePixel = 0
+resultsScroll.ScrollBarThickness = 6
+resultsScroll.Parent = frame
+
+local scrollCorner = Instance.new("UICorner")
+scrollCorner.CornerRadius = UDim.new(0, 10)
+scrollCorner.Parent = resultsScroll
+
+-- 幫清單加上自動排版
+local listLayout = Instance.new("UIListLayout")
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0, 5)
+listLayout.Parent = resultsScroll
+
+local listPadding = Instance.new("UIPadding")
+listPadding.PaddingTop = UDim.new(0, 5)
+listPadding.PaddingBottom = UDim.new(0, 5)
+listPadding.PaddingLeft = UDim.new(0, 5)
+listPadding.PaddingRight = UDim.new(0, 5)
+listPadding.Parent = resultsScroll
+
+-- 變數儲存
+local foundObjects = {}
+local activeTarget = nil -- 記錄目前在清單中「被點選」的單一物件
+
+-- 🔍 搜尋邏輯
+searchButton.MouseButton1Click:Connect(function()
+    local targetText = searchBox.Text
+    if targetText == "" then return end
+
+    -- 清除之前的反藍與清單按鈕
+    for _, data in ipairs(foundObjects) do
+        if data.obj.Parent then data.obj.TextColor3 = data.originalColor end
+    end
+    for _, child in pairs(resultsScroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    
+    foundObjects = {}
+    activeTarget = nil
+    resultsScroll.CanvasPosition = Vector2.new(0,0) -- 滾動條回頂部
+
+    -- 建立檢查並記錄的函數 (🌟 這裡拿掉了直接反藍的程式碼)
+    local function checkAndStore(obj)
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj:IsDescendantOf(screenGui) then return end
+            
+            local textInObj = string.lower(obj.Text)
+            local textToSearch = string.lower(targetText)
+
+            if string.find(textInObj, textToSearch, 1, true) then
+                -- 只記錄，先不改變顏色
+                table.insert(foundObjects, { obj = obj, originalColor = obj.TextColor3 })
+            end
+        end
+    end
+
+    for _, obj in pairs(workspace:GetDescendants()) do checkAndStore(obj) end
+    for _, obj in pairs(playerGui:GetDescendants()) do checkAndStore(obj) end
+
+    -- 產生右側清單按鈕
+    for _, data in ipairs(foundObjects) do
+        local resBtn = Instance.new("TextButton")
+        resBtn.Size = UDim2.new(1, 0, 0, 35)
+        resBtn.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
+        resBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        resBtn.TextScaled = true
+        resBtn.Text = data.obj.Text
+        resBtn.Parent = resultsScroll
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 5)
+        btnCorner.Parent = resBtn
+
+        -- 🖱️ 當點擊右側清單的某個按鈕時
+        resBtn.MouseButton1Click:Connect(function()
+            -- 🌟 【新功能】：判斷是否點擊了「已經選中」的按鈕
+            if activeTarget and activeTarget.button == resBtn then
+                -- 1. 恢復清單按鈕原本的深灰色
+                resBtn.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
+                
+                -- 2. 恢復遊戲內物件原本的顏色 (取消反藍)
+                if data.obj.Parent then
+                    data.obj.TextColor3 = data.originalColor
+                end
+                
+                -- 3. 清空輸入框，並把當前目標設為 nil (無)
+                replaceBox.Text = ""
+                activeTarget = nil
+                
+                return -- 🌟 提早結束，不要往下執行選取邏輯
+            end
+
+            -- ==========================================
+            -- 以下是原本的「選取新目標」邏輯
+            -- ==========================================
+            
+            -- 1. 把清單裡所有按鈕顏色恢復
+            for _, child in pairs(resultsScroll:GetChildren()) do
+                if child:IsA("TextButton") then
+                    child.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
+                end
+            end
+            
+            -- 2. 如果之前有選中別的物件，先把遊戲裡「前一個物件」的顏色恢復正常
+            if activeTarget and activeTarget.data.obj.Parent then
+                activeTarget.data.obj.TextColor3 = activeTarget.data.originalColor
+            end
+
+            -- 3. 將目前被點擊的清單按鈕變成藍色
+            resBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+            
+            -- 4. 讓遊戲中對應的物件反藍！
+            if data.obj.Parent then
+                data.obj.TextColor3 = Color3.fromRGB(0, 85, 255)
+            end
+            
+            -- 5. 自動填入替換框，並記錄為目前目標
+            replaceBox.Text = data.obj.Text
+            activeTarget = { data = data, button = resBtn }
+        end)
+    end
+    
+    -- 更新滾動條的長度
+    resultsScroll.CanvasSize = UDim2.new(0, 0, 0, #foundObjects * 40 + 10)
+
+    -- 如果有找到東西，預設把第一個字塞進輸入框 (但不反藍，等玩家自己點清單)
+    if #foundObjects > 0 then
+        replaceBox.Text = foundObjects[1].obj.Text
+    else
+        replaceBox.Text = ""
+    end
+
+    searchButton.Text = "找到了 " .. #foundObjects .. " 個結果！"
+    task.wait(2)
+    searchButton.Text = "🔍 搜尋並列出結果"
+end)
+
+-- ✏️ 替換邏輯 (支援單一替換 & 批量替換)
+replaceButton.MouseButton1Click:Connect(function()
+    local newText = replaceBox.Text
+    if #foundObjects == 0 then return end
+
+    if activeTarget then
+        -- 【單一替換】：如果有在右邊清單選中某一個，就只改那一個
+        if activeTarget.data.obj.Parent then
+            activeTarget.data.obj.Text = newText
+            activeTarget.data.obj.TextColor3 = activeTarget.data.originalColor
+        end
+        -- 從列表中移除
+        for i, v in ipairs(foundObjects) do
+            if v == activeTarget.data then
+                table.remove(foundObjects, i)
+                break
+            end
+        end
+        activeTarget.button:Destroy()
+        activeTarget = nil
+        replaceButton.Text = "✅ 已替換指定的文字！"
+    else
+        -- 【全部替換】：如果沒有選，就一次改掉全部
+        local count = 0
+        for _, data in ipairs(foundObjects) do
+            if data.obj.Parent then
+                data.obj.Text = newText
+                data.obj.TextColor3 = data.originalColor
+                count = count + 1
+            end
+        end
+        foundObjects = {}
+        for _, child in pairs(resultsScroll:GetChildren()) do
+            if child:IsA("TextButton") then child:Destroy() end
+        end
+        replaceButton.Text = "✅ 成功替換 " .. count .. " 個文字！"
+    end
+
+    task.wait(1.5)
+    replaceButton.Text = "✏️ 替換文字 (沒選則全替換)"
+end)
+
+-- ==========================================
+-- 🖱️ UI 拖曳功能邏輯
+-- ==========================================
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then update(input) end
+end)
