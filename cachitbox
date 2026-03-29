@@ -1,0 +1,130 @@
+-- ==========================================
+-- 🌵 1. 核心系統：找出仙人掌最高的 Part
+-- ==========================================
+local function getHighestPart(cactus)
+    local highestPart = nil
+    local maxTopY = -math.huge 
+
+    if cactus:IsA("BasePart") then
+        highestPart = cactus
+        maxTopY = cactus.Position.Y + (cactus.Size.Y / 2)
+    end
+
+    for _, desc in pairs(cactus:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            local topY = desc.Position.Y + (desc.Size.Y / 2)
+            if topY > maxTopY then
+                maxTopY = topY
+                highestPart = desc
+            end
+        end
+    end
+    
+    return highestPart
+end
+
+-- ==========================================
+-- 📦 2. 計算 AABB (Axis-Aligned Bounding Box)
+-- ==========================================
+local function calculateAABB(target)
+    local minX, minY, minZ = math.huge, math.huge, math.huge
+    local maxX, maxY, maxZ = -math.huge, -math.huge, -math.huge
+
+    local parts = {}
+    if target:IsA("BasePart") then table.insert(parts, target) end
+    for _, desc in pairs(target:GetDescendants()) do
+        if desc:IsA("BasePart") then table.insert(parts, desc) end
+    end
+
+    if #parts == 0 then return nil end
+
+    for _, part in ipairs(parts) do
+        local cf = part.CFrame
+        local size = part.Size / 2
+        local corners = {
+            cf * Vector3.new(size.X, size.Y, size.Z),
+            cf * Vector3.new(-size.X, size.Y, size.Z),
+            cf * Vector3.new(size.X, -size.Y, size.Z),
+            cf * Vector3.new(-size.X, -size.Y, size.Z),
+            cf * Vector3.new(size.X, size.Y, -size.Z),
+            cf * Vector3.new(-size.X, size.Y, -size.Z),
+            cf * Vector3.new(size.X, -size.Y, -size.Z),
+            cf * Vector3.new(-size.X, -size.Y, -size.Z)
+        }
+
+        for _, corner in ipairs(corners) do
+            minX = math.min(minX, corner.X)
+            minY = math.min(minY, corner.Y)
+            minZ = math.min(minZ, corner.Z)
+            maxX = math.max(maxX, corner.X)
+            maxY = math.max(maxY, corner.Y)
+            maxZ = math.max(maxZ, corner.Z)
+        end
+    end
+
+    local aabbSize = Vector3.new(maxX - minX, maxY - minY, maxZ - minZ)
+    local aabbCenter = Vector3.new((maxX + minX) / 2, (maxY + minY) / 2, (maxZ + minZ) / 2)
+    return aabbCenter, aabbSize
+end
+
+-- ==========================================
+-- ⚙️ 3. 藍色線框生成與開關系統 (Toggle)
+-- ==========================================
+local FOLDER_NAME = "AABB_Wireframe_Folder"
+local existingFolder = workspace:FindFirstChild(FOLDER_NAME)
+
+if existingFolder then
+    -- 🛑 再次執行：刪除資料夾並關閉顯示
+    existingFolder:Destroy()
+    print("🔴 藍色線框已關閉")
+else
+    -- 🟢 第一次執行：尋找正確路徑並建立線框
+    local gameFolder = workspace:FindFirstChild("Game")
+    if not gameFolder then return print("⚠️ 找不到 Game 資料夾") end
+
+    local propsFolder = gameFolder:FindFirstChild("Map") 
+        and gameFolder.Map:FindFirstChild("Parts") 
+        and gameFolder.Map.Parts:FindFirstChild("ImmovableProps")
+        
+    if not propsFolder then return print("⚠️ 找不到 ImmovableProps 資料夾") end
+
+    print("🟢 藍色線框已開啟")
+    local wireframeFolder = Instance.new("Folder")
+    wireframeFolder.Name = FOLDER_NAME
+    wireframeFolder.Parent = workspace
+
+    local count = 0
+
+    -- 掃描目標資料夾下的仙人掌
+    for _, obj in pairs(propsFolder:GetChildren()) do
+        if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
+            
+            local targetPart = getHighestPart(obj)
+            
+            if targetPart then
+                local center, size = calculateAABB(targetPart)
+
+                -- 1. 建立一個「完全透明」的隱形方塊，用來當作線框的骨架
+                local invisibleBox = Instance.new("Part")
+                invisibleBox.Name = "AABB_Anchor"
+                invisibleBox.Size = size
+                invisibleBox.Position = center
+                invisibleBox.Anchored = true
+                invisibleBox.CanCollide = false
+                invisibleBox.Transparency = 1  -- 🟢 設為 1 (完全透明)
+                invisibleBox.Parent = wireframeFolder
+
+                -- 2. 使用 SelectionBox 畫出 12 條線
+                local selectionBox = Instance.new("SelectionBox")
+                selectionBox.Adornee = invisibleBox
+                selectionBox.Color3 = Color3.fromRGB(0, 170, 255) -- 🔵 Studio 預設的亮藍色
+                selectionBox.LineThickness = 0.05                 -- 線條的粗細 (可自行微調)
+                selectionBox.SurfaceTransparency = 1              -- 確保只有外框，沒有半透明的面
+                selectionBox.Parent = invisibleBox
+                
+                count = count + 1
+            end
+        end
+    end
+    print("✅ 成功生成 " .. count .. " 個仙人掌的藍色線框！")
+end
