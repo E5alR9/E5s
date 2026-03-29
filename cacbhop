@@ -1,0 +1,141 @@
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local player = Players.LocalPlayer
+
+-- ==========================================
+-- 🔔 建立發送通知的函數
+-- ==========================================
+local function sendNotif(title, text, duration)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title;
+            Text = text;
+            Duration = duration or 5;
+        })
+    end)
+end
+
+-- ==========================================
+-- 🔄 開關控制邏輯 (利用全局變數 _G)
+-- ==========================================
+if _G.CactusAutoJumpEnabled then
+    -- 如果已經開啟，執行這段來關閉
+    _G.CactusAutoJumpEnabled = false
+    
+    -- 斷開所有之前綁定的觸碰事件
+    if _G.CactusConnections then
+        for _, conn in pairs(_G.CactusConnections) do
+            conn:Disconnect()
+        end
+        _G.CactusConnections = {} -- 清空紀錄
+    end
+    
+    sendNotif("🛑 腳本停用", "仙人掌自動跳躍已關閉！", 3)
+    return -- 結束腳本，不往下執行
+end
+
+-- 如果是第一次執行或已關閉，則初始化並準備開啟
+_G.CactusAutoJumpEnabled = true
+_G.CactusConnections = {}
+
+-- ==========================================
+-- 🌵 1. 核心系統：找出仙人掌最高的 Part
+-- ==========================================
+local function getHighestPart(cactus)
+    local highestPart = nil
+    local maxTopY = -math.huge 
+
+    if cactus:IsA("BasePart") then
+        highestPart = cactus
+        maxTopY = cactus.Position.Y + (cactus.Size.Y / 2)
+    end
+
+    for _, desc in pairs(cactus:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            local topY = desc.Position.Y + (desc.Size.Y / 2)
+            if topY > maxTopY then
+                maxTopY = topY
+                highestPart = desc
+            end
+        end
+    end
+    
+    return highestPart
+end
+
+-- ==========================================
+-- 🏃 2. 掃描並綁定「觸碰即跳躍」事件
+-- ==========================================
+local debounce = false -- 防連跳冷卻開關
+
+local function setupCactusAutoJump()
+    local gameFolder = workspace:FindFirstChild("Game")
+    if not gameFolder then 
+        sendNotif("⚠️ 掃描失敗", "找不到 Game 資料夾", 5)
+        _G.CactusAutoJumpEnabled = false -- 失敗則把狀態改回關閉
+        return 
+    end
+    
+    local propsFolder = gameFolder:FindFirstChild("Map") 
+        and gameFolder.Map:FindFirstChild("Parts") 
+        and gameFolder.Map.Parts:FindFirstChild("ImmovableProps")
+        
+    if not propsFolder then 
+        sendNotif("⚠️ 掃描失敗", "找不到 ImmovableProps 資料夾", 5)
+        _G.CactusAutoJumpEnabled = false
+        return 
+    end
+
+    local count = 0
+
+    for _, obj in pairs(propsFolder:GetChildren()) do
+        if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
+            
+            local highestPart = getHighestPart(obj)
+            
+            if highestPart then
+                count = count + 1
+                
+                -- 將事件存入 connection 變數，以便日後中斷
+                local connection = highestPart.Touched:Connect(function(hit)
+                    if debounce then return end 
+                    
+                    local character = player.Character
+                    if character and hit:IsDescendantOf(character) then
+                        local humanoid = character:FindFirstChild("Humanoid")
+                        local hrp = character:FindFirstChild("HumanoidRootPart")
+                        
+                        if humanoid and hrp then
+                            debounce = true 
+                            task.wait(0.1)
+                            
+                            -- 強制改狀態 + Jump 指令
+                            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                            humanoid.Jump = true
+                            
+                        
+                            
+                            debounce = false
+                        end
+                    end
+                end)
+                
+                -- 把這條連線存到全局清單中
+                table.insert(_G.CactusConnections, connection)
+            end
+        end
+    end
+    
+    if count > 0 then
+        sendNotif("🌵 掃描完成", "成功為 " .. count .. " 個仙人掌綁定跳躍！", 5)
+    else
+        sendNotif("❓ 掃描完成", "沒有找到符合的仙人掌。", 5)
+        _G.CactusAutoJumpEnabled = false
+    end
+end
+
+-- ==========================================
+-- ▶️ 執行設定
+-- ==========================================
+sendNotif("🏃 腳本啟用", "開始掃描地圖...", 3)
+setupCactusAutoJump()
