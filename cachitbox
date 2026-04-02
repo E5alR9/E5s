@@ -1,16 +1,16 @@
 -- ==========================================
--- 🌵 1. 核心系統：找出仙人掌最高的 Part
+-- 🌵 1. 核心系統：找出目標內最高的 Part
 -- ==========================================
-local function getHighestPart(cactus)
+local function getHighestPart(targetObj)
     local highestPart = nil
     local maxTopY = -math.huge 
 
-    if cactus:IsA("BasePart") then
-        highestPart = cactus
-        maxTopY = cactus.Position.Y + (cactus.Size.Y / 2)
+    if targetObj:IsA("BasePart") then
+        highestPart = targetObj
+        maxTopY = targetObj.Position.Y + (targetObj.Size.Y / 2)
     end
 
-    for _, desc in pairs(cactus:GetDescendants()) do
+    for _, desc in pairs(targetObj:GetDescendants()) do
         if desc:IsA("BasePart") then
             local topY = desc.Position.Y + (desc.Size.Y / 2)
             if topY > maxTopY then
@@ -82,11 +82,13 @@ else
     local gameFolder = workspace:FindFirstChild("Game")
     if not gameFolder then return print("⚠️ 找不到 Game 資料夾") end
 
-    local propsFolder = gameFolder:FindFirstChild("Map") 
-        and gameFolder.Map:FindFirstChild("Parts") 
-        and gameFolder.Map.Parts:FindFirstChild("ImmovableProps")
+    local partsFolder = gameFolder:FindFirstChild("Map") 
+        and gameFolder.Map:FindFirstChild("Parts")
         
-    if not propsFolder then return print("⚠️ 找不到 ImmovableProps 資料夾") end
+    if not partsFolder then return print("⚠️ 找不到 Game.Map.Parts 資料夾") end
+
+    local propsFolder = partsFolder:FindFirstChild("ImmovableProps")
+    local mapInnerFolder = partsFolder:FindFirstChild("Map") 
 
     print("🟢 藍色線框已開啟")
     local wireframeFolder = Instance.new("Folder")
@@ -95,36 +97,90 @@ else
 
     local count = 0
 
-    -- 掃描目標資料夾下的仙人掌
-    for _, obj in pairs(propsFolder:GetChildren()) do
-        if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
-            
-            local targetPart = getHighestPart(obj)
-            
-            if targetPart then
-                local center, size = calculateAABB(targetPart)
+    -- 輔助函數：新增 `expandSize` 參數來決定外框要加大多少
+    local function applyWireframe(obj, onlyHighest, expandSize)
+        local targetForAABB = obj
+        
+        if onlyHighest then
+            targetForAABB = getHighestPart(obj)
+        end
+        
+        if targetForAABB then
+            local center, size = calculateAABB(targetForAABB)
 
-                -- 1. 建立一個「完全透明」的隱形方塊，用來當作線框的骨架
+            if center and size then
+                -- 如果有傳入擴展值，就把尺寸加上去
+                if expandSize then
+                    size = size + expandSize
+                end
+
+                -- 1. 建立骨架
                 local invisibleBox = Instance.new("Part")
                 invisibleBox.Name = "AABB_Anchor"
                 invisibleBox.Size = size
                 invisibleBox.Position = center
                 invisibleBox.Anchored = true
                 invisibleBox.CanCollide = false
-                invisibleBox.Transparency = 1  -- 🟢 設為 1 (完全透明)
+                invisibleBox.Transparency = 1  
                 invisibleBox.Parent = wireframeFolder
 
-                -- 2. 使用 SelectionBox 畫出 12 條線
+                -- 2. 畫出線框
                 local selectionBox = Instance.new("SelectionBox")
                 selectionBox.Adornee = invisibleBox
-                selectionBox.Color3 = Color3.fromRGB(0, 170, 255) -- 🔵 Studio 預設的亮藍色
-                selectionBox.LineThickness = 0.05                 -- 線條的粗細 (可自行微調)
-                selectionBox.SurfaceTransparency = 1              -- 確保只有外框，沒有半透明的面
+                selectionBox.Color3 = Color3.fromRGB(0, 170, 255) 
+                selectionBox.LineThickness = 0.05                 
+                selectionBox.SurfaceTransparency = 1              
                 selectionBox.Parent = invisibleBox
                 
                 count = count + 1
             end
         end
     end
-    print("✅ 成功生成 " .. count .. " 個仙人掌的藍色線框！")
+
+    -- 🎯 目標 1：掃描 ImmovableProps 下的仙人掌 (只框最高點，不放大)
+    if propsFolder then
+        for _, obj in pairs(propsFolder:GetChildren()) do
+            if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
+                applyWireframe(obj, true, nil) 
+            end
+        end
+    else
+        print("⚠️ 找不到 ImmovableProps 資料夾，跳過仙人掌")
+    end
+
+    -- 🎯 目標 2：尋找並處理所有 Bench 下的 Part (全部完整框起來，並加大外框)
+    if mapInnerFolder then
+        local foundAnyBench = false
+        
+        -- 設定你要把 Bench 的框放大多少 (X, Y, Z)，數字越大框越寬
+        local BENCH_EXPAND_SIZE = Vector3.new(1, 1, 1) 
+
+        -- 掃描 Map 裡面的所有物件，找出所有的 Bench
+        for _, obj in pairs(mapInnerFolder:GetChildren()) do
+            if obj.Name == "Bench" then
+                foundAnyBench = true
+                local foundBenchPart = false
+                
+                -- 把該 Bench 裡面所有的 "Part" 找出來並加上線框，同時傳入加大參數
+                for _, child in pairs(obj:GetChildren()) do
+                    if child.Name == "Part" then
+                        applyWireframe(child, false, BENCH_EXPAND_SIZE) 
+                        foundBenchPart = true
+                    end
+                end
+                
+                if not foundBenchPart then
+                    print("⚠️ 在其中一個 Bench 內找不到名為 'Part' 的物件")
+                end
+            end
+        end
+        
+        if not foundAnyBench then
+            print("⚠️ 在 Map 內找不到任何 'Bench' 物件")
+        end
+    else
+        print("⚠️ 找不到 Parts.Map 資料夾，跳過 Bench")
+    end
+
+    print("✅ 成功生成 " .. count .. " 個目標的藍色線框！")
 end
