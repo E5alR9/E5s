@@ -538,6 +538,10 @@ local function createUI()
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/edge"))() end)
     end)
 
+	createButton(pageEntertain, "shadow", function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/HQ"))() end)
+    end)
+
 
     -- ==========================================
     -- 初始化：預設開啟第一個分頁
