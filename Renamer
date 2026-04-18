@@ -7,7 +7,6 @@ local CoreGui = game:GetService("CoreGui")
 -- 你可以在這裡更換背景圖片 ID
 local BG_IMAGE_ID = "rbxassetid://130181538648632" 
 
-
 -- --- [CORE FEATURE] Toggle Logic (Show/Hide) ---
 if _G.RenamerUI_Instance and _G.RenamerUI_Instance.Parent then
     _G.RenamerUI_Instance:Destroy()
@@ -59,19 +58,16 @@ MainFrame.Parent = ScreenGui
 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
--- [NEW] Background Image Logic (新增的背景圖片部分)
+-- Background Image Logic
 local BgImage = Instance.new("ImageLabel")
 BgImage.Name = "BackgroundImage"
 BgImage.Size = UDim2.new(1, 0, 1, 0)
 BgImage.Position = UDim2.new(0, 0, 0, 0)
 BgImage.Image = BG_IMAGE_ID
-BgImage.ScaleType = Enum.ScaleType.Stretch -- 拉伸填滿
--- 或是用 Slice (如果你有切圖): BgImage.ScaleType = Enum.ScaleType.Slice
+BgImage.ScaleType = Enum.ScaleType.Stretch 
 BgImage.BackgroundTransparency = 1
-BgImage.ZIndex = 0 -- 確保它在所有按鈕的後面
+BgImage.ZIndex = 0 
 BgImage.Parent = MainFrame
-
--- 為背景圖也加上圓角，確保不會超出 MainFrame
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 10)
 
 -- Title
@@ -109,7 +105,7 @@ end)
 -- Style Helper
 local function ApplyStyle(btn)
     btn.BackgroundColor3 = Color3.new(0, 0, 0)
-    btn.BackgroundTransparency = 0.6 -- 稍微降低透明度，讓文字在背景圖上更清楚
+    btn.BackgroundTransparency = 0.6 
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 18
@@ -141,8 +137,6 @@ ApplyStyle(CosmeticTab)
 CosmeticTab.TextSize = 20
 
 -- === 2. Dropdowns ===
-
--- Left Button (Target)
 local LeftDropBtn = Instance.new("TextButton")
 LeftDropBtn.Name = "TargetBtn"
 LeftDropBtn.Size = UDim2.new(0.44, 0, 0, 45)
@@ -151,19 +145,17 @@ LeftDropBtn.Text = "Select Target"
 LeftDropBtn.Parent = MainFrame
 ApplyStyle(LeftDropBtn)
 
--- [UPDATED] Want Label (Left)
 local WantLabel = Instance.new("TextLabel")
 WantLabel.Size = UDim2.new(0.44, 0, 0, 15)
 WantLabel.Position = UDim2.new(0.04, 0, 0.40, 0)
 WantLabel.BackgroundTransparency = 1
 WantLabel.Text = "(Want)"
-WantLabel.TextColor3 = Color3.fromRGB(200, 200, 200) -- 稍微調亮，避免被背景吃掉
+WantLabel.TextColor3 = Color3.fromRGB(200, 200, 200) 
 WantLabel.TextSize = 12
 WantLabel.Font = Enum.Font.Gotham
 WantLabel.ZIndex = 2
 WantLabel.Parent = MainFrame
 
--- Right Button (Source)
 local RightDropBtn = Instance.new("TextButton")
 RightDropBtn.Name = "SourceBtn"
 RightDropBtn.Size = UDim2.new(0.44, 0, 0, 45)
@@ -172,13 +164,12 @@ RightDropBtn.Text = "Select Name"
 RightDropBtn.Parent = MainFrame
 ApplyStyle(RightDropBtn)
 
--- [UPDATED] Have Label (Right)
 local HaveLabel = Instance.new("TextLabel")
 HaveLabel.Size = UDim2.new(0.44, 0, 0, 15)
 HaveLabel.Position = UDim2.new(0.52, 0, 0.40, 0)
 HaveLabel.BackgroundTransparency = 1
 HaveLabel.Text = "(Have)"
-HaveLabel.TextColor3 = Color3.fromRGB(200, 200, 200) -- 稍微調亮
+HaveLabel.TextColor3 = Color3.fromRGB(200, 200, 200) 
 HaveLabel.TextSize = 12
 HaveLabel.Font = Enum.Font.Gotham
 HaveLabel.ZIndex = 2
@@ -240,30 +231,74 @@ local function UpdatePreview()
     PreviewBox.Text = code
 end
 
--- Create List Function
+-- === [NEW] Create List with Search Box ===
 local function CreateDropdownList(parentBtn)
-    local Scroll = Instance.new("ScrollingFrame")
-    Scroll.Name = "DropdownList"
-    Scroll.Size = UDim2.new(1, 0, 4.5, 0)
-    Scroll.Position = UDim2.new(0, 0, 1.1, 0)
-    Scroll.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
-    Scroll.BackgroundTransparency = 0.1
-    Scroll.BorderSizePixel = 0
-    Scroll.Visible = false
-    Scroll.ZIndex = 20
-    Scroll.Parent = parentBtn
+    -- Container for Search and List
+    local Container = Instance.new("Frame")
+    Container.Name = "DropdownContainer"
+    Container.Size = UDim2.new(1, 0, 5, 0) -- 高度放大以容納搜尋列
+    Container.Position = UDim2.new(0, 0, 1.1, 0)
+    Container.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
+    Container.BackgroundTransparency = 0.1
+    Container.BorderSizePixel = 0
+    Container.Visible = false
+    Container.ZIndex = 20
+    Container.Parent = parentBtn
+    Instance.new("UICorner", Container).CornerRadius = UDim.new(0, 6)
     
-    Instance.new("UICorner", Scroll)
+    -- Search Box
+    local SearchBox = Instance.new("TextBox")
+    SearchBox.Name = "SearchBar"
+    SearchBox.Size = UDim2.new(1, -10, 0, 30)
+    SearchBox.Position = UDim2.new(0, 5, 0, 5)
+    SearchBox.BackgroundColor3 = Color3.new(0, 0, 0)
+    SearchBox.BackgroundTransparency = 0.5
+    SearchBox.TextColor3 = Color3.new(1, 1, 1)
+    SearchBox.PlaceholderText = "Search item..."
+    SearchBox.Font = Enum.Font.Gotham
+    SearchBox.TextSize = 14
+    SearchBox.ClearTextOnFocus = false
+    SearchBox.ZIndex = 21
+    SearchBox.Parent = Container
+    Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
+
+    -- Scrolling Frame
+    local Scroll = Instance.new("ScrollingFrame")
+    Scroll.Name = "List"
+    Scroll.Size = UDim2.new(1, 0, 1, -40)
+    Scroll.Position = UDim2.new(0, 0, 0, 40)
+    Scroll.BackgroundTransparency = 1
+    Scroll.BorderSizePixel = 0
+    Scroll.ScrollBarThickness = 4
+    Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y -- 自動適應內容高度
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Scroll.ZIndex = 21
+    Scroll.Parent = Container
     
     local Layout = Instance.new("UIListLayout")
     Layout.Parent = Scroll
     Layout.SortOrder = Enum.SortOrder.LayoutOrder
     
-    return Scroll
+    -- Search Logic (Filter)
+    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local query = string.lower(SearchBox.Text)
+        for _, btn in pairs(Scroll:GetChildren()) do
+            if btn:IsA("TextButton") then
+                if query == "" or string.find(string.lower(btn.Text), query) then
+                    btn.Visible = true
+                else
+                    btn.Visible = false
+                end
+            end
+        end
+    end)
+    
+    return Container, Scroll, SearchBox
 end
 
-local LeftList = CreateDropdownList(LeftDropBtn)
-local RightList = CreateDropdownList(RightDropBtn)
+-- Initialize Dropdowns
+local LeftContainer, LeftList, LeftSearch = CreateDropdownList(LeftDropBtn)
+local RightContainer, RightList, RightSearch = CreateDropdownList(RightDropBtn)
 
 -- === 3. Apply Button ===
 local ApplyBtn = Instance.new("TextButton")
@@ -295,6 +330,10 @@ local function RefreshLists()
     for _, v in pairs(LeftList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     for _, v in pairs(RightList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     
+    -- Reset Search bars
+    LeftSearch.Text = ""
+    RightSearch.Text = ""
+    
     local folder = CATEGORIES[currentCategory]
     if not folder then return end
     
@@ -305,8 +344,7 @@ local function RefreshLists()
         return a.Name < b.Name
     end)
     
-    LeftList.CanvasSize = UDim2.new(0, 0, 0, #items * 35)
-    RightList.CanvasSize = UDim2.new(0, 0, 0, #items * 35)
+    -- No need to manually calculate CanvasSize anymore due to AutomaticCanvasSize=Y
     
     for _, item in ipairs(items) do
         -- Left Option
@@ -317,13 +355,13 @@ local function RefreshLists()
         btnL.TextColor3 = Color3.new(1, 1, 1)
         btnL.Font = Enum.Font.GothamMedium
         btnL.TextSize = 18
-        btnL.ZIndex = 21
+        btnL.ZIndex = 22
         btnL.Parent = LeftList
         
         btnL.MouseButton1Click:Connect(function()
             targetItem = item
             LeftDropBtn.Text = item.Name
-            LeftList.Visible = false
+            LeftContainer.Visible = false
             UpdatePreview() 
         end)
         
@@ -335,13 +373,13 @@ local function RefreshLists()
         btnR.TextColor3 = Color3.new(1, 1, 1)
         btnR.Font = Enum.Font.GothamMedium
         btnR.TextSize = 18
-        btnR.ZIndex = 21
+        btnR.ZIndex = 22
         btnR.Parent = RightList
         
         btnR.MouseButton1Click:Connect(function()
             sourceName = item.Name
             RightDropBtn.Text = item.Name
-            RightList.Visible = false
+            RightContainer.Visible = false
             UpdatePreview() 
         end)
     end
@@ -356,8 +394,8 @@ local function SwitchTab(cat)
     LeftDropBtn.Text = "Select " .. cat
     RightDropBtn.Text = "Select Name"
     
-    LeftList.Visible = false
-    RightList.Visible = false
+    LeftContainer.Visible = false
+    RightContainer.Visible = false
     
     if cat == "Emotes" then
         EmoteTab.BackgroundTransparency = 0.4
@@ -373,13 +411,13 @@ end
 
 -- Button Events
 LeftDropBtn.MouseButton1Click:Connect(function()
-    LeftList.Visible = not LeftList.Visible
-    RightList.Visible = false
+    LeftContainer.Visible = not LeftContainer.Visible
+    RightContainer.Visible = false
 end)
 
 RightDropBtn.MouseButton1Click:Connect(function()
-    RightList.Visible = not RightList.Visible
-    LeftList.Visible = false
+    RightContainer.Visible = not RightContainer.Visible
+    LeftContainer.Visible = false
 end)
 
 EmoteTab.MouseButton1Click:Connect(function() SwitchTab("Emotes") end)
