@@ -5,6 +5,7 @@ _G.isMinimized = _G.isMinimized or false
 _G.toggleKey = _G.toggleKey or Enum.KeyCode.R
 _G.spinSpeed = _G.spinSpeed or 10
 _G.freeze = false
+_G.freezeRadius = _G.freezeRadius or 50
 
 local p = game:GetService("Players").LocalPlayer
 local UIS = game:GetService("UserInputService")
@@ -236,53 +237,6 @@ local function createUI()
     if _G.zbClickCount == 0 then zbBtn.Text = "Zombie"
     elseif _G.zbClickCount == 1 then zbBtn.Text = "Violin"
     else zbBtn.Text = "DONE"; zbBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5) end
-    
-	-- [ Freeze KEY 綁定按鈕 ]
-    _G.fKN = _G.fKN or "PageDown"
-
-    local freezeKeyBtn
-    freezeKeyBtn = createButton(pagePlayer, _G.fKN, function()
-        freezeKeyBtn.Text = "..."
-        local con; con = UIS.InputBegan:Connect(function(i) 
-            if i.UserInputType == Enum.UserInputType.Keyboard then 
-                _G.fKN = i.KeyCode.Name
-                freezeKeyBtn.Text = _G.fKN
-                con:Disconnect() 
-                
-                pcall(function()
-                    game.StarterGui:SetCore("SendNotification", {
-                        Title = "SYSTEM"; Text = "Freeze Key: " .. _G.fKN; Duration = 3;
-                    })
-                end)
-            end 
-        end)
-    end)
-
-	-- [ Freeze MS 輸入框 ]
-    _G.freezeMS = _G.freezeMS or 0
-
-    local msBox = Instance.new("TextBox", pagePlayer)
-    msBox.Size = UDim2.new(1, -10, 0, 40)
-    msBox.Text = tostring(_G.freezeMS)
-    msBox.PlaceholderText = "MS..."
-    msBox.BackgroundColor3, msBox.TextColor3 = Color3.new(0,0,0), Color3.new(1,1,0) -- 保留黃色字
-    msBox.BackgroundTransparency = 0.7
-    msBox.Font, msBox.TextSize = Enum.Font.Gotham, 14
-    Instance.new("UICorner", msBox).CornerRadius = UDim.new(0, 4)
-
-    msBox.FocusLost:Connect(function()
-        local val = tonumber(msBox.Text)
-        if val then 
-            _G.freezeMS = val
-            pcall(function()
-                game.StarterGui:SetCore("SendNotification", {
-                    Title = "SYSTEM"; Text = "MS: " .. _G.freezeMS; Duration = 3;
-                })
-            end)
-        else
-            msBox.Text = tostring(_G.freezeMS)
-        end
-    end)
 
 	-- [ 2. Spin KEY 綁定按鈕 ]
     -- 💡 確保 _G.toggleKey 有預設值避免報錯 (這裡預設為 R 鍵，你可以改)
@@ -388,6 +342,88 @@ local function createUI()
     capBox.FocusLost:Connect(function()
         local val = tonumber(capBox.Text)
         if val then _G.JumpCap = val else capBox.Text = tostring(_G.JumpCap) end
+    end)
+
+	-- [ Freeze KEY 綁定按鈕 ]
+    _G.fKN = _G.fKN or "PageDown"
+
+    local freezeKeyBtn
+    freezeKeyBtn = createButton(pagePlayer, _G.fKN, function()
+        freezeKeyBtn.Text = "..."
+        local con; con = UIS.InputBegan:Connect(function(i) 
+            if i.UserInputType == Enum.UserInputType.Keyboard then 
+                _G.fKN = i.KeyCode.Name
+                freezeKeyBtn.Text = _G.fKN
+                con:Disconnect() 
+                
+                pcall(function()
+                    game.StarterGui:SetCore("SendNotification", {
+                        Title = "SYSTEM"; Text = "Freeze Key: " .. _G.fKN; Duration = 3;
+                    })
+                end)
+            end 
+        end)
+    end)
+
+	-- [ Freeze MS 輸入框 ]
+    _G.freezeMS = _G.freezeMS or 0
+
+    local msBox = Instance.new("TextBox", pagePlayer)
+    msBox.Size = UDim2.new(1, -10, 0, 40)
+    msBox.Text = tostring(_G.freezeMS)
+    msBox.PlaceholderText = "MS..."
+    msBox.BackgroundColor3, msBox.TextColor3 = Color3.new(0,0,0), Color3.new(1,1,0) -- 保留黃色字
+    msBox.BackgroundTransparency = 0.7
+    msBox.Font, msBox.TextSize = Enum.Font.Gotham, 14
+    Instance.new("UICorner", msBox).CornerRadius = UDim.new(0, 4)
+
+    msBox.FocusLost:Connect(function()
+        local val = tonumber(msBox.Text)
+        if val then 
+            _G.freezeMS = val
+            pcall(function()
+                game.StarterGui:SetCore("SendNotification", {
+                    Title = "SYSTEM"; Text = "MS: " .. _G.freezeMS; Duration = 3;
+                })
+            end)
+        else
+            msBox.Text = tostring(_G.freezeMS)
+        end
+    end)
+
+	createButton(pagePlayer, "Recorder", function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/recorder"))() end)
+    end)
+	
+	-- [ Freeze Radius 輸入框 ]
+    _G.freezeRadius = _G.freezeRadius or 50
+
+	local radiusBox = Instance.new("TextBox", pagePlayer)
+    radiusBox.Size = UDim2.new(1, -10, 0, 40)
+    radiusBox.Text = tostring(_G.freezeRadius)
+    radiusBox.PlaceholderText = "Radius..."
+    radiusBox.BackgroundColor3 = Color3.new(0, 0, 0)
+    radiusBox.TextColor3 = Color3.new(1, 0.5, 0) -- 這裡我設定為橘色，方便跟 msBox 的黃色區隔
+    radiusBox.BackgroundTransparency = 0.7
+    radiusBox.Font = Enum.Font.Gotham
+    radiusBox.TextSize = 14
+    Instance.new("UICorner", radiusBox).CornerRadius = UDim.new(0, 4)
+
+	radiusBox.FocusLost:Connect(function()
+        local val = tonumber(radiusBox.Text)
+        if val then 
+            _G.freezeRadius = val
+            pcall(function()
+                game.StarterGui:SetCore("SendNotification", {
+                    Title = "SYSTEM"; 
+                    Text = "Radius: " .. _G.freezeRadius; 
+                    Duration = 3;
+                })
+            end)
+        else
+            -- 如果玩家輸入非數字(例如英文字母)，就恢復成原本的數字
+            radiusBox.Text = tostring(_G.freezeRadius)
+        end
     end)
 	
 	-- [ DisplayFPS(RE) 按鈕 ]
