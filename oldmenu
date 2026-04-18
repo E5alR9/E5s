@@ -1,0 +1,627 @@
+-- [[ 📥 核心變數初始化 ]]
+_G.fKN = _G.fKN or "PageDown"           
+_G.freezeMS = _G.freezeMS or 300      
+_G.isMinimized = _G.isMinimized or false 
+_G.toggleKey = _G.toggleKey or Enum.KeyCode.R
+_G.spinSpeed = _G.spinSpeed or 10
+_G.freeze = false
+
+local p = game:GetService("Players").LocalPlayer
+local UIS = game:GetService("UserInputService")
+local SG = game:GetService("StarterGui")
+local VIM = game:GetService("VirtualInputManager")
+local RS = game:GetService("RunService")
+local VU = game:GetService("VirtualUser")
+local Cam = workspace.CurrentCamera
+local DC_CODE = "PZcXtUk9Sf"
+local DC_URL = "https://discord.gg/" .. DC_CODE
+local BG_IMAGE_ID = "rbxassetid://117164248667049"
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local isPressing = false
+
+-- [[ 1. 將計數器放在最外面，確保死亡不重置 ]]
+_G.zbClickCount = _G.zbClickCount or 0 
+_G.skyEnabled = _G.skyEnabled or false -- 新增 Sky 狀態追蹤
+_G.headlessClicked = _G.headlessClicked or false
+_G.rightKClicked   = _G.rightKClicked or false
+_G.leftKClicked    = _G.leftKClicked or false
+
+-- [[ 🖥️ 介面處理核心 - 完全整合修正版 ]]
+local function createUI()
+    if p.PlayerGui:FindFirstChild("E5_Console") then p.PlayerGui.E5_Console:Destroy() end
+    local sg = Instance.new("ScreenGui", p.PlayerGui)
+    sg.Name, sg.ResetOnSpawn, sg.DisplayOrder = "E5_Console", false, 999
+    
+    local m = Instance.new("Frame", sg)
+    m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
+    m.Position = UDim2.new(0, 210, 0, -40) -- 修正座標避免出界
+    m.BackgroundColor3, m.BackgroundTransparency, m.BorderSizePixel = Color3.new(0,0,0), 0.5, 0
+    m.Active, m.Draggable = true, true
+    Instance.new("UICorner", m)
+
+    local bg = Instance.new("ImageLabel", m)
+    bg.Size, bg.Image, bg.ScaleType = UDim2.new(1, 0, 1, 0), BG_IMAGE_ID, Enum.ScaleType.Stretch
+    bg.BackgroundTransparency, bg.Visible = 1, not _G.isMinimized
+
+    local bar = Instance.new("Frame", m)
+    bar.Size, bar.BackgroundColor3, bar.ZIndex = UDim2.new(1, 0, 0, 30), Color3.new(0.05, 0.05, 0.05), 5
+    Instance.new("UICorner", bar)
+    
+    local xBtn = Instance.new("TextButton", bar)
+    xBtn.Size, xBtn.Position, xBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -30, 0, 0), "X"
+    xBtn.TextColor3, xBtn.BackgroundTransparency, xBtn.ZIndex, xBtn.TextSize = Color3.new(1, 0.2, 0.2), 1, 6, 18
+    xBtn.MouseButton1Click:Connect(function() sg:Destroy() end)
+
+    local minBtn = Instance.new("TextButton", bar)
+    minBtn.Size, minBtn.Position, minBtn.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -60, 0, 0), _G.isMinimized and "+" or "-"
+    minBtn.TextColor3, minBtn.BackgroundTransparency, minBtn.ZIndex, minBtn.TextSize = Color3.new(1, 1, 1), 1, 6, 18
+
+    local content = Instance.new("Frame", m)
+    content.Size = UDim2.new(1, 0, 0, 150)
+    content.Position = UDim2.new(0, 0, 1, -160)
+    content.BackgroundTransparency, content.Visible = 1, not _G.isMinimized
+
+	-- [[ 第一排：LAG TOOL | KEY | SPEED ]]
+
+	-- 1. TOOL 按鈕 (寬度佔 35%)
+	local lagToolBtn = Instance.new("TextButton", content)
+	lagToolBtn.Size, lagToolBtn.Position, lagToolBtn.Text = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.03, 0, 0, 0), "TOOL"
+	lagToolBtn.BackgroundColor3, lagToolBtn.TextColor3, lagToolBtn.BackgroundTransparency = Color3.fromRGB(70, 90, 110), Color3.new(1, 1, 1), 0.5
+	Instance.new("UICorner", lagToolBtn)
+	lagToolBtn.MouseButton1Click:Connect(function()
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/TOOL"))()
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/LS"))()
+		pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/spin"))() end)
+		notify("TOOL", "Freeze Window & Spin Loaded!")
+	end)
+
+	-- 2. Spin KEY 按鈕 (寬度佔 35%)
+	local spinKeyBtn = Instance.new("TextButton", content)
+	spinKeyBtn.Size, spinKeyBtn.Position = UDim2.new(0.35, 0, 0, 40), UDim2.new(0.40, 0, 0, 0)
+	spinKeyBtn.Text = "KEY:".._G.toggleKey.Name
+	spinKeyBtn.BackgroundColor3, spinKeyBtn.TextColor3, spinKeyBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
+	Instance.new("UICorner", spinKeyBtn)
+	spinKeyBtn.MouseButton1Click:Connect(function()
+		spinKeyBtn.Text = "..."
+		local con; con = UIS.InputBegan:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.Keyboard then
+				_G.toggleKey = i.KeyCode
+				spinKeyBtn.Text = "KEY:".._G.toggleKey.Name
+				notify("KEYBIND", "Spin Key: ".._G.toggleKey.Name)
+				con:Disconnect()
+			end
+		end)
+	end)
+
+	-- 3. Spin SPEED 輸入框 (寬度佔 20%)
+	local speedBox = Instance.new("TextBox", content)
+	speedBox.Size, speedBox.Position = UDim2.new(0.20, 0, 0, 40), UDim2.new(0.77, 0, 0, 0)
+	speedBox.Text = tostring(_G.spinSpeed or 10)
+	speedBox.PlaceholderText = "SPD"
+	speedBox.BackgroundColor3, speedBox.TextColor3, speedBox.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1, 1, 0), 0.7
+	speedBox.TextSize = 14
+	Instance.new("UICorner", speedBox)
+
+	speedBox.FocusLost:Connect(function(enterPressed)
+		local val = tonumber(speedBox.Text)
+		if val then
+			_G.spinSpeed = val
+			notify("SYSTEM", "Spin Speed set to: " .. _G.spinSpeed)
+		else
+			speedBox.Text = tostring(_G.spinSpeed or 10)
+		end
+	end)
+
+    -- [[ 第二排：PGDN (fKN) | MS ]]
+    local l = Instance.new("TextButton", content)
+    l.Size, l.Position, l.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 50), _G.fKN
+    l.BackgroundColor3, l.TextColor3, l.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,1), 0.7
+    l.MouseButton1Click:Connect(function()
+        l.Text = "..."
+        local con; con = UIS.InputBegan:Connect(function(i) 
+            if i.UserInputType == Enum.UserInputType.Keyboard then 
+                _G.fKN = i.KeyCode.Name; l.Text = _G.fKN; con:Disconnect() 
+                notify("SYSTEM", "Freeze Key: " .. _G.fKN)
+            end 
+        end)
+    end)
+
+    local tb = Instance.new("TextBox", content)
+    tb.Size, tb.Position, tb.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 50), tostring(_G.freezeMS)
+    tb.BackgroundColor3, tb.TextColor3, tb.BackgroundTransparency = Color3.new(0,0,0), Color3.new(1,1,0), 0.7
+    tb.FocusLost:Connect(function()
+        local val = tonumber(tb.Text)
+        if val then _G.freezeMS = val; notify("SYSTEM", "MS: " .. _G.freezeMS) end
+    end)
+
+    -- [[ 第三排：SETFFLAG ]]
+    local fBtn = Instance.new("TextButton", content)
+    fBtn.Size, fBtn.Position, fBtn.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.05, 0, 0, 100), "DisplayFPS(RE)"
+    fBtn.BackgroundColor3, fBtn.TextColor3, fBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,1), 0.7
+    fBtn.MouseButton1Click:Connect(function()
+        pcall(function() setfflag("DebugDisplayFPS", "true") end)
+        game:GetService("TeleportService"):Teleport(game.PlaceId, p)
+    end)
+
+    local sBtn = Instance.new("TextButton", content)
+    sBtn.Size, sBtn.Position, sBtn.Text = UDim2.new(0.42, 0, 0, 40), UDim2.new(0.53, 0, 0, 100), "Missedworld(RE)"
+    sBtn.BackgroundColor3, sBtn.TextColor3, sBtn.BackgroundTransparency = Color3.new(0,0,0), Color3.new(0,1,0), 0.7
+    sBtn.MouseButton1Click:Connect(function()
+        pcall(function() setfflag("MaxMissedWorldStepsRemembered", "2147483467") end)
+        game:GetService("TeleportService"):Teleport(game.PlaceId, p)
+    end)
+
+	-- 配置參數
+    local btnW = 0.22  -- 按鈕寬度
+    local btnH = 35    -- 按鈕高度
+    local gapX = 0.02  -- 橫向間隙
+    local startY = 35  -- 起始 Y 位置
+    local rowGap = 45  -- 每一排的間距 (35 + 10)
+
+    -- 計算 X 位置的函式
+    local function getX(col)
+        return gapX + (col - 1) * (btnW + gapX)
+    end
+
+    -- [[ 第一排 ]]
+
+    -- Zombie (1-1)
+    local zbBtn = Instance.new("TextButton", m) 
+    zbBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    zbBtn.Position = UDim2.new(getX(1), 0, 0, startY) 
+    zbBtn.ZIndex = 10 
+    zbBtn.BackgroundColor3 = Color3.new(0, 0, 0) 
+    zbBtn.BackgroundTransparency = 0.7 
+    zbBtn.Text = "Zombie"
+    zbBtn.TextColor3 = Color3.new(1, 1, 1)
+    zbBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", zbBtn)
+
+    -- Sky (1-2)
+    local skyBtn = Instance.new("TextButton", m)
+    skyBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    skyBtn.Position = UDim2.new(getX(2), 0, 0, startY)
+    skyBtn.ZIndex = 10
+    skyBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    skyBtn.BackgroundTransparency = 0.7
+    skyBtn.Text = "Sky"
+    skyBtn.TextColor3 = Color3.new(1, 1, 1)
+    skyBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", skyBtn)
+
+    -- Bhop (1-3)
+    local bhopBtn = Instance.new("TextButton", m)
+    bhopBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    bhopBtn.Position = UDim2.new(getX(3), 0, 0, startY)
+    bhopBtn.ZIndex = 10
+    bhopBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    bhopBtn.BackgroundTransparency = 0.7
+    bhopBtn.Text = "Bhop"
+    bhopBtn.TextColor3 = Color3.new(1, 1, 1)
+    bhopBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", bhopBtn)
+
+    -- Player (1-4)
+    local playerBtn = Instance.new("TextButton", m)
+    playerBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    playerBtn.Position = UDim2.new(getX(4), 0, 0, startY)
+    playerBtn.ZIndex = 10
+    playerBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    playerBtn.BackgroundTransparency = 0.7
+    playerBtn.Text = "Player"
+    playerBtn.TextColor3 = Color3.new(1, 1, 1)
+    playerBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", playerBtn)
+
+    -- [[ 第二排 ]]
+
+    -- Edge (2-1)
+    local edgeBtn = Instance.new("TextButton", m)
+    edgeBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    edgeBtn.Position = UDim2.new(getX(1), 0, 0, startY + rowGap)
+    edgeBtn.ZIndex = 10
+    edgeBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    edgeBtn.BackgroundTransparency = 0.7
+    edgeBtn.Text = "Edge"
+    edgeBtn.TextColor3 = Color3.new(1, 1, 1)
+    edgeBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", edgeBtn)
+
+    -- Grey Fog (2-2)
+    local fogBtn = Instance.new("TextButton", m)
+    fogBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    fogBtn.Position = UDim2.new(getX(2), 0, 0, startY + rowGap)
+    fogBtn.ZIndex = 10
+    fogBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    fogBtn.BackgroundTransparency = 0.7
+    fogBtn.Text = "Grey Fog"
+    fogBtn.TextColor3 = Color3.new(1, 1, 1)
+    fogBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", fogBtn)
+
+    -- Remove (2-3)
+    local removeBtn = Instance.new("TextButton", m)
+    removeBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    removeBtn.Position = UDim2.new(getX(3), 0, 0, startY + rowGap)
+    removeBtn.ZIndex = 10
+    removeBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    removeBtn.BackgroundTransparency = 0.7
+    removeBtn.Text = "Remove"
+    removeBtn.TextColor3 = Color3.new(1, 1, 1)
+    removeBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", removeBtn)
+
+    -- Headless (2-4) -> 移到第二排最後一格
+    local headlessBtn = Instance.new("TextButton", m)
+    headlessBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    headlessBtn.Position = UDim2.new(getX(4), 0, 0, startY + rowGap) -- 這裡改成了 getX(4)
+    headlessBtn.ZIndex = 10
+    headlessBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    headlessBtn.BackgroundTransparency = 0.7
+    headlessBtn.Text = "Headless"
+    headlessBtn.TextColor3 = Color3.new(1, 1, 1)
+    headlessBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", headlessBtn)
+
+    -- [[ 第三排 ]]
+
+    -- Left Korblox (3-1)
+    local leftKBtn = Instance.new("TextButton", m)
+    leftKBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    leftKBtn.Position = UDim2.new(getX(1), 0, 0, startY + rowGap * 2) -- 換到第 1 欄
+    leftKBtn.ZIndex = 10
+    leftKBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    leftKBtn.BackgroundTransparency = 0.7
+    leftKBtn.Text = "Left Korblox"
+    leftKBtn.TextColor3 = Color3.new(1, 1, 1)
+    leftKBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", leftKBtn)
+
+    -- Right Korblox (3-2)
+    local rightKBtn = Instance.new("TextButton", m)
+    rightKBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    rightKBtn.Position = UDim2.new(getX(2), 0, 0, startY + rowGap * 2) -- 換到第 2 欄
+    rightKBtn.ZIndex = 10
+    rightKBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    rightKBtn.BackgroundTransparency = 0.7
+    rightKBtn.Text = "Right Korblox"
+    rightKBtn.TextColor3 = Color3.new(1, 1, 1)
+    rightKBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", rightKBtn)
+
+	-- [NEW] Renamer (3-3)
+    local renamerBtn = Instance.new("TextButton", m)
+    renamerBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    renamerBtn.Position = UDim2.new(getX(3), 0, 0, startY + rowGap * 2)
+    renamerBtn.ZIndex = 10
+    renamerBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    renamerBtn.BackgroundTransparency = 0.7
+    renamerBtn.Text = "Renamer"
+    renamerBtn.TextColor3 = Color3.new(1, 1, 1)
+    renamerBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", renamerBtn)
+
+
+	-- [[ 第四排 ]]
+    
+    -- [NEW] Time Control (4-1)
+    local timeCtrlBtn = Instance.new("TextButton", m)
+    timeCtrlBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    timeCtrlBtn.Position = UDim2.new(getX(4), 0, 0, startY + rowGap * 2) -- 第 4 排，Y增加 rowGap * 3
+    timeCtrlBtn.ZIndex = 10
+    timeCtrlBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    timeCtrlBtn.BackgroundTransparency = 0.7
+    timeCtrlBtn.Text = "Time Ctrl" -- 可以自行修改文字
+    timeCtrlBtn.TextColor3 = Color3.new(1, 1, 1)
+    timeCtrlBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", timeCtrlBtn)
+
+	-- [[ 第四排擴充 ]]
+
+	-- [NEW] JumpCap TextBox (4-2)
+    local capBox = Instance.new("TextBox", m)
+    capBox.Size = UDim2.new(btnW, 0, 0, btnH)
+    capBox.Position = UDim2.new(getX(2), 0, 0, startY + rowGap * 3)
+    capBox.ZIndex = 10
+    capBox.BackgroundColor3 = Color3.new(0, 0, 0) -- 改為黑色
+    capBox.BackgroundTransparency = 0.7 -- 統一透明度
+    capBox.Text = tostring(_G.JumpCap or 2)
+    capBox.PlaceholderText = "Cap..."
+    capBox.TextColor3 = Color3.new(1, 1, 1) -- 改回白色
+    capBox.Visible = not _G.isMinimized
+    Instance.new("UICorner", capBox)
+
+    -- [NEW] JumpCap Execute Button (4-3)
+    local capExBtn = Instance.new("TextButton", m)
+    capExBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    capExBtn.Position = UDim2.new(getX(1), 0, 0, startY + rowGap * 3)
+    capExBtn.ZIndex = 10
+    capExBtn.BackgroundColor3 = Color3.new(0, 0, 0) -- 改為黑色
+    capExBtn.BackgroundTransparency = 0.7 -- 統一透明度
+    capExBtn.Text = "Jump cap"
+    capExBtn.TextColor3 = Color3.new(1, 1, 1)
+    capExBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", capExBtn)
+
+	-- [NEW] Recorder Button (4-3)
+    local recorderBtn = Instance.new("TextButton", m)
+    recorderBtn.Size = UDim2.new(btnW, 0, 0, btnH)
+    recorderBtn.Position = UDim2.new(getX(3), 0, 0, startY + rowGap * 3) -- 放在第四排的第3欄
+    recorderBtn.ZIndex = 10
+    recorderBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    recorderBtn.BackgroundTransparency = 0.7
+    recorderBtn.Text = "Recorder"
+    recorderBtn.TextColor3 = Color3.new(1, 1, 1)
+    recorderBtn.Visible = not _G.isMinimized
+    Instance.new("UICorner", recorderBtn)
+
+	-- [[ 2. 狀態樣式更新函式 (用來變更按鈕外觀) ]]
+    local function updateOneTimeButtons()
+        -- Headless 狀態
+        if _G.headlessClicked then
+            headlessBtn.Text = "DONE"
+            headlessBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5) -- 變灰色
+        else
+            headlessBtn.Text = "Headless"
+            headlessBtn.TextColor3 = Color3.new(1, 1, 1)
+        end
+
+        -- Right Korblox 狀態
+        if _G.rightKClicked then
+            rightKBtn.Text = "DONE"
+            rightKBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5)
+        else
+            rightKBtn.Text = "Right Korblox"
+            rightKBtn.TextColor3 = Color3.new(1, 1, 1)
+        end
+
+        -- Left Korblox 狀態
+        if _G.leftKClicked then
+            leftKBtn.Text = "DONE"
+            leftKBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5)
+        else
+            leftKBtn.Text = "Left Korblox"
+            leftKBtn.TextColor3 = Color3.new(1, 1, 1)
+        end
+    end
+    
+    -- 初始化執行一次，確保按鈕顯示正確的狀態
+    updateOneTimeButtons()
+
+    -- 狀態文字初始化
+    local function updateZbStyle()
+        if _G.zbClickCount == 0 then zbBtn.Text = "Zombie"
+        elseif _G.zbClickCount == 1 then zbBtn.Text = "Violin"
+        else zbBtn.Text = "DONE" zbBtn.TextColor3 = Color3.new(0.5, 0.5, 0.5) end
+    end
+    updateZbStyle()
+
+    local function updateSkyStyle()
+        skyBtn.Text = _G.skyEnabled and "Sky: ON" or "Sky: OFF"
+        skyBtn.TextColor3 = _G.skyEnabled and Color3.new(0, 1, 0) or Color3.new(1, 1, 1)
+    end
+    updateSkyStyle()
+
+    -- 點擊事件
+    zbBtn.MouseButton1Click:Connect(function()
+        if _G.zbClickCount >= 2 then return end 
+        _G.zbClickCount = _G.zbClickCount + 1
+        if _G.zbClickCount == 1 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/zb"))() end)
+        elseif _G.zbClickCount == 2 then
+            pcall(function() game:GetService("ReplicatedStorage").Items.Emotes.DeadBoneStride.Name = "SwagWalk" end)
+            task.spawn(startSwagMusic)
+        end
+        updateZbStyle()
+    end)
+
+    if _G.skyState == nil then _G.skyState = 0 end
+
+    skyBtn.MouseButton1Click:Connect(function()
+        if _G.skyState == 1 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/blackhole"))() end)
+        elseif _G.skyState == 2 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MilkyWay"))() end)
+        elseif _G.skyState == 3 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Jupiter"))() end)
+        elseif _G.skyState == 4 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/universe"))() end)
+        elseif _G.skyState == 5 then
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/SUN"))() end)
+        end
+
+        _G.skyState = (_G.skyState + 1) % 6
+
+        if _G.skyState == 0 then
+            _G.skyEnabled = false
+        elseif _G.skyState == 1 then
+            _G.skyEnabled = true
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/blackhole"))() end)
+        elseif _G.skyState == 2 then
+            _G.skyEnabled = true
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MilkyWay"))() end)
+        elseif _G.skyState == 3 then
+            _G.skyEnabled = true
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Jupiter"))() end)
+        elseif _G.skyState == 4 then
+            _G.skyEnabled = true
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/universe"))() end)
+        elseif _G.skyState == 5 then
+            _G.skyEnabled = true
+            pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/SUN"))() end)
+        end
+
+        if updateSkyStyle then updateSkyStyle() end
+    end)
+
+    playerBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://pastebin.com/raw/SnPNQGSf"))() end)
+    end)
+
+	bhopBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/MAJ"))() end)
+    end)
+
+	edgeBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/edge"))() end)
+    end)
+
+	fogBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/GREYFOG"))() end)
+    end)
+
+	removeBtn.MouseButton1Click:Connect(function()
+		pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/removeinvwall"))() end)
+	end)
+
+    timeCtrlBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/timecontrol"))() end)
+    end)
+
+	-- [[ 點擊事件新增 ]]
+    -- [[ 3. 修改後的點擊事件 ]]
+
+    headlessBtn.MouseButton1Click:Connect(function()
+        if _G.headlessClicked then return end -- 如果按過，直接結束
+        _G.headlessClicked = true             -- 標記為已按過
+        
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/headless"))() end)
+        
+        updateOneTimeButtons() -- 更新按鈕外觀
+    end)
+
+    rightKBtn.MouseButton1Click:Connect(function()
+        if _G.rightKClicked then return end
+        _G.rightKClicked = true
+        
+        -- Right 對應 bestkorblox
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/bestkorblox"))() end)
+        
+        updateOneTimeButtons()
+    end)
+
+    leftKBtn.MouseButton1Click:Connect(function()
+        if _G.leftKClicked then return end
+        _G.leftKClicked = true
+        
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/leftkorblox"))() end)
+        
+        updateOneTimeButtons()
+    end)
+
+	-- [NEW] Renamer Click Event
+    renamerBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Renamer"))() end)
+    end)
+
+	-- [[ 點擊與輸入事件 ]]
+
+    capExBtn.MouseButton1Click:Connect(function()
+        -- 1. 獲取文字盒內容並轉換為數字
+        local num = tonumber(capBox.Text)
+        
+        -- 2. 更新全域變數 (即便這次是為了關閉，先更新也無妨，下次開啟就會用到)
+        if num then
+            _G.JumpCap = num
+        end
+
+        -- 3. 官方 SendNotification (告知觸發動作)
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Jump System",
+            Text = "Triggering Toggle...", -- 正在切換狀態
+            Duration = 1.5
+        })
+
+        pcall(function() 
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/jumpcap"))() 
+        end)
+        
+        if not num then
+            capBox.Text = tostring(_G.JumpCap or 2)
+        end
+    end)
+
+	-- [NEW] Recorder Click Event
+    recorderBtn.MouseButton1Click:Connect(function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/recorder"))() end)
+    end)
+
+    minBtn.MouseButton1Click:Connect(function()
+        _G.isMinimized = not _G.isMinimized
+        m.Size = _G.isMinimized and UDim2.new(0, 100, 0, 30) or UDim2.new(0, 400, 0, 430)
+        bg.Visible = not _G.isMinimized
+        content.Visible = not _G.isMinimized
+        zbBtn.Visible = not _G.isMinimized
+        skyBtn.Visible = not _G.isMinimized
+        playerBtn.Visible = not _G.isMinimized
+		bhopBtn.Visible = not _G.isMinimized
+		edgeBtn.Visible = not _G.isMinimized
+		fogBtn.Visible = not _G.isMinimized
+		removeBtn.Visible = not _G.isMinimized
+		headlessBtn.Visible = not _G.isMinimized
+        rightKBtn.Visible = not _G.isMinimized
+        leftKBtn.Visible = not _G.isMinimized
+		renamerBtn.Visible = not _G.isMinimized
+		timeCtrlBtn.Visible = not _G.isMinimized
+		capBox.Visible = not _G.isMinimized
+        capExBtn.Visible = not _G.isMinimized
+		recorderBtn.Visible = not _G.isMinimized
+        minBtn.Text = _G.isMinimized and "+" or "-"
+    end)
+end
+
+-- [[ 全局核心邏輯 ]]
+local UIS = game:GetService("UserInputService")
+local p = game:GetService("Players").LocalPlayer
+
+local function ensureUI()
+    if not p.PlayerGui:FindFirstChild("E5_Console") then
+        createUI()
+    end
+end
+
+ensureUI()
+p.CharacterAdded:Connect(function()
+    task.wait(1) 
+    ensureUI()
+end)
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Enum.KeyCode.Insert then
+        ensureUI()
+    end
+end)
+
+-- [[ 🔄 角色處理：確保重生後無頭與斷腳持續生效 ]]
+local function run(c)
+    if not c then return end
+    
+    -- 1. 處理 UI 控制台 (如果是本地玩家自己)
+    local charPlayer = Players:GetPlayerFromCharacter(c)
+    if charPlayer == lp then
+        task.spawn(function()
+            local gui = lp:WaitForChild("PlayerGui", 10)
+            -- 這裡建議增加檢查 E5_Console 是否存在的邏輯
+            local console = gui:WaitForChild("E5_Console", 5)
+            if console then 
+                console.Enabled = true 
+            end
+        end)
+    end
+end
+
+-- [[ 🚀 角色監控系統 (全服適用) ]]
+local function monitor(plr)
+    -- 監聽該玩家未來每一次的重生 (CharacterAdded)
+    plr.CharacterAdded:Connect(function(char)
+        run(char)
+    end)
+    
+    -- 如果該玩家目前已經在場上，立即執行一次
+    if plr.Character then 
+        task.spawn(run, plr.Character) 
+    end
+end
