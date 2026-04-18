@@ -1,3 +1,27 @@
+-- [[ 📥 核心變數初始化 ]]
+_G.fKN = _G.fKN or "PageDown"           
+_G.freezeMS = _G.freezeMS or 300      
+_G.isMinimized = _G.isMinimized or false 
+_G.toggleKey = _G.toggleKey or Enum.KeyCode.R
+_G.spinSpeed = _G.spinSpeed or 10
+_G.freeze = false
+
+local p = game:GetService("Players").LocalPlayer
+local UIS = game:GetService("UserInputService")
+local SG = game:GetService("StarterGui")
+local VIM = game:GetService("VirtualInputManager")
+local RS = game:GetService("RunService")
+local VU = game:GetService("VirtualUser")
+local Cam = workspace.CurrentCamera
+local DC_CODE = "PZcXtUk9Sf"
+local DC_URL = "https://discord.gg/" .. DC_CODE
+local BG_IMAGE_ID = "rbxassetid://117164248667049"
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local isPressing = false
+
 -- [[ 1. 將計數器放在最外面，確保死亡不重置 ]]
 _G.zbClickCount = _G.zbClickCount or 0 
 _G.skyEnabled = _G.skyEnabled or false -- 新增 Sky 狀態追蹤
