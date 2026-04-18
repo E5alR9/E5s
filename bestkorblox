@@ -72,7 +72,7 @@ local function applyTargetColor(char)
                 if rLeg.Color ~= K_COLOR then 
                     rLeg.Color = K_COLOR 
                 end
-                task.wait(1)
+                task.wait()
             end
         end)
     end
@@ -86,7 +86,7 @@ local function setupPlayer(player)
     
     -- 2. 監聽重生，並存入 _G.KorbloxConnections 以便未來關閉
     local conn = player.CharacterAdded:Connect(function(c)
-        task.wait(0.5)
+        task.wait()
         applyTargetColor(c)
     end)
     table.insert(_G.KorbloxConnections, conn)
