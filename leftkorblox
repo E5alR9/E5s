@@ -1,63 +1,105 @@
 local Players = game:GetService("Players")
 
--- [[ 根據你提供的左腿數據進行修正 ]]
-local K_LEFT_MESH_ID = 101851582 -- 正確的左腿 Mesh ID
-local K_OVERLAY_ID = 101851254
--- 圖片中的顏色帶有明顯的青藍色調 (Teal/Dark Cyan)
+-- 改為 "rbxassetid://" 格式以符合 SpecialMesh 的讀取要求
+local K_LEFT_MESH_ID = "rbxassetid://101851582"
+local K_TEXTURE_ID = "rbxassetid://101851254"
 local K_COLOR = Color3.fromRGB(38, 65, 68) 
 
+-- ==========================================
+-- 狀態管理與切換邏輯
+-- ==========================================
+
+-- 初始化全局變數 (左腿專用，避免與右腿腳本衝突)
+if _G.KorbloxLeftEnabled == nil then
+    _G.KorbloxLeftEnabled = false
+end
+_G.KorbloxLeftConnections = _G.KorbloxLeftConnections or {}
+
+-- 切換開關狀態
+_G.KorbloxLeftEnabled = not _G.KorbloxLeftEnabled
+
+-- 清理舊的監聽器 (避免重複執行導致效能問題)
+for _, conn in ipairs(_G.KorbloxLeftConnections) do
+    if conn.Connected then
+        conn:Disconnect()
+    end
+end
+table.clear(_G.KorbloxLeftConnections)
+
+-- 如果狀態是關閉，印出提示並停止執行後續代碼
+if not _G.KorbloxLeftEnabled then
+    print("🔴 冰魔左腿效果：已關閉 (下次死亡重生後腿部將恢復原狀)")
+    return
+end
+
+print("🟢 冰魔左腿效果：已開啟 (每次重生都會持續套用)")
+
+-- ==========================================
+-- 核心功能
+-- ==========================================
+
 local function applyTargetColor(char)
-    if not char then return end
+    if not char or not _G.KorbloxLeftEnabled then return end
 
-    -- 1. 使用 CharacterMesh 套用在左腿 (LeftLeg)
-    local lLegMesh = char:FindFirstChild("KorbloxLeftMesh") or Instance.new("CharacterMesh")
-    lLegMesh.Name = "KorbloxLeftMesh"
-    lLegMesh.BodyPart = Enum.BodyPart.LeftLeg -- 確保指向左腿
-    lLegMesh.MeshId = K_LEFT_MESH_ID
-    lLegMesh.BaseTextureId = 0
-    lLegMesh.OverlayTextureId = K_OVERLAY_ID
-    lLegMesh.Parent = char
-
-    -- 2. 微調左腿零件的材質與顏色
     local lLeg = char:WaitForChild("Left Leg", 5)
-    if lLeg then
-        -- 移除任何會干擾外觀的 SpecialMesh 或貼圖
-        for _, v in ipairs(lLeg:GetChildren()) do
-            if v:IsA("SpecialMesh") or v:IsA("Decal") then 
-                v:Destroy() 
+    if lLeg and _G.KorbloxLeftEnabled then
+        -- 1. 清理原版的 CharacterMesh，避免與 SpecialMesh 衝突
+        for _, v in ipairs(char:GetChildren()) do
+            if v:IsA("CharacterMesh") and v.BodyPart == Enum.BodyPart.LeftLeg then
+                v:Destroy()
             end
         end
 
+        -- 2. 使用 SpecialMesh 替換 ID
+        local mesh = lLeg:FindFirstChildOfClass("SpecialMesh")
+        if not mesh then
+            mesh = Instance.new("SpecialMesh", lLeg)
+            mesh.Name = "KorbloxLeftMesh"
+        end
+
+        mesh.MeshId = K_LEFT_MESH_ID
+        mesh.TextureId = K_TEXTURE_ID
+        mesh.Scale = Vector3.new(1, 1, 1)
+
+        -- 3. 微調左腿零件的材質與顏色
         lLeg.Color = K_COLOR
         lLeg.Transparency = 0
-        -- 使用 Plastic 或 Neon (若需要發光感可改為 Enum.Material.Neon)
         lLeg.Material = Enum.Material.Plastic 
         
-        -- 強力鎖定，防止被遊戲或服裝系統改回顏色
+        -- 強力鎖定，防止被遊戲改回皮膚色
         task.spawn(function()
-            while char and char.Parent and lLeg.Parent do
+            -- 【關鍵】加上 _G.KorbloxLeftEnabled 判斷，關閉時終止迴圈
+            while char and char.Parent and lLeg.Parent and _G.KorbloxLeftEnabled do
                 if lLeg.Color ~= K_COLOR then 
                     lLeg.Color = K_COLOR 
                 end
-                task.wait(1)
+                task.wait()
             end
         end)
     end
 end
 
--- 全服套用邏輯
-local function onPlayerAdded(p)
-    p.CharacterAdded:Connect(function(c)
-        task.wait(0.5) -- 等待零件生成
+local function setupPlayer(player)
+    -- 1. 當前已存在角色直接套用
+    if player.Character then
+        task.spawn(applyTargetColor, player.Character)
+    end
+    
+    -- 2. 監聽重生，並存入 _G.KorbloxLeftConnections 以便未來關閉
+    local conn = player.CharacterAdded:Connect(function(c)
+        task.wait()
         applyTargetColor(c)
     end)
-    if p.Character then 
-        task.spawn(applyTargetColor, p.Character) 
-    end
+    table.insert(_G.KorbloxLeftConnections, conn)
 end
 
--- 初始化現有玩家與新玩家
+-- ==========================================
+-- 啟動執行邏輯
+-- ==========================================
+
 for _, p in pairs(Players:GetPlayers()) do
-    onPlayerAdded(p)
+    setupPlayer(p)
 end
-Players.PlayerAdded:Connect(onPlayerAdded)
+
+local playerAddedConn = Players.PlayerAdded:Connect(setupPlayer)
+table.insert(_G.KorbloxLeftConnections, playerAddedConn)
