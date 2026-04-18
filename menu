@@ -21,13 +21,8 @@ local lp = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local isPressing = false
-
--- [[ 📥 核心變數初始化 ]]
-_G.isMinimized = _G.isMinimized or false 
-local p = game:GetService("Players").LocalPlayer
-local UIS = game:GetService("UserInputService")
 local TS = game:GetService("TweenService") -- 🎬 引入 TweenService 用來做動畫
-local BG_IMAGE_ID = "rbxassetid://117164248667049"
+
 
 -- [[ 🖥️ 介面處理核心 - 動畫升級版 ]]
 local function createUI()
@@ -539,7 +534,3 @@ UIS.InputBegan:Connect(function(input, gpe)
         end
     end
 end)
-    if plr.Character then 
-        task.spawn(run, plr.Character) 
-    end
-end
