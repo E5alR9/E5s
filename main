@@ -935,8 +935,8 @@ RS.Heartbeat:Connect(function()
         op.FilterDescendantsInstances = {c}
         op.FilterType = Enum.RaycastFilterType.Exclude
 
-        -- 判定：以玩家為中心，半徑 50 單位為範圍的球形偵測
-        if #workspace:GetPartBoundsInRadius(r.Position, 50, op) > 0 then
+        -- 判定：以玩家為中心，動態半徑範圍 (_G.freezeRadius) 的球形偵測
+            if #workspace:GetPartBoundsInRadius(r.Position, _G.freezeRadius, op) > 0 then
             
             -- 跳出 UI 通知
             game:GetService("StarterGui"):SetCore("SendNotification", { 
