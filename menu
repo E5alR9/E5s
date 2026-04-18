@@ -546,6 +546,86 @@ local function createUI()
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/oldmenu"))() end)
     end)
 
+	-- 初始化 Sky ID
+    _G.skyid = _G.skyid or 600886010 
+
+    -- 1. 提前宣告變數，確保按鈕能讀取到
+    local skyIdBox 
+
+    -- 2. 先建立按鈕 (排版會在左邊/前面)
+    createButton(pageEntertain, "skybox", function()
+        -- 確保 skyIdBox 已經被建立後才讀取
+        local num = skyIdBox and tonumber(skyIdBox.Text)
+        
+        -- 💡 這裡修正了！將輸入的數字正確存入 _G.skyid
+        if num then
+            _G.skyid = num
+        end
+
+        -- 執行替換天空盒的腳本
+        pcall(function() 
+            local Lighting = game:GetService("Lighting")
+
+            if not _G.skyid then
+                warn("錯誤：_G.skyid 尚未設定！")
+                return
+            end
+
+            -- 處理 ID 格式 (確保帶有 rbxassetid:// 前綴)
+            local skyIdStr = tostring(_G.skyid)
+            if not string.match(skyIdStr, "^rbxassetid://") then
+                skyIdStr = "rbxassetid://" .. skyIdStr
+            end
+
+            -- 尋找 Lighting 中現有的 Sky 物件
+            local sky = Lighting:FindFirstChildOfClass("Sky")
+
+            -- 如果找不到現有的 Sky 物件，就建立一個新的
+            if not sky then
+                sky = Instance.new("Sky")
+                sky.Name = "CustomSkybox"
+                sky.Parent = Lighting
+            end
+
+            -- 替換天空盒的 6 個面的 ID
+            sky.SkyboxBk = skyIdStr -- 後
+            sky.SkyboxDn = skyIdStr -- 下
+            sky.SkyboxFt = skyIdStr -- 前
+            sky.SkyboxLf = skyIdStr -- 左
+            sky.SkyboxRt = skyIdStr -- 右
+            sky.SkyboxUp = skyIdStr -- 上
+        end)
+        
+        -- 如果玩家輸入錯誤格式，點擊按鈕時幫他恢復成有效數字
+        if not num and skyIdBox then
+            skyIdBox.Text = tostring(_G.skyid)
+        end
+    end)
+
+    -- 3. 後建立輸入框 (排版會在按鈕的右邊/後面)
+    skyIdBox = Instance.new("TextBox", pageEntertain)
+    skyIdBox.Size = UDim2.new(1, -10, 0, 40)
+    skyIdBox.Text = tostring(_G.skyid)
+    skyIdBox.PlaceholderText = "ID..."
+    
+    -- 🎨 外觀設定 (青色字體)
+    skyIdBox.BackgroundColor3, skyIdBox.TextColor3 = Color3.new(0,0,0), Color3.new(0,1,1)
+    skyIdBox.BackgroundTransparency = 0.7
+    skyIdBox.Font, skyIdBox.TextSize = Enum.Font.Gotham, 14
+    Instance.new("UICorner", skyIdBox).CornerRadius = UDim.new(0, 4)
+
+    -- 4. 當玩家輸入完畢並點擊外面時觸發
+    skyIdBox.FocusLost:Connect(function()
+        local val = tonumber(skyIdBox.Text)
+        if val then 
+            _G.skyid = val 
+        else 
+            skyIdBox.Text = tostring(_G.skyid) 
+        end
+    end)
+
+
+
 
     -- ==========================================
     -- 初始化：預設開啟第一個分頁
