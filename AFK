@@ -57,12 +57,9 @@ end)
 -- 1. 載入外部腳本 (EvadeEvent & E5s)
 -----------------------------------------------------------
 task.spawn(function()
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/EvadeEvent"))()
-    end)
+    
     pcall(function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/script.txt"))()
-        pcall(loadstring(game:HttpGet('https://raw.githubusercontent.com/zReal-King/Evade/main/Main.lua')))
     end)
 end)
 
