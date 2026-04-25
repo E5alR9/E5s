@@ -2,6 +2,9 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -516,11 +519,16 @@ task.spawn(function()
     end
 end)
 
+-- ==========================
 -- 🛡️ 玩家保護與傳送邏輯 (不變)
+-- ==========================
 task.spawn(function()
     while true do
         task.wait(5)
         pcall(function()
+            -- 【唯一加入的限制】如果正在忙(吃東西/躲鬼)，就不要強制拉回平台
+            if _G.IsBusy then return end 
+            
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             if root then
@@ -1288,8 +1296,213 @@ task.spawn(function()
 end)
 
 
+-- =============================================
+--  event 
+-- =============================================
+-- ==========================
+-- 參數設定 (請確保這些參數與你的平台設定一致)
+-- ==========================
 
 
+local DANGER_RADIUS = 40    -- 【危險距離】距離鬼小於 40 步視為危險
+local EVADE_DISTANCE = 100  -- 【逃跑距離】緊急迴避時，往反方向飛 100 步
+
+-- 啟動/關閉開關
+if _G.AutoFarmActive then
+    _G.AutoFarmActive = false
+    print("🔴 已停止：全自動收集")
+    return 
+end
+
+_G.AutoFarmActive = true
+_G.IsBusy = false -- 忙碌狀態標記
+print("🟢 已開啟：極速傳送 (完美整合你的保護邏輯)")
+
+-- ==========================
+-- 工具函式
+-- ==========================
+local function getObjInfo(item)
+    if not item then return nil, nil end
+    if item:IsA("BasePart") then
+        return item.CFrame, item.Position
+    elseif item:IsA("Model") and item.PrimaryPart then
+        return item.PrimaryPart.CFrame, item.PrimaryPart.Position
+    end
+    return nil, nil
+end
+
+local function getActiveAIs(gamePlayersFolder)
+    local ais = {}
+    if gamePlayersFolder then
+        for _, item in ipairs(gamePlayersFolder:GetChildren()) do
+            if item:FindFirstChild("Hitbox") then
+                local _, pos = getObjInfo(item)
+                if pos then table.insert(ais, pos) end
+            end
+        end
+    end
+    return ais
+end
+
+local function isSafe(targetPos, ais)
+    if not targetPos then return false end
+    for _, aiPos in ipairs(ais) do
+        if (targetPos - aiPos).Magnitude < DANGER_RADIUS then
+            return false
+        end
+    end
+    return true
+end
+
+local function getNearestAIPos(currentPos, ais)
+    local nearestPos = nil
+    local minDist = math.huge
+    for _, aiPos in ipairs(ais) do
+        local dist = (currentPos - aiPos).Magnitude
+        if dist < minDist then
+            minDist = dist
+            nearestPos = aiPos
+        end
+    end
+    return nearestPos
+end
+
+local function emergencyEvade(rootPart, currentPos, ais)
+    local nearestAIPos = getNearestAIPos(currentPos, ais)
+    local escapePos = currentPos
+    
+    if nearestAIPos then
+        local direction = currentPos - nearestAIPos
+        if direction.Magnitude < 0.1 then
+            direction = Vector3.new(math.random(-10, 10), 0, math.random(-10, 10))
+        end
+        escapePos = currentPos + (direction.Unit * EVADE_DISTANCE)
+    else
+        local randomDir = CFrame.Angles(0, math.rad(math.random(0, 360)), 0).LookVector
+        escapePos = currentPos + (randomDir * EVADE_DISTANCE)
+    end
+    
+    local origin = escapePos + Vector3.new(0, 100, 0)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {player.Character}
+    
+    local result = workspace:Raycast(origin, Vector3.new(0, -300, 0), params)
+    
+    if result and result.Instance.CanCollide then
+        rootPart.CFrame = CFrame.new(result.Position + Vector3.new(0, 4, 0))
+    else
+        rootPart.CFrame = CFrame.new(origin)
+    end
+    print("⚠️ 觸發迴避！已往反方向飛 " .. EVADE_DISTANCE .. " 步！")
+end
+
+local function collectSingleItem(rootPart, item, gamePlayersFolder)
+    if not item or not item.Parent then return end
+    
+    while item.Parent and _G.AutoFarmActive do
+        local currentCFrame, currentPos = getObjInfo(item)
+        if not currentCFrame then break end
+        
+        local ais = getActiveAIs(gamePlayersFolder)
+        if not isSafe(rootPart.Position, ais) then
+            break 
+        end
+        
+        rootPart.CFrame = currentCFrame
+        task.wait() 
+    end
+end
+
+-- ==========================
+-- 🏃 主程序：自動收集與防鬼
+-- ==========================
+task.spawn(function()
+    while _G.AutoFarmActive do
+        _G.IsBusy = false 
+        
+        local character = player.Character
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        
+        if rootPart then
+            local gameFolder = workspace:FindFirstChild("Game")
+            local gamePlayersFolder = gameFolder and gameFolder:FindFirstChild("Players")
+            
+            if gameFolder then
+                local ais = getActiveAIs(gamePlayersFolder)
+                local myPos = rootPart.Position
+                
+                if not isSafe(myPos, ais) then
+                    _G.IsBusy = true 
+                    emergencyEvade(rootPart, myPos, ais)
+                    task.wait(1) 
+                    continue 
+                end
+                
+                local allTargets = {}
+                local effectsFolder = gameFolder:FindFirstChild("Effects")
+                local ticketsFolder = effectsFolder and effectsFolder:FindFirstChild("Tickets")
+                
+                if ticketsFolder then
+                    for _, item in ipairs(ticketsFolder:GetChildren()) do
+                        table.insert(allTargets, item)
+                    end
+                end
+                
+                if gamePlayersFolder then
+                    for _, item in ipairs(gamePlayersFolder:GetChildren()) do
+                        local isRealPlayer = Players:GetPlayerFromCharacter(item)
+                        local isAI = item:FindFirstChild("Hitbox")
+                        if not isRealPlayer and not isAI then
+                            table.insert(allTargets, item)
+                        end
+                    end
+                end
+                
+                local safeTargets = {}
+                local guardedTargets = {}
+                
+                for _, target in ipairs(allTargets) do
+                    local _, targetPos = getObjInfo(target)
+                    if targetPos then
+                        if isSafe(targetPos, ais) then
+                            table.insert(safeTargets, target)
+                        else
+                            table.insert(guardedTargets, target)
+                        end
+                    end
+                end
+                
+                if #safeTargets > 0 then
+                    _G.IsBusy = true 
+                    local randomTarget = safeTargets[math.random(1, #safeTargets)]
+                    collectSingleItem(rootPart, randomTarget, gamePlayersFolder)
+                    
+                elseif #guardedTargets > 0 then
+                    _G.IsBusy = true 
+                    local _, targetPos = getObjInfo(guardedTargets[1])
+                    
+                    if targetPos then
+                        emergencyEvade(rootPart, targetPos, ais)
+                        
+                        local waitTicks = 15
+                        while waitTicks > 0 and _G.AutoFarmActive do
+                            if not isSafe(rootPart.Position, getActiveAIs(gamePlayersFolder)) then
+                                break 
+                            end
+                            task.wait(0.1)
+                            waitTicks = waitTicks - 1
+                        end
+                    end
+                end
+            end
+        else
+            task.wait(1)
+        end
+        
+        task.wait() 
+    end
+end)
 
 -----------------------------------------------------------
 print([[                                                
