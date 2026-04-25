@@ -4,6 +4,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
+local player = LocalPlayer
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -1315,12 +1316,38 @@ if _G.AutoFarmActive then
 end
 
 _G.AutoFarmActive = true
-_G.IsBusy = false -- 忙碌狀態標記
-print("🟢 已開啟：極速傳送 (完美整合你的保護邏輯)")
+_G.IsBusy = false 
+print("🟢 已開啟：極速傳送 (已啟用 SafeZones 全範圍禁傳限制)")
 
 -- ==========================
 -- 工具函式
 -- ==========================
+
+-- 檢查位置是否在「任何一個 SafeZone」裡面
+local function isInsideForbiddenZone(pos)
+    local isForbidden = false
+    pcall(function()
+        local safeZonesFolder = workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Map") and workspace.Game.Map:FindFirstChild("SafeZones")
+        
+        if safeZonesFolder then
+            -- 檢查資料夾內所有的 Part
+            for _, zone in ipairs(safeZonesFolder:GetChildren()) do
+                if zone:IsA("BasePart") then
+                    local localPos = zone.CFrame:PointToObjectSpace(pos)
+                    -- 判斷座標是否在該 Part 的體積內
+                    if math.abs(localPos.X) <= (zone.Size.X / 2) and
+                       math.abs(localPos.Y) <= (zone.Size.Y / 2) and
+                       math.abs(localPos.Z) <= (zone.Size.Z / 2) then
+                        isForbidden = true
+                        break 
+                    end
+                end
+            end
+        end
+    end)
+    return isForbidden
+end
+
 local function getObjInfo(item)
     if not item then return nil, nil end
     if item:IsA("BasePart") then
@@ -1346,11 +1373,18 @@ end
 
 local function isSafe(targetPos, ais)
     if not targetPos then return false end
+    -- 同時檢查：1. 附近沒鬼 2. 不在無獎勵禁區內
     for _, aiPos in ipairs(ais) do
         if (targetPos - aiPos).Magnitude < DANGER_RADIUS then
             return false
         end
     end
+    
+    -- 如果在禁區內，即便沒鬼也視為「不安全/不值得去」
+    if isInsideForbiddenZone(targetPos) then
+        return false
+    end
+    
     return true
 end
 
@@ -1367,22 +1401,38 @@ local function getNearestAIPos(currentPos, ais)
     return nearestPos
 end
 
+-- 緊急迴避：確保逃跑點既沒鬼、也不是禁區
 local function emergencyEvade(rootPart, currentPos, ais)
     local nearestAIPos = getNearestAIPos(currentPos, ais)
-    local escapePos = currentPos
+    local direction
     
     if nearestAIPos then
-        local direction = currentPos - nearestAIPos
-        if direction.Magnitude < 0.1 then
-            direction = Vector3.new(math.random(-10, 10), 0, math.random(-10, 10))
-        end
-        escapePos = currentPos + (direction.Unit * EVADE_DISTANCE)
+        direction = (currentPos - nearestAIPos).Unit
     else
-        local randomDir = CFrame.Angles(0, math.rad(math.random(0, 360)), 0).LookVector
-        escapePos = currentPos + (randomDir * EVADE_DISTANCE)
+        direction = CFrame.Angles(0, math.rad(math.random(0, 360)), 0).LookVector
     end
     
-    local origin = escapePos + Vector3.new(0, 100, 0)
+    local finalTargetPos = nil
+    
+    -- 嘗試 12 個不同的角度 (每次旋轉 30 度) 來找一個非禁區的落腳點
+    for i = 0, 11 do
+        local testRotation = CFrame.Angles(0, math.rad(i * 30), 0)
+        local testDirection = (testRotation * direction).Unit
+        local testPos = currentPos + (testDirection * EVADE_DISTANCE)
+        
+        -- 確保測試點不在 SafeZone 內
+        if not isInsideForbiddenZone(testPos) then
+            finalTargetPos = testPos
+            break
+        end
+    end
+    
+    -- 如果繞一圈都是禁區，就飛到天上去躲 (Y+100)
+    if not finalTargetPos then
+        finalTargetPos = currentPos + Vector3.new(0, 100, 0)
+    end
+    
+    local origin = finalTargetPos + Vector3.new(0, 100, 0)
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.FilterDescendantsInstances = {player.Character}
@@ -1394,24 +1444,7 @@ local function emergencyEvade(rootPart, currentPos, ais)
     else
         rootPart.CFrame = CFrame.new(origin)
     end
-    print("⚠️ 觸發迴避！已往反方向飛 " .. EVADE_DISTANCE .. " 步！")
-end
-
-local function collectSingleItem(rootPart, item, gamePlayersFolder)
-    if not item or not item.Parent then return end
-    
-    while item.Parent and _G.AutoFarmActive do
-        local currentCFrame, currentPos = getObjInfo(item)
-        if not currentCFrame then break end
-        
-        local ais = getActiveAIs(gamePlayersFolder)
-        if not isSafe(rootPart.Position, ais) then
-            break 
-        end
-        
-        rootPart.CFrame = currentCFrame
-        task.wait() 
-    end
+    print("⚠️ 執行逃脫：已避開無獎勵區域。")
 end
 
 -- ==========================
@@ -1420,7 +1453,6 @@ end
 task.spawn(function()
     while _G.AutoFarmActive do
         _G.IsBusy = false 
-        
         local character = player.Character
         local rootPart = character and character:FindFirstChild("HumanoidRootPart")
         
@@ -1432,6 +1464,7 @@ task.spawn(function()
                 local ais = getActiveAIs(gamePlayersFolder)
                 local myPos = rootPart.Position
                 
+                -- 全局防鬼 + 禁區檢測 (如果你誤入禁區，也會把你彈出去)
                 if not isSafe(myPos, ais) then
                     _G.IsBusy = true 
                     emergencyEvade(rootPart, myPos, ais)
@@ -1449,6 +1482,7 @@ task.spawn(function()
                     end
                 end
                 
+                -- 抓其他收集物
                 if gamePlayersFolder then
                     for _, item in ipairs(gamePlayersFolder:GetChildren()) do
                         local isRealPlayer = Players:GetPlayerFromCharacter(item)
@@ -1460,46 +1494,33 @@ task.spawn(function()
                 end
                 
                 local safeTargets = {}
-                local guardedTargets = {}
                 
                 for _, target in ipairs(allTargets) do
                     local _, targetPos = getObjInfo(target)
-                    if targetPos then
-                        if isSafe(targetPos, ais) then
-                            table.insert(safeTargets, target)
-                        else
-                            table.insert(guardedTargets, target)
-                        end
+                    -- 只有「沒鬼」且「不在禁區」的東西才加入 safeTargets
+                    if targetPos and isSafe(targetPos, ais) then
+                        table.insert(safeTargets, target)
                     end
                 end
                 
                 if #safeTargets > 0 then
                     _G.IsBusy = true 
                     local randomTarget = safeTargets[math.random(1, #safeTargets)]
-                    collectSingleItem(rootPart, randomTarget, gamePlayersFolder)
                     
-                elseif #guardedTargets > 0 then
-                    _G.IsBusy = true 
-                    local _, targetPos = getObjInfo(guardedTargets[1])
-                    
-                    if targetPos then
-                        emergencyEvade(rootPart, targetPos, ais)
-                        
-                        local waitTicks = 15
-                        while waitTicks > 0 and _G.AutoFarmActive do
-                            if not isSafe(rootPart.Position, getActiveAIs(gamePlayersFolder)) then
-                                break 
-                            end
-                            task.wait(0.1)
-                            waitTicks = waitTicks - 1
+                    -- 執行收集
+                    while randomTarget.Parent and _G.AutoFarmActive do
+                        local cf, pos = getObjInfo(randomTarget)
+                        if not cf or not isSafe(rootPart.Position, getActiveAIs(gamePlayersFolder)) then
+                            break 
                         end
+                        rootPart.CFrame = cf
+                        task.wait()
                     end
                 end
             end
         else
             task.wait(1)
         end
-        
         task.wait() 
     end
 end)
