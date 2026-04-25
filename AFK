@@ -1465,7 +1465,7 @@ task.spawn(function()
                 -- ==========================================
                 if isInsideForbiddenZone(myPos) then
                     _G.IsBusy = true
-                    rootPart.CFrame = CFrame.new(3000, 3000, 3000)
+                    rootPart.CFrame = CFrame.new(3000, 3010, 3000)
                     print("⚠️ 偵測到誤入禁區！已強制傳送至 3000, 3000, 3000")
                     task.wait(1)
                     continue
