@@ -8,10 +8,10 @@ local LocalPlayer = Players.LocalPlayer
 -- 初始化
 if getgenv().AutoBlockToggle == nil then getgenv().AutoBlockToggle = false end
 getgenv().AutoBlockToggle = not getgenv().AutoBlockToggle
-getgenv().LastNormalClickTime = 0 -- 用於控制遠程模式的頻率
+getgenv().LastClickAttempt = 0 -- 記錄上次嘗試點擊的時間
 
 StarterGui:SetCore("SendNotification", {
-    Title = "自動格擋 V19 ";
+    Title = "自動格擋 V22 ";
     Text = getgenv().AutoBlockToggle and "狀態：🟢 " or "狀態：🔴 已關閉";
     Duration = 3;
 })
@@ -39,8 +39,10 @@ if getgenv().AutoBlockToggle then
         local myCharacter = aliveFolder and aliveFolder:FindFirstChild(LocalPlayer.Name)
         if not myCharacter then return end
         
-        -- 【核心保險】：如果格擋特效還在，絕對不點擊，完全杜絕 CD 浪費
+        -- 【終極確認機制】：身上有光環 = 伺服器確認已格擋 = 絕對停手
         if myCharacter:FindFirstChild("ParryHighlight") then
+            -- 光環一出現，重置嘗試時間。這樣光環一消失，腳本立刻就能無縫接軌下一次防禦
+            getgenv().LastClickAttempt = 0 
             return 
         end
 
@@ -53,22 +55,23 @@ if getgenv().AutoBlockToggle then
                 if ball:IsA("BasePart") then
                     
                     local distance = (ball.Position - rootPart.Position).Magnitude
-                    local velocityMag = ball.AssemblyLinearVelocity.Magnitude 
+                    local velocityVec = ball.AssemblyLinearVelocity
+                    local velocityMag = velocityVec.Magnitude 
                     
                     if velocityMag > 0 then
                         local ping = (LocalPlayer:GetNetworkPing() or 0.05) + 0.02 
                         local reactionTime = (velocityMag > 180) and 0.55 or 0.45
                         local dynamicSphereRadius = math.max(velocityMag * (reactionTime + ping), 15)
                         
-                        -- 檢查球是否在防禦領域內且目標是你
+                        -- 判斷球是否進入動態領域且目標是你
                         if distance <= dynamicSphereRadius and ball:GetAttribute("target") == LocalPlayer.Name then
                             
-                            -- 判斷是否為「貼臉對刀」狀態
+                            -- 判斷是否有敵人在領域內
                             local isEnemyInDomain = false
                             for _, char in ipairs(aliveFolder:GetChildren()) do
                                 if char.Name ~= LocalPlayer.Name and char:FindFirstChild("HumanoidRootPart") then
                                     local enemyDist = (char.HumanoidRootPart.Position - rootPart.Position).Magnitude
-                                    if enemyDist <= (dynamicSphereRadius * 0.8) then -- 敵人也在動態領域內
+                                    if enemyDist <= (dynamicSphereRadius * 0.8) then
                                         isEnemyInDomain = true
                                         break
                                     end
@@ -78,26 +81,23 @@ if getgenv().AutoBlockToggle then
                             local currentTime = os.clock()
 
                             if isEnemyInDomain then
-                                -- 【近戰模式】：為了對刀，允許高頻連點 (0.05秒間隔，極快但不至於卡死)
-                                if currentTime - getgenv().LastNormalClickTime > 0.05 then
-                                    getgenv().LastNormalClickTime = currentTime
-                                    clickScreenCenter()
-                                end
+                                -- 【貼臉對刀模式】：不管確認不確認了，極短距離內就是狂按到底！
+                                clickScreenCenter()
                             else
-                                -- 【遠程模式】：講求精準，點擊後進入 0.6 秒長冷卻，防止無意義狂點
-                                -- 0.6 秒剛好是大部分遊戲格擋動作結束的時間
-                                if currentTime - getgenv().LastNormalClickTime > 0.6 then
-                                    
-                                    -- 遠程模式多加一個方向檢測，確保球是飛過來的
+                                -- 【遠程狙擊模式】：帶有「容錯機制」的單點
+                                -- 點擊後等待 0.15 秒（容許伺服器延遲）。
+                                -- 如果 0.15 秒後身上還是沒亮 ParryHighlight，代表剛剛那下被吃掉了，趕快再補一刀！
+                                if currentTime - getgenv().LastClickAttempt > 0.15 then
                                     local directionToMe = (rootPart.Position - ball.Position).Unit
-                                    local ballDirection = ball.AssemblyLinearVelocity.Unit
+                                    local ballDirection = velocityVec.Unit
+                                    
                                     if ballDirection:Dot(directionToMe) > -0.2 then
-                                        getgenv().LastNormalClickTime = currentTime
+                                        getgenv().LastClickAttempt = currentTime 
                                         clickScreenCenter()
                                     end
                                 end
                             end
-                            break -- 已處理威脅球，跳出循環
+                            break 
                         end
                     end
                 end
