@@ -34,9 +34,20 @@ if getgenv().AutoBlockToggle then
     getgenv().AutoBlockConnection = RunService.RenderStepped:Connect(function()
         if not getgenv().AutoBlockToggle then return end 
 
-        local character = LocalPlayer.Character
-        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        -- 1. 獲取 Alive 資料夾中的角色實體
+        local aliveFolder = workspace:FindFirstChild("Alive")
+        local myCharacter = aliveFolder and aliveFolder:FindFirstChild(LocalPlayer.Name)
+        
+        if not myCharacter then return end
+        local rootPart = myCharacter:FindFirstChild("HumanoidRootPart")
         if not rootPart then return end
+
+        -- 【核心新增】：視覺反饋檢查
+        -- 如果身上已經有 ParryHighlight，代表防禦判定已經生效
+        if myCharacter:FindFirstChild("ParryHighlight") then
+            -- 正在格擋中，不需要再點擊，直接跳過這一幀
+            return 
+        end
 
         local ballsFolder = workspace:FindFirstChild("Balls")
         if ballsFolder then
@@ -50,26 +61,22 @@ if getgenv().AutoBlockToggle then
                     local velocityMag = velocityVec.Magnitude 
                     
                     if velocityMag > 0 then
-                        -- 【核心改動】：讓「球速」決定你的領域半徑！
+                        -- 球速動態半徑計算
                         local ping = (LocalPlayer:GetNetworkPing() or 0.05) + 0.02 
                         local reactionTime = (velocityMag > 180) and 0.55 or 0.45
-                        
-                        -- 計算動態半徑 (加個 math.max 保底 15，避免剛開局球完全不動時半徑變成 0)
                         local dynamicSphereRadius = math.max(velocityMag * (reactionTime + ping), 15)
                         
-                        -- 1. 只要球踏進這個由速率計算出的半徑內
+                        -- 2. 判斷球是否進入領域
                         if distance <= dynamicSphereRadius then
                             
                             local isTargetingMe = (ball:GetAttribute("target") == LocalPlayer.Name)
                             
                             if isTargetingMe then
-                                -- 2. 掃描同一個「動態半徑」內，有沒有其他敵人
+                                -- 3. 檢查身邊是否有對手 (決定是否進入狂暴對刀模式)
                                 local isEnemyInDomain = false
-                                for _, player in ipairs(Players:GetPlayers()) do
-                                    if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                                        local enemyDist = (player.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
-                                        
-                                        -- 【關鍵】：敵人是否也在這個由速率算出的半徑內？
+                                for _, char in ipairs(aliveFolder:GetChildren()) do
+                                    if char.Name ~= LocalPlayer.Name and char:FindFirstChild("HumanoidRootPart") then
+                                        local enemyDist = (char.HumanoidRootPart.Position - rootPart.Position).Magnitude
                                         if enemyDist <= dynamicSphereRadius then
                                             isEnemyInDomain = true
                                             break
@@ -77,17 +84,17 @@ if getgenv().AutoBlockToggle then
                                     end
                                 end
 
-                                -- 3. 觸發邏輯分流
                                 if isEnemyInDomain then
-                                    -- 狂暴對刀模式：球在半徑內、敵人在半徑內、目標是自己 ➡️ 繞過角度計算，無腦狂按！
+                                    -- 貼臉對刀：無視角度，直接準備砍
                                     shouldBlock = true
-                                    continue 
+                                    break 
                                 else
-                                    -- 常規狙擊模式：敵人在半徑外，乖乖計算球飛過來的角度，防止誤判
+                                    -- 遠程狙擊：需判斷球的方向
                                     local directionToMe = (rootPart.Position - ball.Position).Unit
                                     local ballDirection = velocityVec.Unit
                                     if ballDirection:Dot(directionToMe) > -0.2 then
                                         shouldBlock = true
+                                        break
                                     end
                                 end
                             end
@@ -96,10 +103,10 @@ if getgenv().AutoBlockToggle then
                 end
             end
 
+            -- 4. 執行點擊
             if shouldBlock then
                 clickScreenCenter()
             end
-            
         end
     end)
 end
