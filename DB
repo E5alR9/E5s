@@ -35,27 +35,30 @@ if getgenv().AutoBlockToggle then
     getgenv().AutoBlockConnection = RunService.RenderStepped:Connect(function()
         if not getgenv().AutoBlockToggle then return end 
 
-        local aliveFolder = workspace:FindFirstChild("Alive")
-        local myCharacter = aliveFolder and aliveFolder:FindFirstChild(LocalPlayer.Name)
+        -- 抓取你當前的肉身
+        local myCharacter = LocalPlayer.Character
         if not myCharacter then return end
         
-        -- 【唯一真理】：身上有光環 = 成功防禦 = 瞬間解鎖並待命
-        if myCharacter:FindFirstChild("ParryHighlight") then
-            getgenv().HasClicked = false 
-            return 
-        end
+        -- 【已移除】：ParryHighlight 光環解鎖機制被徹底拔除
 
         local rootPart = myCharacter:FindFirstChild("HumanoidRootPart")
         if not rootPart then return end
 
-        local ballsFolder = workspace:FindFirstChild("Balls")
-        if ballsFolder then
-            
-            local isAnyBallTargetingMe = false
-            local needToClick = false
+        local isAnyBallTargetingMe = false
+        local needToClick = false
+        local dangerousBall = nil 
 
-            -- 遍歷所有球，尋找威脅
-            for _, ball in ipairs(ballsFolder:GetChildren()) do
+        -- 動態組裝雷達陣列
+        local targetFolders = {}
+        if workspace:FindFirstChild("Balls") then
+            table.insert(targetFolders, workspace.Balls)
+        end
+        if workspace:FindFirstChild("TrainingBalls") then
+            table.insert(targetFolders, workspace.TrainingBalls)
+        end
+
+        for _, folder in ipairs(targetFolders) do
+            for _, ball in ipairs(folder:GetChildren()) do
                 if ball:IsA("BasePart") then
                     
                     local targetAttr = ball:GetAttribute("target")
@@ -79,24 +82,28 @@ if getgenv().AutoBlockToggle then
                                 -- 確認球沒有背對你飛走 (容錯防呆)
                                 if ballDirection:Dot(directionToMe) > -0.2 then
                                     needToClick = true
-                                    break -- 既然全局都是單刀，只要確認有任何一顆球需要擋，就可以直接結算，節省效能！
+                                    dangerousBall = ball 
+                                    break 
                                 end
                             end
                         end
                     end
                 end
             end
+            if needToClick then break end 
+        end
 
-            -- 【拔刀決策】：只要有威脅且還沒出刀，就點這一下！
-            if needToClick and not getgenv().HasClicked then
+        -- 【最後防線：雙重 Target 確認】
+        if needToClick and dangerousBall and not getgenv().HasClicked then
+            if dangerousBall:GetAttribute("target") == LocalPlayer.Name then
                 getgenv().HasClicked = true 
                 clickScreenCenter()
             end
+        end
 
-            -- 如果場上已經沒有球看著你 -> 威脅解除，解鎖待命
-            if not isAnyBallTargetingMe then
-                getgenv().HasClicked = false
-            end
+        -- 【唯一的解鎖機制】：只要場上沒有球的 Target 是你，瞬間解鎖！
+        if not isAnyBallTargetingMe then
+            getgenv().HasClicked = false
         end
     end)
 end
