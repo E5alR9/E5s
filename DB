@@ -8,10 +8,11 @@ local LocalPlayer = Players.LocalPlayer
 -- 初始化
 if getgenv().AutoBlockToggle == nil then getgenv().AutoBlockToggle = false end
 getgenv().AutoBlockToggle = not getgenv().AutoBlockToggle
-getgenv().HasClicked = false -- 統一的全局狀態鎖
+getgenv().HasClicked = false 
+getgenv().LastParriedBall = nil -- 【新增】：用來記住剛剛砍了哪顆球
 
 StarterGui:SetCore("SendNotification", {
-    Title = "自動格擋 V26";
+    Title = "自動格擋 ";
     Text = getgenv().AutoBlockToggle and "狀態：🟢 " or "狀態：🔴 已關閉";
     Duration = 3;
 })
@@ -35,12 +36,9 @@ if getgenv().AutoBlockToggle then
     getgenv().AutoBlockConnection = RunService.RenderStepped:Connect(function()
         if not getgenv().AutoBlockToggle then return end 
 
-        -- 抓取你當前的肉身
         local myCharacter = LocalPlayer.Character
         if not myCharacter then return end
         
-        -- 【已移除】：ParryHighlight 光環解鎖機制被徹底拔除
-
         local rootPart = myCharacter:FindFirstChild("HumanoidRootPart")
         if not rootPart then return end
 
@@ -74,12 +72,10 @@ if getgenv().AutoBlockToggle then
                             local reactionTime = (velocityMag > 180) and 0.55 or 0.45
                             local dynamicSphereRadius = math.max(velocityMag * (reactionTime + ping), 15)
                             
-                            -- 只要球進入動態半徑
                             if distance <= dynamicSphereRadius then
                                 local directionToMe = (rootPart.Position - ball.Position).Unit
                                 local ballDirection = velocityVec.Unit
                                 
-                                -- 確認球沒有背對你飛走 (容錯防呆)
                                 if ballDirection:Dot(directionToMe) > -0.2 then
                                     needToClick = true
                                     dangerousBall = ball 
@@ -93,17 +89,27 @@ if getgenv().AutoBlockToggle then
             if needToClick then break end 
         end
 
-        -- 【最後防線：雙重 Target 確認】
+        -- 【拔刀與鎖定】：砍下去的瞬間，記住我們是為了哪顆球拔刀的
         if needToClick and dangerousBall and not getgenv().HasClicked then
             if dangerousBall:GetAttribute("target") == LocalPlayer.Name then
                 getgenv().HasClicked = true 
+                getgenv().LastParriedBall = dangerousBall -- 鎖定這顆球！
                 clickScreenCenter()
             end
         end
 
-        -- 【唯一的解鎖機制】：只要場上沒有球的 Target 是你，瞬間解鎖！
-        if not isAnyBallTargetingMe then
-            getgenv().HasClicked = false
+        -- 【多球完美解鎖邏輯】
+        if getgenv().LastParriedBall then
+            -- 如果我們剛剛砍的那顆球已經消失了，或者它的 Target 已經不再是我
+            if not getgenv().LastParriedBall.Parent or getgenv().LastParriedBall:GetAttribute("target") ~= LocalPlayer.Name then
+                getgenv().HasClicked = false
+                getgenv().LastParriedBall = nil -- 清除記憶，準備迎擊下一顆球
+            end
+        else
+            -- 備用保險：如果場上根本沒球看著我，確保解鎖
+            if not isAnyBallTargetingMe then
+                getgenv().HasClicked = false
+            end
         end
     end)
 end
