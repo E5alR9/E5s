@@ -8,10 +8,10 @@ local LocalPlayer = Players.LocalPlayer
 -- 初始化
 if getgenv().AutoBlockToggle == nil then getgenv().AutoBlockToggle = false end
 getgenv().AutoBlockToggle = not getgenv().AutoBlockToggle
-getgenv().HasClickedRanged = false -- 取代所有秒數的「狀態鎖」
+getgenv().HasClicked = false -- 統一的全局狀態鎖
 
 StarterGui:SetCore("SendNotification", {
-    Title = "自動格擋 V24 ";
+    Title = "自動格擋 V26";
     Text = getgenv().AutoBlockToggle and "狀態：🟢 " or "狀態：🔴 已關閉";
     Duration = 3;
 })
@@ -39,9 +39,9 @@ if getgenv().AutoBlockToggle then
         local myCharacter = aliveFolder and aliveFolder:FindFirstChild(LocalPlayer.Name)
         if not myCharacter then return end
         
-        -- 【解鎖條件 1】：身上亮起光環，代表防禦確認成功 -> 解鎖並停手
+        -- 【唯一真理】：身上有光環 = 成功防禦 = 瞬間解鎖並待命
         if myCharacter:FindFirstChild("ParryHighlight") then
-            getgenv().HasClickedRanged = false 
+            getgenv().HasClicked = false 
             return 
         end
 
@@ -50,65 +50,52 @@ if getgenv().AutoBlockToggle then
 
         local ballsFolder = workspace:FindFirstChild("Balls")
         if ballsFolder then
+            
             local isAnyBallTargetingMe = false
+            local needToClick = false
 
+            -- 遍歷所有球，尋找威脅
             for _, ball in ipairs(ballsFolder:GetChildren()) do
                 if ball:IsA("BasePart") then
                     
-                    local isTargetingMe = (ball:GetAttribute("target") == LocalPlayer.Name)
-                    if isTargetingMe then
-                        isAnyBallTargetingMe = true -- 記錄目前是否有球看著我
-                    end
-
-                    local distance = (ball.Position - rootPart.Position).Magnitude
-                    local velocityVec = ball.AssemblyLinearVelocity
-                    local velocityMag = velocityVec.Magnitude 
-                    
-                    if velocityMag > 0 then
-                        local ping = (LocalPlayer:GetNetworkPing() or 0.05) + 0.02 
-                        local reactionTime = (velocityMag > 180) and 0.55 or 0.45
-                        local dynamicSphereRadius = math.max(velocityMag * (reactionTime + ping), 15)
+                    local targetAttr = ball:GetAttribute("target")
+                    if targetAttr == LocalPlayer.Name then
+                        isAnyBallTargetingMe = true
                         
-                        -- 判斷球是否進入動態領域且目標是你
-                        if isTargetingMe and distance <= dynamicSphereRadius then
+                        local distance = (ball.Position - rootPart.Position).Magnitude
+                        local velocityVec = ball.AssemblyLinearVelocity
+                        local velocityMag = velocityVec.Magnitude 
+                        
+                        if velocityMag > 0 then
+                            local ping = (LocalPlayer:GetNetworkPing() or 0.05) + 0.02 
+                            local reactionTime = (velocityMag > 180) and 0.55 or 0.45
+                            local dynamicSphereRadius = math.max(velocityMag * (reactionTime + ping), 15)
                             
-                            -- 判斷是否有敵人在領域內
-                            local isEnemyInDomain = false
-                            for _, char in ipairs(aliveFolder:GetChildren()) do
-                                if char.Name ~= LocalPlayer.Name and char:FindFirstChild("HumanoidRootPart") then
-                                    local enemyDist = (char.HumanoidRootPart.Position - rootPart.Position).Magnitude
-                                    if enemyDist <= (dynamicSphereRadius * 0.8) then
-                                        isEnemyInDomain = true
-                                        break
-                                    end
-                                end
-                            end
-
-                            if isEnemyInDomain then
-                                -- 【貼臉對刀模式】：無視任何鎖定，直接狂按！
-                                clickScreenCenter()
-                            else
-                                -- 【遠程狙擊模式】：完全依賴狀態鎖的絕對單發！
+                            -- 只要球進入動態半徑
+                            if distance <= dynamicSphereRadius then
                                 local directionToMe = (rootPart.Position - ball.Position).Unit
                                 local ballDirection = velocityVec.Unit
                                 
+                                -- 確認球沒有背對你飛走 (容錯防呆)
                                 if ballDirection:Dot(directionToMe) > -0.2 then
-                                    -- 如果還沒點過，才點擊
-                                    if not getgenv().HasClickedRanged then
-                                        getgenv().HasClickedRanged = true -- 點下去的瞬間上鎖！
-                                        clickScreenCenter()
-                                    end
+                                    needToClick = true
+                                    break -- 既然全局都是單刀，只要確認有任何一顆球需要擋，就可以直接結算，節省效能！
                                 end
                             end
-                            break 
                         end
                     end
                 end
             end
 
-            -- 【解鎖條件 2】：如果球被打走，目標不再是你 -> 解鎖，為下一次接球做準備
+            -- 【拔刀決策】：只要有威脅且還沒出刀，就點這一下！
+            if needToClick and not getgenv().HasClicked then
+                getgenv().HasClicked = true 
+                clickScreenCenter()
+            end
+
+            -- 如果場上已經沒有球看著你 -> 威脅解除，解鎖待命
             if not isAnyBallTargetingMe then
-                getgenv().HasClickedRanged = false
+                getgenv().HasClicked = false
             end
         end
     end)
