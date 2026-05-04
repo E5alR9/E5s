@@ -8,10 +8,10 @@ local LocalPlayer = Players.LocalPlayer
 -- 初始化
 if getgenv().AutoBlockToggle == nil then getgenv().AutoBlockToggle = false end
 getgenv().AutoBlockToggle = not getgenv().AutoBlockToggle
-getgenv().LastClickAttempt = 0 -- 記錄上次嘗試點擊的時間
+getgenv().HasClickedRanged = false -- 取代所有秒數的「狀態鎖」
 
 StarterGui:SetCore("SendNotification", {
-    Title = "自動格擋 V22 ";
+    Title = "自動格擋 V24 ";
     Text = getgenv().AutoBlockToggle and "狀態：🟢 " or "狀態：🔴 已關閉";
     Duration = 3;
 })
@@ -39,10 +39,9 @@ if getgenv().AutoBlockToggle then
         local myCharacter = aliveFolder and aliveFolder:FindFirstChild(LocalPlayer.Name)
         if not myCharacter then return end
         
-        -- 【終極確認機制】：身上有光環 = 伺服器確認已格擋 = 絕對停手
+        -- 【解鎖條件 1】：身上亮起光環，代表防禦確認成功 -> 解鎖並停手
         if myCharacter:FindFirstChild("ParryHighlight") then
-            -- 光環一出現，重置嘗試時間。這樣光環一消失，腳本立刻就能無縫接軌下一次防禦
-            getgenv().LastClickAttempt = 0 
+            getgenv().HasClickedRanged = false 
             return 
         end
 
@@ -51,9 +50,16 @@ if getgenv().AutoBlockToggle then
 
         local ballsFolder = workspace:FindFirstChild("Balls")
         if ballsFolder then
+            local isAnyBallTargetingMe = false
+
             for _, ball in ipairs(ballsFolder:GetChildren()) do
                 if ball:IsA("BasePart") then
                     
+                    local isTargetingMe = (ball:GetAttribute("target") == LocalPlayer.Name)
+                    if isTargetingMe then
+                        isAnyBallTargetingMe = true -- 記錄目前是否有球看著我
+                    end
+
                     local distance = (ball.Position - rootPart.Position).Magnitude
                     local velocityVec = ball.AssemblyLinearVelocity
                     local velocityMag = velocityVec.Magnitude 
@@ -64,7 +70,7 @@ if getgenv().AutoBlockToggle then
                         local dynamicSphereRadius = math.max(velocityMag * (reactionTime + ping), 15)
                         
                         -- 判斷球是否進入動態領域且目標是你
-                        if distance <= dynamicSphereRadius and ball:GetAttribute("target") == LocalPlayer.Name then
+                        if isTargetingMe and distance <= dynamicSphereRadius then
                             
                             -- 判斷是否有敵人在領域內
                             local isEnemyInDomain = false
@@ -78,21 +84,18 @@ if getgenv().AutoBlockToggle then
                                 end
                             end
 
-                            local currentTime = os.clock()
-
                             if isEnemyInDomain then
-                                -- 【貼臉對刀模式】：不管確認不確認了，極短距離內就是狂按到底！
+                                -- 【貼臉對刀模式】：無視任何鎖定，直接狂按！
                                 clickScreenCenter()
                             else
-                                -- 【遠程狙擊模式】：帶有「容錯機制」的單點
-                                -- 點擊後等待 0.15 秒（容許伺服器延遲）。
-                                -- 如果 0.15 秒後身上還是沒亮 ParryHighlight，代表剛剛那下被吃掉了，趕快再補一刀！
-                                if currentTime - getgenv().LastClickAttempt > 0.15 then
-                                    local directionToMe = (rootPart.Position - ball.Position).Unit
-                                    local ballDirection = velocityVec.Unit
-                                    
-                                    if ballDirection:Dot(directionToMe) > -0.2 then
-                                        getgenv().LastClickAttempt = currentTime 
+                                -- 【遠程狙擊模式】：完全依賴狀態鎖的絕對單發！
+                                local directionToMe = (rootPart.Position - ball.Position).Unit
+                                local ballDirection = velocityVec.Unit
+                                
+                                if ballDirection:Dot(directionToMe) > -0.2 then
+                                    -- 如果還沒點過，才點擊
+                                    if not getgenv().HasClickedRanged then
+                                        getgenv().HasClickedRanged = true -- 點下去的瞬間上鎖！
                                         clickScreenCenter()
                                     end
                                 end
@@ -101,6 +104,11 @@ if getgenv().AutoBlockToggle then
                         end
                     end
                 end
+            end
+
+            -- 【解鎖條件 2】：如果球被打走，目標不再是你 -> 解鎖，為下一次接球做準備
+            if not isAnyBallTargetingMe then
+                getgenv().HasClickedRanged = false
             end
         end
     end)
