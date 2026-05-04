@@ -9,8 +9,9 @@ local LocalPlayer = Players.LocalPlayer
 if getgenv().AutoBlockToggle == nil then getgenv().AutoBlockToggle = false end
 getgenv().AutoBlockToggle = not getgenv().AutoBlockToggle
 getgenv().HasClicked = false 
-getgenv().LastParriedBall = nil -- 【新增】：用來記住剛剛砍了哪顆球
+getgenv().LastParriedBall = nil 
 
+-- 固定的 UI 提示，不再變動
 StarterGui:SetCore("SendNotification", {
     Title = "自動格擋 ";
     Text = getgenv().AutoBlockToggle and "狀態：🟢 " or "狀態：🔴 已關閉";
@@ -46,7 +47,6 @@ if getgenv().AutoBlockToggle then
         local needToClick = false
         local dangerousBall = nil 
 
-        -- 動態組裝雷達陣列
         local targetFolders = {}
         if workspace:FindFirstChild("Balls") then
             table.insert(targetFolders, workspace.Balls)
@@ -67,21 +67,18 @@ if getgenv().AutoBlockToggle then
                         local velocityVec = ball.AssemblyLinearVelocity
                         local velocityMag = velocityVec.Magnitude 
                         
-                        if velocityMag > 0 then
-                            local ping = (LocalPlayer:GetNetworkPing() or 0.05) + 0.02 
-                            local reactionTime = (velocityMag > 180) and 0.55 or 0.45
-                            local dynamicSphereRadius = math.max(velocityMag * (reactionTime + ping), 15)
-                            
-                            if distance <= dynamicSphereRadius then
-                                local directionToMe = (rootPart.Position - ball.Position).Unit
-                                local ballDirection = velocityVec.Unit
-                                
-                                if ballDirection:Dot(directionToMe) > -0.2 then
-                                    needToClick = true
-                                    dangerousBall = ball 
-                                    break 
-                                end
-                            end
+                        -- 容錯處理：就算球速是 0 (例如剛生成的停頓期或技能效果)，也給它一個基礎防禦半徑
+                        local currentVelocityMag = velocityMag > 0 and velocityMag or 10
+                        
+                        local ping = (LocalPlayer:GetNetworkPing() or 0.05) + 0.02 
+                        local reactionTime = (currentVelocityMag > 180) and 0.55 or 0.45
+                        local dynamicSphereRadius = math.max(currentVelocityMag * (reactionTime + ping), 15)
+                        
+                        -- 【全方位絕對防禦】：只要它踏進這個半徑，管它怎麼飛，直接判定為威脅！
+                        if distance <= dynamicSphereRadius then
+                            needToClick = true
+                            dangerousBall = ball 
+                            break 
                         end
                     end
                 end
@@ -89,24 +86,22 @@ if getgenv().AutoBlockToggle then
             if needToClick then break end 
         end
 
-        -- 【拔刀與鎖定】：砍下去的瞬間，記住我們是為了哪顆球拔刀的
+        -- 拔刀與專屬目標鎖定
         if needToClick and dangerousBall and not getgenv().HasClicked then
             if dangerousBall:GetAttribute("target") == LocalPlayer.Name then
                 getgenv().HasClicked = true 
-                getgenv().LastParriedBall = dangerousBall -- 鎖定這顆球！
+                getgenv().LastParriedBall = dangerousBall 
                 clickScreenCenter()
             end
         end
 
-        -- 【多球完美解鎖邏輯】
+        -- 多球完美解鎖邏輯
         if getgenv().LastParriedBall then
-            -- 如果我們剛剛砍的那顆球已經消失了，或者它的 Target 已經不再是我
             if not getgenv().LastParriedBall.Parent or getgenv().LastParriedBall:GetAttribute("target") ~= LocalPlayer.Name then
                 getgenv().HasClicked = false
-                getgenv().LastParriedBall = nil -- 清除記憶，準備迎擊下一顆球
+                getgenv().LastParriedBall = nil 
             end
         else
-            -- 備用保險：如果場上根本沒球看著我，確保解鎖
             if not isAnyBallTargetingMe then
                 getgenv().HasClicked = false
             end
