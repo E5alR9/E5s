@@ -2,26 +2,63 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService") 
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- 初始化
+-- 初始化狀態
 if getgenv().AutoBlockToggle == nil then getgenv().AutoBlockToggle = false end
-getgenv().AutoBlockToggle = not getgenv().AutoBlockToggle
+if getgenv().SpamClickToggle == nil then getgenv().SpamClickToggle = false end
 getgenv().HasClicked = false 
 getgenv().LastParriedBall = nil 
 
--- 固定的 UI 提示，不再變動
-StarterGui:SetCore("SendNotification", {
-    Title = "自動格擋 ";
-    Text = getgenv().AutoBlockToggle and "狀態：🟢 " or "狀態：🔴 已關閉";
-    Duration = 3;
-})
-
-if getgenv().AutoBlockConnection then
-    getgenv().AutoBlockConnection:Disconnect()
-    getgenv().AutoBlockConnection = nil
+-- 自動格擋通知
+local function sendAutoBlockNotification()
+    StarterGui:SetCore("SendNotification", {
+        Title = "自動格擋  ";
+        Text = getgenv().AutoBlockToggle and "狀態：🟢 " or "狀態：🔴 已關閉";
+        Duration = 3;
+    })
 end
+
+-- 狂點模式通知
+local function sendSpamClickNotification()
+    StarterGui:SetCore("SendNotification", {
+        Title = "極限狂點  ";
+        Text = getgenv().SpamClickToggle and "狀態：⚡ 開啟 " or "狀態：🔴 已關閉";
+        Duration = 3;
+    })
+end
+
+-- 初次載入發送通知
+sendAutoBlockNotification()
+
+-- 清理舊的按鍵綁定
+if getgenv().KeybindConnection then
+    getgenv().KeybindConnection:Disconnect()
+    getgenv().KeybindConnection = nil
+end
+
+-- 按鍵偵測 (T 與 F)
+getgenv().KeybindConnection = UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent then return end -- 在聊天框打字時忽略
+    
+    -- T鍵切換自動格擋
+    if input.KeyCode == Enum.KeyCode.T then
+        getgenv().AutoBlockToggle = not getgenv().AutoBlockToggle
+        if not getgenv().AutoBlockToggle then
+            getgenv().HasClicked = false
+            getgenv().LastParriedBall = nil
+        end
+        sendAutoBlockNotification()
+    end
+
+    -- F鍵切換狂點模式
+    if input.KeyCode == Enum.KeyCode.F then
+        getgenv().SpamClickToggle = not getgenv().SpamClickToggle
+        sendSpamClickNotification()
+    end
+end)
 
 local function clickScreenCenter()
     local viewportSize = Camera.ViewportSize
@@ -33,78 +70,96 @@ local function clickScreenCenter()
     end)
 end
 
-if getgenv().AutoBlockToggle then
-    getgenv().AutoBlockConnection = RunService.RenderStepped:Connect(function()
-        if not getgenv().AutoBlockToggle then return end 
+-- 為狂點模式設計的極速點擊 (取消延遲，達到真極限速度)
+local function fastClick()
+    local viewportSize = Camera.ViewportSize
+    local centerX, centerY = viewportSize.X / 2, viewportSize.Y / 2
+    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+end
 
-        local myCharacter = LocalPlayer.Character
-        if not myCharacter then return end
-        
-        local rootPart = myCharacter:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return end
+-- 清理舊的迴圈
+if getgenv().MainLoopConnection then
+    getgenv().MainLoopConnection:Disconnect()
+    getgenv().MainLoopConnection = nil
+end
 
-        local isAnyBallTargetingMe = false
-        local needToClick = false
-        local dangerousBall = nil 
+-- 核心邏輯迴圈 (把兩個功能整合在一起，節省效能)
+getgenv().MainLoopConnection = RunService.RenderStepped:Connect(function()
+    
+    -- 【功能1】：F鍵 極限狂點模式 (優先級最高，對刀專用)
+    if getgenv().SpamClickToggle then
+        fastClick()
+        -- 如果狂點模式開著，就不用跑下面的自動格擋計算了，節省效能
+        return 
+    end
 
-        local targetFolders = {}
-        if workspace:FindFirstChild("Balls") then
-            table.insert(targetFolders, workspace.Balls)
-        end
-        if workspace:FindFirstChild("TrainingBalls") then
-            table.insert(targetFolders, workspace.TrainingBalls)
-        end
+    -- 【功能2】：T鍵 自動格擋模式
+    if not getgenv().AutoBlockToggle then return end 
 
-        for _, folder in ipairs(targetFolders) do
-            for _, ball in ipairs(folder:GetChildren()) do
-                if ball:IsA("BasePart") then
+    local myCharacter = LocalPlayer.Character
+    if not myCharacter then return end
+    
+    local rootPart = myCharacter:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+
+    local isAnyBallTargetingMe = false
+    local needToClick = false
+    local dangerousBall = nil 
+
+    local targetFolders = {}
+    if workspace:FindFirstChild("Balls") then
+        table.insert(targetFolders, workspace.Balls)
+    end
+    if workspace:FindFirstChild("TrainingBalls") then
+        table.insert(targetFolders, workspace.TrainingBalls)
+    end
+
+    for _, folder in ipairs(targetFolders) do
+        for _, ball in ipairs(folder:GetChildren()) do
+            if ball:IsA("BasePart") then
+                
+                local targetAttr = ball:GetAttribute("target")
+                if targetAttr == LocalPlayer.Name then
+                    isAnyBallTargetingMe = true
                     
-                    local targetAttr = ball:GetAttribute("target")
-                    if targetAttr == LocalPlayer.Name then
-                        isAnyBallTargetingMe = true
-                        
-                        local distance = (ball.Position - rootPart.Position).Magnitude
-                        local velocityVec = ball.AssemblyLinearVelocity
-                        local velocityMag = velocityVec.Magnitude 
-                        
-                        -- 容錯處理：就算球速是 0 (例如剛生成的停頓期或技能效果)，也給它一個基礎防禦半徑
-                        local currentVelocityMag = velocityMag > 0 and velocityMag or 10
-                        
-                        local ping = (LocalPlayer:GetNetworkPing() or 0.05) + 0.02 
-                        local reactionTime = (currentVelocityMag > 180) and 0.55 or 0.45
-                        local dynamicSphereRadius = math.max(currentVelocityMag * (reactionTime + ping), 15)
-                        
-                        -- 【全方位絕對防禦】：只要它踏進這個半徑，管它怎麼飛，直接判定為威脅！
-                        if distance <= dynamicSphereRadius then
-                            needToClick = true
-                            dangerousBall = ball 
-                            break 
-                        end
+                    local distance = (ball.Position - rootPart.Position).Magnitude
+                    local velocityVec = ball.AssemblyLinearVelocity
+                    local velocityMag = velocityVec.Magnitude 
+                    
+                    local currentVelocityMag = velocityMag > 0 and velocityMag or 10
+                    
+                    local ping = (LocalPlayer:GetNetworkPing() or 0.05) + 0.02 
+                    local reactionTime = (currentVelocityMag > 180) and 0.55 or 0.45
+                    local dynamicSphereRadius = math.max(currentVelocityMag * (reactionTime + ping), 15)
+                    
+                    if distance <= dynamicSphereRadius then
+                        needToClick = true
+                        dangerousBall = ball 
+                        break 
                     end
                 end
             end
-            if needToClick then break end 
         end
+        if needToClick then break end 
+    end
 
-        -- 拔刀與專屬目標鎖定
-        if needToClick and dangerousBall and not getgenv().HasClicked then
-            if dangerousBall:GetAttribute("target") == LocalPlayer.Name then
-                getgenv().HasClicked = true 
-                getgenv().LastParriedBall = dangerousBall 
-                clickScreenCenter()
-            end
+    if needToClick and dangerousBall and not getgenv().HasClicked then
+        if dangerousBall:GetAttribute("target") == LocalPlayer.Name then
+            getgenv().HasClicked = true 
+            getgenv().LastParriedBall = dangerousBall 
+            clickScreenCenter()
         end
+    end
 
-        -- 多球完美解鎖邏輯
-        if getgenv().LastParriedBall then
-            if not getgenv().LastParriedBall.Parent or getgenv().LastParriedBall:GetAttribute("target") ~= LocalPlayer.Name then
-                getgenv().HasClicked = false
-                getgenv().LastParriedBall = nil 
-            end
-        else
-            if not isAnyBallTargetingMe then
-                getgenv().HasClicked = false
-            end
+    if getgenv().LastParriedBall then
+        if not getgenv().LastParriedBall.Parent or getgenv().LastParriedBall:GetAttribute("target") ~= LocalPlayer.Name then
+            getgenv().HasClicked = false
+            getgenv().LastParriedBall = nil 
         end
-    end)
-end
+    else
+        if not isAnyBallTargetingMe then
+            getgenv().HasClicked = false
+        end
+    end
+end)
