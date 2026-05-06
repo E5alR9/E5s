@@ -6,60 +6,61 @@ local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- 【核心開關狀態管理】
+-- 【1. 執行切換邏輯】：每次執行這段程式碼，AutoBlockToggle 就會自動反轉
 if getgenv().AutoBlockToggle == nil then getgenv().AutoBlockToggle = false end
+getgenv().AutoBlockToggle = not getgenv().AutoBlockToggle -- 執行即切換
+
+-- 初始化其他狀態
 if getgenv().SpamClickToggle == nil then getgenv().SpamClickToggle = false end
 getgenv().HasClicked = false 
 getgenv().LastParriedBall = nil 
 
--- 【UI 通知函數：絕對保留切換反饋】
-local function sendStatusNotification(mode)
-    if mode == "AutoBlock" then
-        StarterGui:SetCore("SendNotification", {
-            Title = "自動格擋 (T鍵)";
-            Text = getgenv().AutoBlockToggle and "狀態：🟢 已開啟" or "狀態：🔴 已關閉";
-            Duration = 2;
-        })
-    elseif mode == "SpamClick" then
-        StarterGui:SetCore("SendNotification", {
-            Title = "極限狂點 (F鍵)";
-            Text = getgenv().SpamClickToggle and "狀態：⚡ 狂點中 (對刀)" or "狀態：🔴 已關閉";
-            Duration = 2;
-        })
-    end
+-- 【2. UI 通知函數】：統一的通知格式
+local function sendAutoBlockNotification()
+    StarterGui:SetCore("SendNotification", {
+        Title = "自動格擋 ";
+        Text = getgenv().AutoBlockToggle and "狀態：🟢 " or "狀態：🔴 已關閉";
+        Duration = 3;
+    })
 end
 
--- 第一次載入顯示當前狀態
-sendStatusNotification("AutoBlock")
-
--- 【開關執行邏輯：不要刪除的按鍵綁定】
-if getgenv().KeybindConnection then
-    getgenv().KeybindConnection:Disconnect()
-    getgenv().KeybindConnection = nil
+local function sendSpamClickNotification()
+    StarterGui:SetCore("SendNotification", {
+        Title = "極限狂點 (F鍵) ";
+        Text = getgenv().SpamClickToggle and "狀態：⚡ 開啟 (對刀)" or "狀態：🔴 已關閉";
+        Duration = 3;
+    })
 end
 
+-- 腳本一執行就跳出當前（切換後）的狀態
+sendAutoBlockNotification()
+
+-- 【3. 清理舊連線】：防止重複執行導致腳本疊加
+if getgenv().KeybindConnection then getgenv().KeybindConnection:Disconnect() end
+if getgenv().MainLoopConnection then getgenv().MainLoopConnection:Disconnect() end
+
+-- 【4. 快捷鍵綁定】：T 與 F
 getgenv().KeybindConnection = UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-    -- 確保在打字時不會觸發
     if gameProcessedEvent then return end 
     
-    -- T 鍵切換：自動格擋
+    -- T 鍵：快捷切換自動格擋
     if input.KeyCode == Enum.KeyCode.T then
         getgenv().AutoBlockToggle = not getgenv().AutoBlockToggle
         if not getgenv().AutoBlockToggle then
             getgenv().HasClicked = false
             getgenv().LastParriedBall = nil
         end
-        sendStatusNotification("AutoBlock")
+        sendAutoBlockNotification()
     end
 
-    -- F 鍵切換：極限狂點
+    -- F 鍵：快捷切換極限狂點
     if input.KeyCode == Enum.KeyCode.F then
         getgenv().SpamClickToggle = not getgenv().SpamClickToggle
-        sendStatusNotification("SpamClick")
+        sendSpamClickNotification()
     end
 end)
 
--- 【點擊執行函數】
+-- 【5. 點擊邏輯】
 local function clickScreenCenter()
     local viewportSize = Camera.ViewportSize
     local centerX, centerY = viewportSize.X / 2, viewportSize.Y / 2
@@ -69,7 +70,6 @@ local function clickScreenCenter()
     end)
 end
 
--- 極速狂點專用 (對刀時使用)
 local function fastClick()
     local viewportSize = Camera.ViewportSize
     local centerX, centerY = viewportSize.X / 2, viewportSize.Y / 2
@@ -77,26 +77,19 @@ local function fastClick()
     VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
 end
 
--- 【核心迴圈執行】
-if getgenv().MainLoopConnection then
-    getgenv().MainLoopConnection:Disconnect()
-    getgenv().MainLoopConnection = nil
-end
-
+-- 【6. 核心執行迴圈】
 getgenv().MainLoopConnection = RunService.RenderStepped:Connect(function()
-    
-    -- 1. 執行「極限狂點」切換狀態檢查
+    -- 優先執行 F 鍵狂點
     if getgenv().SpamClickToggle then
         fastClick()
-        return -- 狂點優先級最高，開啟時暫停自動格擋運算以節省效能
+        return 
     end
 
-    -- 2. 執行「自動格擋」切換狀態檢查
+    -- 執行 T 鍵自動格擋
     if not getgenv().AutoBlockToggle then return end 
 
     local myCharacter = LocalPlayer.Character
     if not myCharacter then return end
-    
     local rootPart = myCharacter:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
 
@@ -104,7 +97,7 @@ getgenv().MainLoopConnection = RunService.RenderStepped:Connect(function()
     local needToClick = false
     local dangerousBall = nil 
 
-    -- 雷達掃描：包含實戰(Balls)與訓練場(TrainingBalls)
+    -- 雷達掃描 (實戰 + 訓練場)
     local targetFolders = {}
     if workspace:FindFirstChild("Balls") then table.insert(targetFolders, workspace.Balls) end
     if workspace:FindFirstChild("TrainingBalls") then table.insert(targetFolders, workspace.TrainingBalls) end
@@ -112,19 +105,16 @@ getgenv().MainLoopConnection = RunService.RenderStepped:Connect(function()
     for _, folder in ipairs(targetFolders) do
         for _, ball in ipairs(folder:GetChildren()) do
             if ball:IsA("BasePart") then
-                local targetAttr = ball:GetAttribute("target")
-                if targetAttr == LocalPlayer.Name then
+                if ball:GetAttribute("target") == LocalPlayer.Name then
                     isAnyBallTargetingMe = true
-                    
                     local velocityMag = ball.AssemblyLinearVelocity.Magnitude 
                     local distance = (ball.Position - rootPart.Position).Magnitude
-                    local currentVelocityMag = velocityMag > 0 and velocityMag or 10
+                    local currentVel = velocityMag > 0 and velocityMag or 10
                     
                     local ping = (LocalPlayer:GetNetworkPing() or 0.05) + 0.02 
-                    local reactionTime = (currentVelocityMag > 180) and 0.52 or 0.45
-                    local dynamicSphereRadius = math.max(currentVelocityMag * (reactionTime + ping), 15)
+                    local reactionTime = (currentVel > 180) and 0.52 or 0.45
+                    local dynamicSphereRadius = math.max(currentVel * (reactionTime + ping), 15)
                     
-                    -- 全方位軌跡判定 (不分方向)
                     if distance <= dynamicSphereRadius then
                         needToClick = true
                         dangerousBall = ball 
@@ -136,7 +126,7 @@ getgenv().MainLoopConnection = RunService.RenderStepped:Connect(function()
         if needToClick then break end 
     end
 
-    -- 執行防禦點擊
+    -- 執行自動點擊
     if needToClick and dangerousBall and not getgenv().HasClicked then
         if dangerousBall:GetAttribute("target") == LocalPlayer.Name then
             getgenv().HasClicked = true 
@@ -145,7 +135,7 @@ getgenv().MainLoopConnection = RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 多球/單球解鎖邏輯
+    -- 多球解鎖邏輯
     if getgenv().LastParriedBall then
         if not getgenv().LastParriedBall.Parent or getgenv().LastParriedBall:GetAttribute("target") ~= LocalPlayer.Name then
             getgenv().HasClicked = false
