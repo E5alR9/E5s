@@ -1,0 +1,50 @@
+ -- 使用全域變數來控制開關
+_G.AutoTP = not _G.AutoTP
+
+if _G.AutoTP then
+    print("自動 TP 模式：開啟")
+    
+    local player = game.Players.LocalPlayer
+    local folder = workspace:WaitForChild("LocalUSTNotes")
+
+    task.spawn(function()
+        while _G.AutoTP do
+            local character = player.Character
+            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+            
+            if rootPart then
+                -- 尋找目前資料夾內所有叫 "UST" 的零件
+                local targets = {}
+                for _, child in pairs(folder:GetChildren()) do
+                    if child.Name == "UST" and child:IsA("BasePart") then
+                        table.insert(targets, child)
+                    end
+                end
+
+                if #targets > 0 then
+                    -- 取得第一個找到的 UST
+                    local currentTarget = targets[1]
+                    print("正在 TP 至目標：" .. currentTarget:GetFullName())
+
+                    -- 持續 TP 到這個目標，直到它消失或開關關閉
+                    while _G.AutoTP and currentTarget and currentTarget.Parent == folder do
+                        rootPart.CFrame = currentTarget.CFrame
+                        task.wait() -- 極短延遲確保流暢且不崩潰
+                    end
+                    
+                    if _G.AutoTP then
+                        print("目標已消失，正在尋找下一個...")
+                    end
+                else
+                    -- 如果暫時沒有 UST，等待一秒後再重新掃描
+                    task.wait(1)
+                end
+            else
+                task.wait(1) -- 等待角色生成
+            end
+        end
+        print("自動 TP 模式：已關閉")
+    end)
+else
+    print("自動 TP 模式：停止中...")
+end
