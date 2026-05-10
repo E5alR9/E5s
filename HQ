@@ -46,8 +46,21 @@ if Lighting:FindFirstChild(toggleFolderName) then
     end
 
     for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj:GetAttribute("Orig_Reflectance") then
-            obj.Reflectance = obj:GetAttribute("Orig_Reflectance")
+        if obj:IsA("BasePart") then
+            -- 還原反光
+            if obj:GetAttribute("Orig_Reflectance") then
+                obj.Reflectance = obj:GetAttribute("Orig_Reflectance")
+            end
+            -- 還原材質
+            local origMatValue = obj:GetAttribute("Orig_Material")
+            if origMatValue then
+                for _, mat in pairs(Enum.Material:GetEnumItems()) do
+                    if mat.Value == origMatValue then
+                        obj.Material = mat
+                        break
+                    end
+                end
+            end
         end
     end
     
@@ -60,6 +73,8 @@ else
     sendNotif("Graphics Engine", "🟢 Starting Cinematic RTX Engine...\nExtreme Bloom & Reflections Active.")
 
     Lighting:SetAttribute("RTX_AutoEngine_Active", true)
+    Lighting:SetAttribute("CurrentWeatherState", "Clear") -- 預設狀態供通知讀取
+    Lighting:SetAttribute("RTX_Material_Enabled", false)  -- 預設不開材質，等玩家按Yes
 
     Lighting:SetAttribute("Orig_Saved", true)
     Lighting:SetAttribute("Orig_ClockTime", Lighting.ClockTime)
@@ -75,6 +90,60 @@ else
     local folder = Instance.new("Folder")
     folder.Name = toggleFolderName
     folder.Parent = Lighting
+
+    -- ==========================================
+    -- 🌟 1. Asynchronous Material Prompt (不卡光影啟動)
+    -- ==========================================
+    task.spawn(function()
+        local useMaterials = false
+        local answered = false
+        local promptCallback = Instance.new("BindableFunction")
+        promptCallback.OnInvoke = function(response)
+            if response == "Yes" then
+                useMaterials = true
+            end
+            answered = true
+        end
+
+        pcall(function()
+            StarterGui:SetCore("SendNotification", {
+                Title = "RTX Settings",
+                Text = "Enable Snow/Mud Material Changes?",
+                Duration = 10,
+                Button1 = "Yes",
+                Button2 = "No",
+                Callback = promptCallback
+            })
+        end)
+
+        -- 等待玩家選擇 (最多10秒)
+        local timeout = 0
+        while not answered and timeout < 10 do
+            task.wait(0.1)
+            timeout = timeout + 0.1
+        end
+
+        Lighting:SetAttribute("RTX_Material_Enabled", useMaterials)
+
+        -- 如果選了 Yes，立刻套用對應的材質
+        if useMaterials then
+            sendNotif("Graphics Engine", "✨ Custom Materials Applied!")
+            local currentState = Lighting:GetAttribute("CurrentWeatherState")
+            
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and not (obj.Parent and obj.Parent:FindFirstChildOfClass("Humanoid")) then
+                    if not obj:GetAttribute("Orig_Material") then
+                        obj:SetAttribute("Orig_Material", obj.Material.Value)
+                    end
+                    if currentState == "Rain" then
+                        obj.Material = Enum.Material.Mud
+                    else
+                        obj.Material = Enum.Material.Snow
+                    end
+                end
+            end
+        end
+    end)
 
     -- ==========================================
     -- 🌟 2. Create Core Cinematic Filters
@@ -173,13 +242,18 @@ else
             end
 
             local newState = isRaining and "Rain" or "Clear"
+            Lighting:SetAttribute("CurrentWeatherState", newState) -- 同步給選項卡讀取
 
             if currentWeatherState ~= newState then
                 currentWeatherState = newState
 
                 if isRaining then
                     -- 🌧️ 切換至：RAIN MODE (超強水面反光)
-                    sendNotif("Weather Update", "🌧️ Rain detected.\nSwitching to Wet RTX Shadows.")
+                    if Lighting:GetAttribute("RTX_Material_Enabled") then
+                        sendNotif("Weather Update", "🌧️ Rain detected.\nSwitching to Wet RTX & Muddy Materials.")
+                    else
+                        sendNotif("Weather Update", "🌧️ Rain detected.\nSwitching to Wet RTX Shadows.")
+                    end
                     
                     dust.Enabled = false
 
@@ -211,20 +285,32 @@ else
                     atmosphere.Haze = 2.5
                     clouds.Cover = 0.9 
 
-                    -- 🌟 強制全局反光 (雨天濕透效果)
+                    -- 🌟 強制全局反光與材質修改 (雨天濕透效果)
                     for _, obj in pairs(Workspace:GetDescendants()) do
                         if obj:IsA("BasePart") and not (obj.Parent and obj.Parent:FindFirstChildOfClass("Humanoid")) then
                             if not obj:GetAttribute("Orig_Reflectance") then
                                 obj:SetAttribute("Orig_Reflectance", obj.Reflectance)
                             end
+                            
                             -- 取消大小限制，強制所有物件大幅度反光 (0.4)
                             obj.Reflectance = math.clamp(obj.Reflectance + 0.4, 0, 1)
+
+                            if Lighting:GetAttribute("RTX_Material_Enabled") then
+                                if not obj:GetAttribute("Orig_Material") then
+                                    obj:SetAttribute("Orig_Material", obj.Material.Value)
+                                end
+                                obj.Material = Enum.Material.Mud
+                            end
                         end
                     end
 
                 else
                     -- ☀️ 切換至：CLEAR MODE (刺眼陽光與玻璃質感)
-                    sendNotif("Weather Update", "☀️ Skies are clear.\nSwitching to God Rays RTX.")
+                    if Lighting:GetAttribute("RTX_Material_Enabled") then
+                        sendNotif("Weather Update", "☀️ Skies are clear.\nSwitching to God Rays RTX & Snow.")
+                    else
+                        sendNotif("Weather Update", "☀️ Skies are clear.\nSwitching to God Rays RTX.")
+                    end
                     
                     dust.Enabled = true
 
@@ -261,19 +347,26 @@ else
                     atmosphere.Haze = 1.5
                     clouds.Cover = 0.6 
                     
-                    -- 🌟 強制全局反光 (晴天金屬/玻璃質感)
+                    -- 🌟 強制全局反光與材質修改 (晴天金屬/玻璃質感)
                     for _, obj in pairs(Workspace:GetDescendants()) do
                         if obj:IsA("BasePart") and not (obj.Parent and obj.Parent:FindFirstChildOfClass("Humanoid")) then
                             if not obj:GetAttribute("Orig_Reflectance") then
                                 obj:SetAttribute("Orig_Reflectance", obj.Reflectance)
                             end
+                            
                             -- 取消大小限制，強制所有物件微反光 (0.2)
                             obj.Reflectance = math.clamp(obj.Reflectance + 0.2, 0, 1)
+
+                            if Lighting:GetAttribute("RTX_Material_Enabled") then
+                                if not obj:GetAttribute("Orig_Material") then
+                                    obj:SetAttribute("Orig_Material", obj.Material.Value)
+                                end
+                                obj.Material = Enum.Material.Snow
+                            end
                         end
                     end
                 end
             end
-            
             
             task.wait(1200) 
         end
