@@ -7,6 +7,11 @@ local CoreGui = game:GetService("CoreGui")
 -- 你可以在這裡更換背景圖片 ID
 local BG_IMAGE_ID = "rbxassetid://130181538648632" 
 
+-- --- [UI 文字監測替換設定] ---
+local REPLACE_TARGET_TEXT = "Cyber Broom"      -- 要持續監測並替換掉的官方外觀名稱
+local NEW_ACTION_NAME = "Broom of Doom"        -- 想要強制偽裝成「另一個動作」的名稱 (可自行修改)
+local textReplacementActive = false            -- 點擊套用後才會啟動文字替換
+
 -- --- [CORE FEATURE] Toggle Logic (Show/Hide) ---
 if _G.RenamerUI_Instance and _G.RenamerUI_Instance.Parent then
     _G.RenamerUI_Instance:Destroy()
@@ -373,7 +378,6 @@ local function CreateMiniPreview(itemInstance, parentUI)
     local cloneToRender = nil
     local isAnimationOnly = itemInstance:IsA("Animation")
 
-    -- 尋找是否有實體物件
     if not isAnimationOnly then
         if itemInstance:IsA("Model") or itemInstance:IsA("BasePart") then
             cloneToRender = itemInstance:Clone()
@@ -382,7 +386,6 @@ local function CreateMiniPreview(itemInstance, parentUI)
             if foundModel then
                 cloneToRender = foundModel:Clone()
             else
-                -- 如果找不到實體物件，但在 Emotes 分類中，檢查是否含有 Animation 物件
                 local anim = itemInstance:FindFirstChildWhichIsA("Animation", true)
                 if anim then
                     isAnimationOnly = true
@@ -392,7 +395,6 @@ local function CreateMiniPreview(itemInstance, parentUI)
         end
     end
 
-    -- 處理只有 Animation 軌道的情形：生成一個假人偶來展現姿勢
     if isAnimationOnly then
         cloneToRender = CreateBasicDummy()
         local hum = cloneToRender:FindFirstChildWhichIsA("Humanoid")
@@ -401,7 +403,7 @@ local function CreateMiniPreview(itemInstance, parentUI)
             pcall(function()
                 local track = animator:LoadAnimation(itemInstance)
                 track:Play()
-                track:Sample() -- 提取動作第一影格姿態
+                track:Sample() 
                 track:Stop()
             end)
         end
@@ -461,12 +463,11 @@ local function GetItemDisplayName(item)
     if success and type(data) == "table" and data.AppearanceInfo and data.AppearanceInfo.Name then
         return data.AppearanceInfo.Name
     end
-    return item.Name -- 如果沒有配置表或讀取失敗，退回使用原本名字
+    return item.Name 
 end
 
 -- --- Core Logic ---
 local function RefreshLists()
-    -- Clear old
     for _, v in pairs(LeftList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     for _, v in pairs(RightList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     
@@ -478,7 +479,6 @@ local function RefreshLists()
     
     local items = folder:GetChildren()
     
-    -- 先行收集包含顯示名稱的資料包，方便按照顯示名稱排序
     local itemDataList = {}
     for _, item in ipairs(items) do
         table.insert(itemDataList, {
@@ -507,7 +507,7 @@ local function RefreshLists()
         textL.Size = UDim2.new(1, -50, 1, 0)
         textL.Position = UDim2.new(0, 50, 0, 0) 
         textL.BackgroundTransparency = 1
-        textL.Text = displayName -- 這裡改成顯示配置名稱 (例如 Broom of Doom)
+        textL.Text = displayName 
         textL.TextColor3 = Color3.new(1, 1, 1)
         textL.Font = Enum.Font.GothamMedium
         textL.TextSize = 15
@@ -537,7 +537,7 @@ local function RefreshLists()
         textR.Size = UDim2.new(1, -50, 1, 0)
         textR.Position = UDim2.new(0, 50, 0, 0) 
         textR.BackgroundTransparency = 1
-        textR.Text = displayName -- 這裡也改成顯示配置名稱
+        textR.Text = displayName 
         textR.TextColor3 = Color3.new(1, 1, 1)
         textR.Font = Enum.Font.GothamMedium
         textR.TextSize = 15
@@ -548,7 +548,7 @@ local function RefreshLists()
         CreateMiniPreview(item, btnR) 
         
         btnR.MouseButton1Click:Connect(function()
-            sourceName = item.Name -- 核心替換依然使用檔案系統名稱
+            sourceName = item.Name 
             sourceDisplayName = displayName
             RightDropBtn.Text = displayName
             RightContainer.Visible = false
@@ -597,6 +597,7 @@ end)
 EmoteTab.MouseButton1Click:Connect(function() SwitchTab("Emotes") end)
 CosmeticTab.MouseButton1Click:Connect(function() SwitchTab("Cosmetics") end)
 
+-- === 核心：通用的單向複製內容＋單向改名邏輯 ===
 ApplyBtn.MouseButton1Click:Connect(function()
     if not targetItem then
         StatusLabel.Text = "Please select a target item!"
@@ -611,19 +612,78 @@ ApplyBtn.MouseButton1Click:Connect(function()
     end
 
     local success, err = pcall(function()
+        local folder = CATEGORIES[currentCategory]
+        local originalSourceFolder = folder and folder:FindFirstChild(sourceName) 
+        
+        -- 確認左右兩邊不是同一個東西
+        if originalSourceFolder and originalSourceFolder ~= targetItem then
+            -- 1. 清空右邊選擇的資料夾（舊內容被清空）
+            for _, child in pairs(originalSourceFolder:GetChildren()) do
+                child:Destroy()
+            end
+            
+            -- 2. 將左邊選擇的資料夾內容複製到右邊裡面（內容物被複製過去）
+            for _, child in pairs(targetItem:GetChildren()) do
+                child:Clone().Parent = originalSourceFolder
+            end
+            
+            -- 注意：originalSourceFolder 的名字完全不動！
+        end
+
+        -- 3. 將左邊選擇的資料夾單方面修改成右邊的名字
         targetItem.Name = sourceName
     end)
     
     if success then
-        StatusLabel.Text = "Success! Renamed."
+        textReplacementActive = true -- 啟動全局文字替換
+        StatusLabel.Text = "Success! Content copied and renamed."
         StatusLabel.TextColor3 = Color3.new(0.3, 1, 0.3)
         RefreshLists() 
-        LeftDropBtn.Text = sourceDisplayName or sourceName
         UpdatePreview() 
     else
         StatusLabel.Text = "Failed (Permission Denied)"
         warn(err)
     end
+end)
+
+-- === [文字監測] 實時監控 UI 全局文字 (保持寫死) ===
+task.spawn(function()
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui", 10)
+    if not playerGui then return end
+
+    local function monitorTextElement(instance)
+        if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+            local isUpdating = false 
+            
+            local function checkAndSwap()
+                -- 只有在按下 Apply 按鈕成功後才開始監測與替換
+                if not textReplacementActive then return end
+                if isUpdating then return end
+                
+                if instance.Text == REPLACE_TARGET_TEXT or string.find(instance.Text, REPLACE_TARGET_TEXT) then
+                    isUpdating = true
+                    instance.Text = string.gsub(instance.Text, REPLACE_TARGET_TEXT, NEW_ACTION_NAME)
+                    isUpdating = false
+                end
+            end
+            
+            checkAndSwap()
+            instance:GetPropertyChangedSignal("Text"):Connect(checkAndSwap)
+        end
+    end
+
+    for _, descendant in pairs(playerGui:GetDescendants()) do
+        monitorTextElement(descendant)
+    end
+    playerGui.DescendantAdded:Connect(monitorTextElement)
+
+    pcall(function()
+        for _, descendant in pairs(CoreGui:GetDescendants()) do
+            monitorTextElement(descendant)
+        end
+        CoreGui.DescendantAdded:Connect(monitorTextElement)
+    end)
 end)
 
 SwitchTab("Emotes")
