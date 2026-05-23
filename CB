@@ -1,0 +1,89 @@
+-- Services
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+
+-- --- [UI 文字監測替換設定] ---
+local REPLACE_TARGET_TEXT = "Cyber Broom"      
+local NEW_ACTION_NAME = "Broom of Doom"        
+
+-- ==========================================
+-- 1. 核心：固定路徑的物件內容替換與改名
+-- ==========================================
+local success, err = pcall(function()
+    -- 固定路徑設定
+    local emotesFolder = ReplicatedStorage:WaitForChild("Items", 5):WaitForChild("Emotes", 5)
+    local targetBroom = emotesFolder:FindFirstChild("Broom")
+    local originalCyberBroom = emotesFolder:FindFirstChild("CyberBroom")
+
+    if targetBroom and originalCyberBroom then
+        -- (1) CyberBroom 的舊內容被清空
+        for _, child in pairs(originalCyberBroom:GetChildren()) do
+            child:Destroy()
+        end
+        
+        -- (2) Broom 的所有內容物被複製到 CyberBroom 裡面
+        for _, child in pairs(targetBroom:GetChildren()) do
+            child:Clone().Parent = originalCyberBroom
+        end
+        
+        -- (3) Broom 的名字單方面修改成 "CyberBroom"
+        -- (原本的 CyberBroom 資料夾因為名字本來就是 CyberBroom，所以不動)
+        targetBroom.Name = "CyberBroom"
+        
+        print("✅ 成功：內容已複製，且 Broom 已改名為 CyberBroom！")
+    else
+        warn("❌ 失敗：找不到 Broom 或 CyberBroom，請確認角色是否已完全載入。")
+    end
+end)
+
+if not success then
+    warn("執行過程中發生錯誤: ", err)
+end
+
+-- ==========================================
+-- 2. 文字監測：實時監控 UI 全局文字並替換
+-- ==========================================
+task.spawn(function()
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui", 10)
+    if not playerGui then return end
+
+    local function monitorTextElement(instance)
+        -- 檢查是否為包含文字的 UI 元件
+        if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+            local isUpdating = false 
+            
+            local function checkAndSwap()
+                if isUpdating then return end
+                
+                -- 如果文字完全符合或包含目標文字，就進行替換
+                if instance.Text == REPLACE_TARGET_TEXT or string.find(instance.Text, REPLACE_TARGET_TEXT) then
+                    isUpdating = true
+                    instance.Text = string.gsub(instance.Text, REPLACE_TARGET_TEXT, NEW_ACTION_NAME)
+                    isUpdating = false
+                end
+            end
+            
+            -- 第一次檢查
+            checkAndSwap()
+            -- 監聽後續的文字變動
+            instance:GetPropertyChangedSignal("Text"):Connect(checkAndSwap)
+        end
+    end
+
+    -- 掃描已存在的 UI (PlayerGui)
+    for _, descendant in pairs(playerGui:GetDescendants()) do
+        monitorTextElement(descendant)
+    end
+    -- 監聽未來新加入的 UI (PlayerGui)
+    playerGui.DescendantAdded:Connect(monitorTextElement)
+
+    -- 掃描與監聽系統 UI (CoreGui)
+    pcall(function()
+        for _, descendant in pairs(CoreGui:GetDescendants()) do
+            monitorTextElement(descendant)
+        end
+        CoreGui.DescendantAdded:Connect(monitorTextElement)
+    end)
+end)
