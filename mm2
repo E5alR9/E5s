@@ -1,0 +1,128 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- 檢查 UI 是否已經存在（重複執行時關閉）
+local existingGui = PlayerGui:FindFirstChild("PlayerWeaponStatusGui")
+if existingGui then
+	existingGui:Destroy()
+	return 
+end
+
+-- 1. 建立主介面 (ScreenGui)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "PlayerWeaponStatusGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+-- 2. 建立背景 Frame (半透明與加邊框)
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 220, 0, 300)
+mainFrame.Position = UDim2.new(0.5, -110, 0.5, -150)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.BackgroundTransparency = 0.4                 
+mainFrame.BorderSizePixel = 1                          
+mainFrame.BorderColor3 = Color3.fromRGB(255, 255, 255) 
+mainFrame.BorderMode = Enum.BorderMode.Inset
+mainFrame.Active = true
+mainFrame.Draggable = true                             
+mainFrame.Parent = screenGui
+
+-- 3. 建立標題
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -30, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+title.BackgroundTransparency = 0.4
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Text = "玩家狀態追蹤"
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 16
+title.BorderSizePixel = 0
+title.Parent = mainFrame
+
+-- 4. 建立關閉按鈕
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -30, 0, 0)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Text = "X"
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 16
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = mainFrame
+
+closeBtn.MouseButton1Click:Connect(function()
+	screenGui:Destroy()
+end)
+
+-- 5. 建立玩家列表的滾動框架
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1, 0, 1, -30)
+scrollFrame.Position = UDim2.new(0, 0, 0, 30)
+scrollFrame.BackgroundTransparency = 1 
+scrollFrame.BorderSizePixel = 0
+scrollFrame.ScrollBarThickness = 5
+scrollFrame.Parent = mainFrame
+
+-- 自動排列
+local listLayout = Instance.new("UIListLayout")
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = scrollFrame
+
+-- 6. 更新玩家列表的核心函數
+local function updateList()
+	-- 清除舊標籤
+	for _, child in ipairs(scrollFrame:GetChildren()) do
+		if child:IsA("TextLabel") then
+			child:Destroy()
+		end
+	end
+
+	-- 遍歷所有玩家
+	local players = Players:GetPlayers()
+	for _, player in ipairs(players) do
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.new(1, 0, 0, 25)
+		label.BackgroundTransparency = 1
+		label.Text = string.format("(%s@%s)", player.DisplayName, player.Name)
+		label.Font = Enum.Font.SourceSansBold
+		label.TextSize = 14
+		
+		-- 檢查玩家的生死狀態 (透過 Character 的 Humanoid Health 判斷)
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local isAlive = humanoid and humanoid.Health > 0
+
+		if not isAlive then
+			-- 【死掉】顯示為白色
+			label.TextColor3 = Color3.fromRGB(255, 255, 255)
+		else
+			-- 【活著】預設為綠色
+			label.TextColor3 = Color3.fromRGB(50, 220, 50)
+			
+			-- 如果活著，再檢查背包武器來覆蓋顏色
+			local backpack = player:FindFirstChild("Backpack")
+			if backpack then
+				if backpack:FindFirstChild("Gun") then
+					label.TextColor3 = Color3.fromRGB(50, 150, 255) -- 藍色
+				elseif backpack:FindFirstChild("Knife") then
+					label.TextColor3 = Color3.fromRGB(255, 50, 50)  -- 紅色
+				end
+			end
+		end
+
+		label.Parent = scrollFrame
+	end
+end
+
+-- 7. 啟動與自動刷新循環
+updateList()
+
+task.spawn(function()
+	while screenGui.Parent do
+		updateList()
+		task.wait(1)
+	end
+end)
