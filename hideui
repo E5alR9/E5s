@@ -1,0 +1,43 @@
+local StarterGui = game:GetService("StarterGui")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- 初始化或切換全局狀態
+if _G.UIHidden == nil then
+    _G.UIHidden = false
+end
+
+_G.UIHidden = not _G.UIHidden
+local isShowing = not _G.UIHidden
+
+-- 1. 切換 Roblox 內建 UI (CoreGui)
+-- 包含聊天室、玩家列表、背包、表情選單等
+StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, isShowing)
+
+-- 2. 切換玩家介面 (PlayerGui)
+for _, gui in ipairs(playerGui:GetChildren()) do
+    if gui:IsA("ScreenGui") then
+        if _G.UIHidden then
+            -- 隱藏時：記錄該 UI 原本是否顯示，避免恢復時把本來就該隱藏的 UI 打開
+            gui:SetAttribute("WasEnabled", gui.Enabled)
+            gui.Enabled = false
+        else
+            -- 恢復時：讀取之前的狀態來恢復
+            local wasEnabled = gui:GetAttribute("WasEnabled")
+            if wasEnabled ~= nil then
+                gui.Enabled = wasEnabled
+                gui:SetAttribute("WasEnabled", nil) -- 清除記錄
+            else
+                gui.Enabled = true
+            end
+        end
+    end
+end
+
+-- 提示訊息 (可選)
+if _G.UIHidden then
+    print("UI 已隱藏！再次執行腳本即可恢復。")
+else
+    print("UI 已恢復！")
+end
