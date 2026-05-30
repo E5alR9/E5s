@@ -1301,7 +1301,7 @@ end)
 --  event 
 -- =============================================
 
---loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/event"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/event"))()
 
 -----------------------------------------------------------
 print([[                                                
