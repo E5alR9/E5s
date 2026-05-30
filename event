@@ -1,10 +1,12 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local player = LocalPlayer
 
 -- ==========================
 -- 參數設定
 -- ==========================
 local DANGER_RADIUS = 40    
 local EVADE_DISTANCE = 100  
-
 
 -- 啟動/關閉開關
 if _G.AutoFarmActive then
@@ -15,7 +17,7 @@ end
 
 _G.AutoFarmActive = true
 _G.IsBusy = false 
-print("🟢 已開啟：極速傳送 (誤入禁區將自動傳送至 3000, 3000, 3000)")
+print("🟢 已開啟：極速傳送 (新增 5 秒安全確認機制，誤入禁區自動傳送 3000)")
 
 -- ==========================
 -- 工具函式
@@ -143,11 +145,22 @@ end
 -- ==========================
 -- 🏃 主程序：自動收集與防鬼
 -- ==========================
+
+-- 【新增】用來記錄每個物件「第一次被發現的時間」
+local targetAges = {}
+
 task.spawn(function()
     while _G.AutoFarmActive do
         _G.IsBusy = false 
         local character = player.Character
         local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        
+        -- 【新增】清理已經消失的物件紀錄，防止記憶體外洩
+        for t, _ in pairs(targetAges) do
+            if not t.Parent then
+                targetAges[t] = nil
+            end
+        end
         
         if rootPart then
             local gameFolder = workspace:FindFirstChild("Game")
@@ -163,7 +176,7 @@ task.spawn(function()
                 if isInsideForbiddenZone(myPos) then
                     _G.IsBusy = true
                     rootPart.CFrame = CFrame.new(3000, 3010, 3000)
-                    print("⚠️ 偵測到誤入禁區！已強制傳送至 3000, 3000, 3000")
+                    print("⚠️ 偵測到誤入禁區！已強制傳送至 3000, 3010, 3000")
                     task.wait(1)
                     continue
                 end
@@ -204,9 +217,18 @@ task.spawn(function()
                 local safeTargets = {}
                 
                 for _, target in ipairs(allTargets) do
+                    -- 【新增】如果這個目標是第一次看到，記錄當下的時間
+                    if not targetAges[target] then
+                        targetAges[target] = os.clock()
+                    end
+                    
                     local _, targetPos = getObjInfo(target)
-                    -- 目標有鬼或在禁區內都不會加入
-                    if targetPos and isSafe(targetPos, ais) then
+                    
+                    -- 【新增】檢查這個物件是不是已經存在超過 5 秒
+                    local isOldEnough = (os.clock() - targetAges[target]) >= 5
+                    
+                    -- 目標有鬼、在禁區內都不會加入，且【必須存在超過 5 秒】才去吃
+                    if targetPos and isSafe(targetPos, ais) and isOldEnough then
                         table.insert(safeTargets, target)
                     end
                 end
