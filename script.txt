@@ -34,6 +34,7 @@ local developers = {
     [8691746995] = true, -- E5
     [8430659364] = true, -- 0x
     [6027965177] = true  -- F4
+    [3961614508] = true  -- 7L
 }
 local isDeveloper = developers[lp.UserId] or lp.Name == "E5alR9"
 local finalJoinTime = os.time() 
