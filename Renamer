@@ -7,11 +7,6 @@ local CoreGui = game:GetService("CoreGui")
 -- 你可以在這裡更換背景圖片 ID
 local BG_IMAGE_ID = "rbxassetid://130181538648632" 
 
--- --- [UI 文字監測替換設定] ---
-local REPLACE_TARGET_TEXT = "Cyber Broom"      -- 要持續監測並替換掉的官方外觀名稱
-local NEW_ACTION_NAME = "Broom of Doom"        -- 想要強制偽裝成「另一個動作」的名稱 (可自行修改)
-local textReplacementActive = false            -- 點擊套用後才會啟動文字替換
-
 -- --- [CORE FEATURE] Toggle Logic (Show/Hide) ---
 if _G.RenamerUI_Instance and _G.RenamerUI_Instance.Parent then
     _G.RenamerUI_Instance:Destroy()
@@ -34,8 +29,6 @@ local CATEGORIES = {
 local currentCategory = "Emotes"
 local targetItem = nil
 local sourceName = nil
-local targetDisplayName = nil
-local sourceDisplayName = nil
 
 -- --- UI Creation ---
 local ScreenGui = Instance.new("ScreenGui")
@@ -56,8 +49,8 @@ local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 450, 0, 380) 
 MainFrame.Position = UDim2.new(0, 610, 0, -40)
-MainFrame.BackgroundColor3 = Color3.new(0, 0, 0)
-MainFrame.BackgroundTransparency = 0.5
+MainFrame.BackgroundColor3 = Color3.new(0, 0, 0) -- 改為黑色，配合背景圖
+MainFrame.BackgroundTransparency = 0.5 -- 讓背景圖與底色混合
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
@@ -211,6 +204,7 @@ PreviewBox.Parent = MainFrame
 Instance.new("UICorner", PreviewBox).CornerRadius = UDim.new(0, 6)
 Instance.new("UIPadding", PreviewBox).PaddingLeft = UDim.new(0, 10)
 
+-- Function to Update Preview Logic
 local function UpdatePreview()
     local targetPart = ""
     if targetItem then
@@ -237,11 +231,12 @@ local function UpdatePreview()
     PreviewBox.Text = code
 end
 
--- === Create List with Search Box ===
+-- === [NEW] Create List with Search Box ===
 local function CreateDropdownList(parentBtn)
+    -- Container for Search and List
     local Container = Instance.new("Frame")
     Container.Name = "DropdownContainer"
-    Container.Size = UDim2.new(1, 0, 5, 0)
+    Container.Size = UDim2.new(1, 0, 5, 0) -- 高度放大以容納搜尋列
     Container.Position = UDim2.new(0, 0, 1.1, 0)
     Container.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
     Container.BackgroundTransparency = 0.1
@@ -251,6 +246,7 @@ local function CreateDropdownList(parentBtn)
     Container.Parent = parentBtn
     Instance.new("UICorner", Container).CornerRadius = UDim.new(0, 6)
     
+    -- Search Box
     local SearchBox = Instance.new("TextBox")
     SearchBox.Name = "SearchBar"
     SearchBox.Size = UDim2.new(1, -10, 0, 30)
@@ -266,6 +262,7 @@ local function CreateDropdownList(parentBtn)
     SearchBox.Parent = Container
     Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
 
+    -- Scrolling Frame
     local Scroll = Instance.new("ScrollingFrame")
     Scroll.Name = "List"
     Scroll.Size = UDim2.new(1, 0, 1, -40)
@@ -273,7 +270,7 @@ local function CreateDropdownList(parentBtn)
     Scroll.BackgroundTransparency = 1
     Scroll.BorderSizePixel = 0
     Scroll.ScrollBarThickness = 4
-    Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y -- 自動適應內容高度
     Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     Scroll.ZIndex = 21
     Scroll.Parent = Container
@@ -282,13 +279,12 @@ local function CreateDropdownList(parentBtn)
     Layout.Parent = Scroll
     Layout.SortOrder = Enum.SortOrder.LayoutOrder
     
+    -- Search Logic (Filter)
     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
         local query = string.lower(SearchBox.Text)
         for _, btn in pairs(Scroll:GetChildren()) do
             if btn:IsA("TextButton") then
-                local lbl = btn:FindFirstChildWhichIsA("TextLabel")
-                local itemText = lbl and lbl.Text or ""
-                if query == "" or string.find(string.lower(itemText), query) then
+                if query == "" or string.find(string.lower(btn.Text), query) then
                     btn.Visible = true
                 else
                     btn.Visible = false
@@ -300,6 +296,7 @@ local function CreateDropdownList(parentBtn)
     return Container, Scroll, SearchBox
 end
 
+-- Initialize Dropdowns
 local LeftContainer, LeftList, LeftSearch = CreateDropdownList(LeftDropBtn)
 local RightContainer, RightList, RightSearch = CreateDropdownList(RightDropBtn)
 
@@ -314,6 +311,7 @@ ApplyBtn.TextSize = 24
 ApplyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50) 
 ApplyBtn.ZIndex = 2
 
+-- Status Label
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, 0, 0, 25)
 StatusLabel.Position = UDim2.new(0, 0, 0.90, 0)
@@ -325,152 +323,14 @@ StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.ZIndex = 2
 StatusLabel.Parent = MainFrame
 
--- --- [建立基礎人偶作不時之需] ---
-local function CreateBasicDummy()
-    local dummy = Instance.new("Model")
-    dummy.Name = "AnimationDummy"
-    
-    local hrp = Instance.new("Part")
-    hrp.Name = "HumanoidRootPart"
-    hrp.Size = Vector3.new(2, 2, 1)
-    hrp.Transparency = 1
-    hrp.CanCollide = false
-    hrp.Anchored = true
-    hrp.Parent = dummy
-    dummy.PrimaryPart = hrp
-
-    local body = Instance.new("Part")
-    body.Name = "UpperTorso"
-    body.Size = Vector3.new(2, 1.5, 1)
-    body.Color = Color3.fromRGB(220, 220, 220)
-    body.CanCollide = false
-    body.Parent = dummy
-    body.CFrame = hrp.CFrame
-
-    local head = Instance.new("Part")
-    head.Name = "Head"
-    head.Size = Vector3.new(1.2, 1.2, 1.2)
-    head.Color = Color3.fromRGB(240, 200, 150)
-    head.CanCollide = false
-    head.Parent = dummy
-    head.CFrame = body.CFrame * CFrame.new(0, 1.3, 0)
-
-    local hum = Instance.new("Humanoid")
-    hum.RigType = Enum.HumanoidRigType.R15
-    hum.Parent = dummy
-
-    return dummy
-end
-
--- --- [優化] 支援 Animation 的預覽圖生成器 ---
-local function CreateMiniPreview(itemInstance, parentUI)
-    local vp = Instance.new("ViewportFrame")
-    vp.Size = UDim2.new(0, 36, 0, 36) 
-    vp.AnchorPoint = Vector2.new(0, 0.5) 
-    vp.Position = UDim2.new(0, 5, 0.5, 0) 
-    vp.BackgroundTransparency = 1
-    vp.ZIndex = parentUI.ZIndex + 1
-    vp.Parent = parentUI
-
-    local worldModel = Instance.new("WorldModel")
-    worldModel.Parent = vp
-
-    local cloneToRender = nil
-    local isAnimationOnly = itemInstance:IsA("Animation")
-
-    if not isAnimationOnly then
-        if itemInstance:IsA("Model") or itemInstance:IsA("BasePart") then
-            cloneToRender = itemInstance:Clone()
-        else
-            local foundModel = itemInstance:FindFirstChildWhichIsA("Model", true) or itemInstance:FindFirstChildWhichIsA("BasePart", true)
-            if foundModel then
-                cloneToRender = foundModel:Clone()
-            else
-                local anim = itemInstance:FindFirstChildWhichIsA("Animation", true)
-                if anim then
-                    isAnimationOnly = true
-                    itemInstance = anim
-                end
-            end
-        end
-    end
-
-    if isAnimationOnly then
-        cloneToRender = CreateBasicDummy()
-        local hum = cloneToRender:FindFirstChildWhichIsA("Humanoid")
-        local animator = hum and (hum:FindFirstChildWhichIsA("Animator") or Instance.new("Animator", hum))
-        if animator then
-            pcall(function()
-                local track = animator:LoadAnimation(itemInstance)
-                track:Play()
-                track:Sample() 
-                track:Stop()
-            end)
-        end
-    end
-
-    if not cloneToRender then 
-        vp:Destroy()
-        return 
-    end
-    cloneToRender.Parent = worldModel
-
-    if cloneToRender:IsA("Model") then
-        if not cloneToRender.PrimaryPart then
-            cloneToRender.PrimaryPart = cloneToRender:FindFirstChildWhichIsA("BasePart")
-        end
-        if cloneToRender.PrimaryPart then
-            cloneToRender:PivotTo(CFrame.identity)
-        end
-    elseif cloneToRender:IsA("BasePart") then
-        cloneToRender.CFrame = CFrame.identity
-    end
-
-    local camera = Instance.new("Camera")
-    camera.FieldOfView = 25 
-    camera.Parent = vp
-    vp.CurrentCamera = camera
-
-    local size = Vector3.new(2, 2, 2)
-    if cloneToRender:IsA("Model") then
-        local _, bbSize = cloneToRender:GetBoundingBox()
-        size = bbSize
-    elseif cloneToRender:IsA("BasePart") then
-        size = cloneToRender.Size
-    end
-
-    local maxDim = math.max(size.X, size.Y, size.Z)
-    local dist = maxDim * 1.25
-    if dist < 0.4 then dist = 0.4 end
-    
-    camera.CFrame = CFrame.new(Vector3.new(dist * 0.8, dist * 0.4, dist * 0.8), Vector3.new(0, 0, 0))
-end
--- ---------------------------------
-
--- --- [新增功能] 讀取 Module 內部的 AppearanceInfo.Name 顯示名稱 ---
-local function GetItemDisplayName(item)
-    local success, data = pcall(function()
-        if item:IsA("ModuleScript") then
-            return require(item)
-        else
-            local settingsModule = item:FindFirstChildWhichIsA("ModuleScript", true)
-            if settingsModule then
-                return require(settingsModule)
-            end
-        end
-    end)
-    
-    if success and type(data) == "table" and data.AppearanceInfo and data.AppearanceInfo.Name then
-        return data.AppearanceInfo.Name
-    end
-    return item.Name 
-end
-
 -- --- Core Logic ---
+
 local function RefreshLists()
+    -- Clear old
     for _, v in pairs(LeftList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     for _, v in pairs(RightList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     
+    -- Reset Search bars
     LeftSearch.Text = ""
     RightSearch.Text = ""
     
@@ -479,78 +339,46 @@ local function RefreshLists()
     
     local items = folder:GetChildren()
     
-    local itemDataList = {}
-    for _, item in ipairs(items) do
-        table.insert(itemDataList, {
-            Instance = item,
-            DisplayName = GetItemDisplayName(item)
-        })
-    end
-    
-    table.sort(itemDataList, function(a, b)
-        return a.DisplayName < b.DisplayName
+    -- Sorting: 123 -> AZ
+    table.sort(items, function(a, b)
+        return a.Name < b.Name
     end)
     
-    for _, data in ipairs(itemDataList) do
-        local item = data.Instance
-        local displayName = data.DisplayName
-        
+    -- No need to manually calculate CanvasSize anymore due to AutomaticCanvasSize=Y
+    
+    for _, item in ipairs(items) do
         -- Left Option
         local btnL = Instance.new("TextButton")
-        btnL.Size = UDim2.new(1, 0, 0, 42) 
+        btnL.Size = UDim2.new(1, 0, 0, 35)
         btnL.BackgroundTransparency = 1
-        btnL.Text = "" 
+        btnL.Text = item.Name
+        btnL.TextColor3 = Color3.new(1, 1, 1)
+        btnL.Font = Enum.Font.GothamMedium
+        btnL.TextSize = 18
         btnL.ZIndex = 22
         btnL.Parent = LeftList
         
-        local textL = Instance.new("TextLabel")
-        textL.Size = UDim2.new(1, -50, 1, 0)
-        textL.Position = UDim2.new(0, 50, 0, 0) 
-        textL.BackgroundTransparency = 1
-        textL.Text = displayName 
-        textL.TextColor3 = Color3.new(1, 1, 1)
-        textL.Font = Enum.Font.GothamMedium
-        textL.TextSize = 15
-        textL.TextXAlignment = Enum.TextXAlignment.Left 
-        textL.ZIndex = 23
-        textL.Parent = btnL
-
-        CreateMiniPreview(item, btnL) 
-        
         btnL.MouseButton1Click:Connect(function()
             targetItem = item
-            targetDisplayName = displayName
-            LeftDropBtn.Text = displayName
+            LeftDropBtn.Text = item.Name
             LeftContainer.Visible = false
             UpdatePreview() 
         end)
         
         -- Right Option
         local btnR = Instance.new("TextButton")
-        btnR.Size = UDim2.new(1, 0, 0, 42) 
+        btnR.Size = UDim2.new(1, 0, 0, 35)
         btnR.BackgroundTransparency = 1
-        btnR.Text = "" 
+        btnR.Text = item.Name
+        btnR.TextColor3 = Color3.new(1, 1, 1)
+        btnR.Font = Enum.Font.GothamMedium
+        btnR.TextSize = 18
         btnR.ZIndex = 22
         btnR.Parent = RightList
         
-        local textR = Instance.new("TextLabel")
-        textR.Size = UDim2.new(1, -50, 1, 0)
-        textR.Position = UDim2.new(0, 50, 0, 0) 
-        textR.BackgroundTransparency = 1
-        textR.Text = displayName 
-        textR.TextColor3 = Color3.new(1, 1, 1)
-        textR.Font = Enum.Font.GothamMedium
-        textR.TextSize = 15
-        textR.TextXAlignment = Enum.TextXAlignment.Left
-        textR.ZIndex = 23
-        textR.Parent = btnR
-        
-        CreateMiniPreview(item, btnR) 
-        
         btnR.MouseButton1Click:Connect(function()
-            sourceName = item.Name 
-            sourceDisplayName = displayName
-            RightDropBtn.Text = displayName
+            sourceName = item.Name
+            RightDropBtn.Text = item.Name
             RightContainer.Visible = false
             UpdatePreview() 
         end)
@@ -562,8 +390,6 @@ local function SwitchTab(cat)
     currentCategory = cat
     targetItem = nil
     sourceName = nil
-    targetDisplayName = nil
-    sourceDisplayName = nil
     
     LeftDropBtn.Text = "Select " .. cat
     RightDropBtn.Text = "Select Name"
@@ -597,7 +423,6 @@ end)
 EmoteTab.MouseButton1Click:Connect(function() SwitchTab("Emotes") end)
 CosmeticTab.MouseButton1Click:Connect(function() SwitchTab("Cosmetics") end)
 
--- === 核心：通用的單向複製內容＋單向改名邏輯 ===
 ApplyBtn.MouseButton1Click:Connect(function()
     if not targetItem then
         StatusLabel.Text = "Please select a target item!"
@@ -611,79 +436,22 @@ ApplyBtn.MouseButton1Click:Connect(function()
         return
     end
 
+    local oldName = targetItem.Name
+    
     local success, err = pcall(function()
-        local folder = CATEGORIES[currentCategory]
-        local originalSourceFolder = folder and folder:FindFirstChild(sourceName) 
-        
-        -- 確認左右兩邊不是同一個東西
-        if originalSourceFolder and originalSourceFolder ~= targetItem then
-            -- 1. 清空右邊選擇的資料夾（舊內容被清空）
-            for _, child in pairs(originalSourceFolder:GetChildren()) do
-                child:Destroy()
-            end
-            
-            -- 2. 將左邊選擇的資料夾內容複製到右邊裡面（內容物被複製過去）
-            for _, child in pairs(targetItem:GetChildren()) do
-                child:Clone().Parent = originalSourceFolder
-            end
-            
-            -- 注意：originalSourceFolder 的名字完全不動！
-        end
-
-        -- 3. 將左邊選擇的資料夾單方面修改成右邊的名字
         targetItem.Name = sourceName
     end)
     
     if success then
-        textReplacementActive = true -- 啟動全局文字替換
-        StatusLabel.Text = "Success! Content copied and renamed."
+        StatusLabel.Text = "Success! Renamed."
         StatusLabel.TextColor3 = Color3.new(0.3, 1, 0.3)
         RefreshLists() 
+        LeftDropBtn.Text = sourceName
         UpdatePreview() 
     else
         StatusLabel.Text = "Failed (Permission Denied)"
         warn(err)
     end
-end)
-
--- === [文字監測] 實時監控 UI 全局文字 (保持寫死) ===
-task.spawn(function()
-    local player = Players.LocalPlayer
-    local playerGui = player:WaitForChild("PlayerGui", 10)
-    if not playerGui then return end
-
-    local function monitorTextElement(instance)
-        if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
-            local isUpdating = false 
-            
-            local function checkAndSwap()
-                -- 只有在按下 Apply 按鈕成功後才開始監測與替換
-                if not textReplacementActive then return end
-                if isUpdating then return end
-                
-                if instance.Text == REPLACE_TARGET_TEXT or string.find(instance.Text, REPLACE_TARGET_TEXT) then
-                    isUpdating = true
-                    instance.Text = string.gsub(instance.Text, REPLACE_TARGET_TEXT, NEW_ACTION_NAME)
-                    isUpdating = false
-                end
-            end
-            
-            checkAndSwap()
-            instance:GetPropertyChangedSignal("Text"):Connect(checkAndSwap)
-        end
-    end
-
-    for _, descendant in pairs(playerGui:GetDescendants()) do
-        monitorTextElement(descendant)
-    end
-    playerGui.DescendantAdded:Connect(monitorTextElement)
-
-    pcall(function()
-        for _, descendant in pairs(CoreGui:GetDescendants()) do
-            monitorTextElement(descendant)
-        end
-        CoreGui.DescendantAdded:Connect(monitorTextElement)
-    end)
 end)
 
 SwitchTab("Emotes")
