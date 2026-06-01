@@ -279,12 +279,14 @@ local function CreateDropdownList(parentBtn)
     Layout.Parent = Scroll
     Layout.SortOrder = Enum.SortOrder.LayoutOrder
     
-    -- Search Logic (Filter)
+    -- Search Logic (針對內部獨立的 TextLabel 進行過濾)
     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
         local query = string.lower(SearchBox.Text)
         for _, btn in pairs(Scroll:GetChildren()) do
             if btn:IsA("TextButton") then
-                if query == "" or string.find(string.lower(btn.Text), query) then
+                local lbl = btn:FindFirstChildWhichIsA("TextLabel")
+                local itemText = lbl and lbl.Text or ""
+                if query == "" or string.find(string.lower(itemText), query) then
                     btn.Visible = true
                 else
                     btn.Visible = false
@@ -323,6 +325,127 @@ StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.ZIndex = 2
 StatusLabel.Parent = MainFrame
 
+-- --- [建立基礎人偶作不時之需] ---
+local function CreateBasicDummy()
+    local dummy = Instance.new("Model")
+    dummy.Name = "AnimationDummy"
+    
+    local hrp = Instance.new("Part")
+    hrp.Name = "HumanoidRootPart"
+    hrp.Size = Vector3.new(2, 2, 1)
+    hrp.Transparency = 1
+    hrp.CanCollide = false
+    hrp.Anchored = true
+    hrp.Parent = dummy
+    dummy.PrimaryPart = hrp
+
+    local body = Instance.new("Part")
+    body.Name = "UpperTorso"
+    body.Size = Vector3.new(2, 1.5, 1)
+    body.Color = Color3.fromRGB(220, 220, 220)
+    body.CanCollide = false
+    body.Parent = dummy
+    body.CFrame = hrp.CFrame
+
+    local head = Instance.new("Part")
+    head.Name = "Head"
+    head.Size = Vector3.new(1.2, 1.2, 1.2)
+    head.Color = Color3.fromRGB(240, 200, 150)
+    head.CanCollide = false
+    head.Parent = dummy
+    head.CFrame = body.CFrame * CFrame.new(0, 1.3, 0)
+
+    local hum = Instance.new("Humanoid")
+    hum.RigType = Enum.HumanoidRigType.R15
+    hum.Parent = dummy
+
+    return dummy
+end
+
+-- --- 支援 Animation 的預覽圖生成器 ---
+local function CreateMiniPreview(itemInstance, parentUI)
+    local vp = Instance.new("ViewportFrame")
+    vp.Size = UDim2.new(0, 36, 0, 36) 
+    vp.AnchorPoint = Vector2.new(0, 0.5) 
+    vp.Position = UDim2.new(0, 5, 0.5, 0) 
+    vp.BackgroundTransparency = 1
+    vp.ZIndex = parentUI.ZIndex + 1
+    vp.Parent = parentUI
+
+    local worldModel = Instance.new("WorldModel")
+    worldModel.Parent = vp
+
+    local cloneToRender = nil
+    local isAnimationOnly = itemInstance:IsA("Animation")
+
+    if not isAnimationOnly then
+        if itemInstance:IsA("Model") or itemInstance:IsA("BasePart") then
+            cloneToRender = itemInstance:Clone()
+        else
+            local foundModel = itemInstance:FindFirstChildWhichIsA("Model", true) or itemInstance:FindFirstChildWhichIsA("BasePart", true)
+            if foundModel then
+                cloneToRender = foundModel:Clone()
+            else
+                local anim = itemInstance:FindFirstChildWhichIsA("Animation", true)
+                if anim then
+                    isAnimationOnly = true
+                    itemInstance = anim
+                end
+            end
+        end
+    end
+
+    if isAnimationOnly then
+        cloneToRender = CreateBasicDummy()
+        local hum = cloneToRender:FindFirstChildWhichIsA("Humanoid")
+        local animator = hum and (hum:FindFirstChildWhichIsA("Animator") or Instance.new("Animator", hum))
+        if animator then
+            pcall(function()
+                local track = animator:LoadAnimation(itemInstance)
+                track:Play()
+                track:Sample() 
+                track:Stop()
+            end)
+        end
+    end
+
+    if not cloneToRender then 
+        vp:Destroy()
+        return 
+    end
+    cloneToRender.Parent = worldModel
+
+    if cloneToRender:IsA("Model") then
+        if not cloneToRender.PrimaryPart then
+            cloneToRender.PrimaryPart = cloneToRender:FindFirstChildWhichIsA("BasePart")
+        end
+        if cloneToRender.PrimaryPart then
+            cloneToRender:PivotTo(CFrame.identity)
+        end
+    elseif cloneToRender:IsA("BasePart") then
+        cloneToRender.CFrame = CFrame.identity
+    end
+
+    local camera = Instance.new("Camera")
+    camera.FieldOfView = 25 
+    camera.Parent = vp
+    vp.CurrentCamera = camera
+
+    local size = Vector3.new(2, 2, 2)
+    if cloneToRender:IsA("Model") then
+        local _, bbSize = cloneToRender:GetBoundingBox()
+        size = bbSize
+    elseif cloneToRender:IsA("BasePart") then
+        size = cloneToRender.Size
+    end
+
+    local maxDim = math.max(size.X, size.Y, size.Z)
+    local dist = maxDim * 1.25
+    if dist < 0.4 then dist = 0.4 end
+    
+    camera.CFrame = CFrame.new(Vector3.new(dist * 0.8, dist * 0.4, dist * 0.8), Vector3.new(0, 0, 0))
+end
+
 -- --- Core Logic ---
 
 local function RefreshLists()
@@ -344,19 +467,28 @@ local function RefreshLists()
         return a.Name < b.Name
     end)
     
-    -- No need to manually calculate CanvasSize anymore due to AutomaticCanvasSize=Y
-    
     for _, item in ipairs(items) do
         -- Left Option
         local btnL = Instance.new("TextButton")
-        btnL.Size = UDim2.new(1, 0, 0, 35)
+        btnL.Size = UDim2.new(1, 0, 0, 42) -- 稍微拉高一點給預覽圖舒適空間
         btnL.BackgroundTransparency = 1
-        btnL.Text = item.Name
-        btnL.TextColor3 = Color3.new(1, 1, 1)
-        btnL.Font = Enum.Font.GothamMedium
-        btnL.TextSize = 18
+        btnL.Text = "" -- 改為空，改用內部 TextLabel
         btnL.ZIndex = 22
         btnL.Parent = LeftList
+        
+        local textL = Instance.new("TextLabel")
+        textL.Size = UDim2.new(1, -50, 1, 0)
+        textL.Position = UDim2.new(0, 50, 0, 0) -- 往右偏移避開預覽圖
+        textL.BackgroundTransparency = 1
+        textL.Text = item.Name
+        textL.TextColor3 = Color3.new(1, 1, 1)
+        textL.Font = Enum.Font.GothamMedium
+        textL.TextSize = 15
+        textL.TextXAlignment = Enum.TextXAlignment.Left
+        textL.ZIndex = 23
+        textL.Parent = btnL
+
+        CreateMiniPreview(item, btnL) -- 注入 3D 預覽
         
         btnL.MouseButton1Click:Connect(function()
             targetItem = item
@@ -367,14 +499,25 @@ local function RefreshLists()
         
         -- Right Option
         local btnR = Instance.new("TextButton")
-        btnR.Size = UDim2.new(1, 0, 0, 35)
+        btnR.Size = UDim2.new(1, 0, 0, 42)
         btnR.BackgroundTransparency = 1
-        btnR.Text = item.Name
-        btnR.TextColor3 = Color3.new(1, 1, 1)
-        btnR.Font = Enum.Font.GothamMedium
-        btnR.TextSize = 18
+        btnR.Text = "" -- 改為空，改用內部 TextLabel
         btnR.ZIndex = 22
         btnR.Parent = RightList
+        
+        local textR = Instance.new("TextLabel")
+        textR.Size = UDim2.new(1, -50, 1, 0)
+        textR.Position = UDim2.new(0, 50, 0, 0) -- 往右偏移避開預覽圖
+        textR.BackgroundTransparency = 1
+        textR.Text = item.Name
+        textR.TextColor3 = Color3.new(1, 1, 1)
+        textR.Font = Enum.Font.GothamMedium
+        textR.TextSize = 15
+        textR.TextXAlignment = Enum.TextXAlignment.Left
+        textR.ZIndex = 23
+        textR.Parent = btnR
+        
+        CreateMiniPreview(item, btnR) -- 注入 3D 預覽
         
         btnR.MouseButton1Click:Connect(function()
             sourceName = item.Name
@@ -423,6 +566,7 @@ end)
 EmoteTab.MouseButton1Click:Connect(function() SwitchTab("Emotes") end)
 CosmeticTab.MouseButton1Click:Connect(function() SwitchTab("Cosmetics") end)
 
+-- === 融合進階：單向內容複製＋單向改名邏輯 (完整保留此部分) ===
 ApplyBtn.MouseButton1Click:Connect(function()
     if not targetItem then
         StatusLabel.Text = "Please select a target item!"
@@ -436,14 +580,31 @@ ApplyBtn.MouseButton1Click:Connect(function()
         return
     end
 
-    local oldName = targetItem.Name
-    
     local success, err = pcall(function()
+        local folder = CATEGORIES[currentCategory]
+        local originalSourceFolder = folder and folder:FindFirstChild(sourceName) 
+        
+        -- 確認左右兩邊不是同一個東西
+        if originalSourceFolder and originalSourceFolder ~= targetItem then
+            -- 1. 清空右邊選擇的資料夾（舊內容被清空）
+            for _, child in pairs(originalSourceFolder:GetChildren()) do
+                child:Destroy()
+            end
+            
+            -- 2. 將左邊選擇的資料夾內容複製到右邊裡面（內容物被複製過去）
+            for _, child in pairs(targetItem:GetChildren()) do
+                child:Clone().Parent = originalSourceFolder
+            end
+            
+            -- 注意：originalSourceFolder 的名字完全不動！
+        end
+
+        -- 3. 將左邊選擇的資料夾單方面修改成右邊的名字
         targetItem.Name = sourceName
     end)
     
     if success then
-        StatusLabel.Text = "Success! Renamed."
+        StatusLabel.Text = "Success! Content swapped & renamed."
         StatusLabel.TextColor3 = Color3.new(0.3, 1, 0.3)
         RefreshLists() 
         LeftDropBtn.Text = sourceName
