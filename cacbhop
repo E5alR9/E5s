@@ -127,9 +127,9 @@ local function setupCactusAutoJump()
     end
     
     if count > 0 then
-        sendNotif("🌵 掃描完成", "成功為 " .. count .. " 個仙人掌綁定跳躍！", 5)
+        --sendNotif("🌵 掃描完成", "成功為 " .. count .. " 個仙人掌綁定跳躍！", 5)
     else
-        sendNotif("❓ 掃描完成", "沒有找到符合的仙人掌。", 5)
+        --sendNotif("❓ 掃描完成", "沒有找到符合的仙人掌。", 5)
         _G.CactusAutoJumpEnabled = false
     end
 end
@@ -137,5 +137,5 @@ end
 -- ==========================================
 -- ▶️ 執行設定
 -- ==========================================
-sendNotif("🏃 腳本啟用", "開始掃描地圖...", 3)
+--sendNotif("🏃 腳本啟用", "開始掃描地圖...", 3)
 setupCactusAutoJump()
