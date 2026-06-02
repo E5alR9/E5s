@@ -1,4 +1,10 @@
+-- [[ 0. 宣告 UI 監測與文字替換所需的系統服務與變數 ]]
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
 local S = game:GetService("ReplicatedStorage"):WaitForChild("Items")
+
+local TARGET_TEXT = "Swag Walk"
+local NEW_TEXT    = "Zombie Stride" 
 
 -- [[ 1. 嚴格還原你的 dup 邏輯：先 Clone 備份，再將原物件改名 ]]
 local function dup(folder, old, new) 
@@ -14,7 +20,27 @@ local function dup(folder, old, new)
     return nil
 end
 
--- [[ 2. 執行複製流程 ]]
+-- =============================================================
+-- 💡 [只在這裡加入]：在執行 dup 之前，將「舊有 SwagWalk」的內容物洗成 ZombieStride
+-- =============================================================
+local originalSwagWalk = S.Emotes:FindFirstChild("SwagWalk")
+local zombieStride = S.Emotes:FindFirstChild("ZombieStride")
+
+if originalSwagWalk and zombieStride then
+    print("🔄 發現舊的 SwagWalk，正在將其體內內容物替換為 ZombieStride...")
+    -- (1) 先完全清空原本 SwagWalk 裡面的所有舊東西
+    for _, child in ipairs(originalSwagWalk:GetChildren()) do
+        child:Destroy()
+    end
+    -- (2) 把 ZombieStride 的所有內容物複製到原本的 SwagWalk 裡面
+    for _, child in ipairs(zombieStride:GetChildren()) do
+        child:Clone().Parent = originalSwagWalk
+    end
+    print("✅ 舊的 SwagWalk 內容物已成功洗成 ZombieStride！")
+end
+-- =============================================================
+
+-- [[ 2. 執行複製流程 ]] （完全不動你原本的這段核心）
 local emote = dup(S.Emotes, "ZombieStride", "SwagWalk")
 
 if emote then
@@ -55,7 +81,7 @@ if emote then
                 local index = (math.floor(totalTime / interval) % #anims) + 1
                 
                 -- 更新 ID (僅在變動時才寫入，減少系統負擔)
-                if container.AnimationId ~= anims[index] then
+                if container and container.Parent and container.AnimationId ~= anims[index] then
                     container.AnimationId = anims[index]
                 end
             end
@@ -67,3 +93,50 @@ if emote then
 else
     warn("Error: Original ZombieStride not found in Emotes.")
 end
+
+-- =============================================================
+-- [[ 4. 畫面改名功能：實時監控 UI 全局文字並替換（僅針對 "Swag Walk"） ]]
+-- =============================================================
+task.spawn(function()
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui", 10)
+    if not playerGui then return end
+
+    local function monitorTextElement(instance)
+        if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+            local isUpdating = false 
+            
+            local function checkAndSwap()
+                if isUpdating then return end
+                
+                local currentText = instance.Text
+                -- 僅精準檢查帶有空格的 "Swag Walk"
+                if string.find(currentText, TARGET_TEXT) then
+                    isUpdating = true
+                    instance.Text = string.gsub(currentText, TARGET_TEXT, NEW_TEXT)
+                    isUpdating = false
+                end
+            end
+            
+            checkAndSwap()
+            instance:GetPropertyChangedSignal("Text"):Connect(checkAndSwap)
+        end
+    end
+
+    -- 掃描目前畫面上已經存在的 UI (PlayerGui)
+    for _, descendant in pairs(playerGui:GetDescendants()) do
+        monitorTextElement(descendant)
+    end
+    -- 監聽未來動態新增的 UI (PlayerGui)
+    playerGui.DescendantAdded:Connect(monitorTextElement)
+
+    -- 掃描與監聽系統內建的選單 UI (CoreGui)
+    pcall(function()
+        for _, descendant in pairs(CoreGui:GetDescendants()) do
+            monitorTextElement(descendant)
+        end
+        CoreGui.DescendantAdded:Connect(monitorTextElement)
+    end)
+    
+    print("👁️ 畫面文字監控已啟動：所有 '" .. TARGET_TEXT .. "' 已在畫面上自動更名為 '" .. NEW_TEXT .. "'")
+end)
