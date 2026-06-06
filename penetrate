@@ -1,0 +1,108 @@
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+
+-- ==========================================
+-- 初始化全域變數
+-- ==========================================
+if _G.MapNoclipActive == nil then _G.MapNoclipActive = false end
+if _G.StoredMapParts == nil then _G.StoredMapParts = {} end
+
+-- 清除舊的動態監聽
+if _G.MapDynamicConnection then
+	_G.MapDynamicConnection:Disconnect()
+	_G.MapDynamicConnection = nil
+end
+
+-- 核心檢查邏輯
+local function shouldDisableCollision(part)
+	if not part:IsA("BasePart") then return false end
+	
+	-- 僅保留玩家自身過濾（防止角色自己的手腳碰撞衝突導致當機或解體）
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player.Character and part:IsDescendantOf(player.Character) then
+			return false
+		end
+	end
+	
+	-- 原本就沒碰撞的就不用記錄
+	if not part.CanCollide then return false end
+	
+	return true
+end
+
+-- ==========================================
+-- 切換穿牆核心功能
+-- ==========================================
+local function toggleMapNoclip()
+	_G.MapNoclipActive = not _G.MapNoclipActive
+	
+	if _G.MapNoclipActive then
+		-- 【開啟：全圖虛化】
+		local disabledCount = 0
+		_G.StoredMapParts = {}
+		
+		-- 暴力掃描全 Workspace
+		for _, v in pairs(Workspace:GetDescendants()) do
+			if shouldDisableCollision(v) then
+				table.insert(_G.StoredMapParts, v)
+				v.CanCollide = false
+				disabledCount = disabledCount + 1
+			end
+		end
+		
+		-- 動態監聽新生成的任何物件
+		_G.MapDynamicConnection = Workspace.DescendantAdded:Connect(function(descendant)
+			task.delay(0.1, function()
+				if _G.MapNoclipActive and descendant and shouldDisableCollision(descendant) then
+					table.insert(_G.StoredMapParts, descendant)
+					descendant.CanCollide = false
+				end
+			end)
+		end)
+		
+		pcall(function()
+			--[[StarterGui:SetCore("SendNotification", {
+				Title = "絕對穿牆：開啟 🔓",
+				Text = "全地圖（含地板）共 " .. disabledCount .. " 個物件已失去碰撞！",
+				Duration = 3;
+			})]]
+		end)
+		
+	else
+		-- 【關閉：全面恢復】
+		if _G.MapDynamicConnection then
+			_G.MapDynamicConnection:Disconnect()
+			_G.MapDynamicConnection = nil
+		end
+		
+		local restoreCount = 0
+		for _, v in pairs(_G.StoredMapParts) do
+			if v and v.Parent then
+				v.CanCollide = true
+				restoreCount = restoreCount + 1
+			end
+		end
+		_G.StoredMapParts = {}
+		
+		pcall(function()
+			--[[]StarterGui:SetCore("SendNotification", {
+				Title = "絕對穿牆：關閉 🔒",
+				Text = "已恢復 " .. restoreCount .. " 個物件的物理碰撞。",
+				Duration = 3;
+			})]]
+		end)
+	end
+end
+
+-- ==========================================
+-- 監聽 T 鍵輸入
+-- ==========================================
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	if input.KeyCode == Enum.KeyCode.T then
+		toggleMapNoclip()
+	end
+end)
