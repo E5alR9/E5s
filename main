@@ -188,47 +188,13 @@ showHeader()
 task.spawn(function()
     print("//// #### [M1] DATA_DEPLOYMENT_START #### ////")
 
-    -- [[ 🔔 詢問 1: Rockin ]]
-    local rockinBind = Instance.new("BindableFunction")
-    rockinBind.OnInvoke = function(answer)
-        if answer == "NO" then
-            dup(S.Emotes, "RockinStride", "Stride")
-        else
-            print("|||| CHOICE: YES |||| Skipping RockinStride")
-        end
-    end
-
-    -- [[ 🔔 詢問 2: Broom ]]
-    local broomBind = Instance.new("BindableFunction")
-    broomBind.OnInvoke = function(answer)
-        if answer == "NO" then
-            dup(S.Emotes, "Broom", "SnowmobileCruise")
-        else
-            print("|||| CHOICE: YES |||| Skipping Broom")
-        end
-    end
-
     -- 執行通知
     pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "SYSTEM CHECK";
-            Text = "do u have Rockin? IF YOU R THE FIRST IN SERVER CHOOSE YES";
-            Duration = 99999;
-            Button1 = "YES";
-            Button2 = "NO";
-            Callback = rockinBind;
-        })
+        
         
         task.wait(2) -- 稍微延遲避免通知打架
         
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "SYSTEM CHECK";
-            Text = "do u have Broom?";
-            Duration = 99999;
-            Button1 = "YES";
-            Button2 = "NO";
-            Callback = broomBind;
-        })
+        
     end)
 
     -- 無論如何都執行的部分 (Cosmetics)
