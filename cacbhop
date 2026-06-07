@@ -30,7 +30,7 @@ if _G.CactusAutoJumpEnabled then
         _G.CactusConnections = {} -- 清空紀錄
     end
     
-    sendNotif("🛑 腳本停用", "仙人掌自動跳躍已關閉！", 3)
+    --sendNotif("🛑 腳本停用", "仙人掌自動跳躍已關閉！", 3)
     return -- 結束腳本，不往下執行
 end
 
