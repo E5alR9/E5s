@@ -76,8 +76,8 @@ Workspace.DescendantAdded:Connect(function(obj)
 end)
 
 --- 4. 進階動態視距優化（遠處物體自動隱形，走近才渲染） ---
--- 預設距離為 100 格，數字越小效能越高。如果覺得視野太窄，可以把 100 改大（例如 150 或 200）
-local MAX_DIST = 500 
+
+local MAX_DIST = 100
 
 task.spawn(function()
     while task.wait(1) do -- 每 1 秒掃描一次周圍，避免頻繁計算造成卡頓
