@@ -1,0 +1,103 @@
+-- Roblox 終極全方位效能優化腳本 (安全不刪除版)
+-- 整合功能：材質極簡化 + 全特效關閉 + 徹底拔除所有貼圖 + 動態遠距離隱形
+
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+print("[終極優化] 正在執行全方位不破壞性效能提升...")
+
+--- 1. 全球光影與環境後處理特效完全關閉 ---
+Lighting.GlobalShadows = false
+Lighting.FogEnd = 9e9
+
+for _, effect in pairs(Lighting:GetChildren()) do
+    if effect:IsA("PostEffect") or effect:IsA("BlurEffect") or effect:IsA("SunRaysEffect") or effect:IsA("BloomEffect") or effect:IsA("DepthOfFieldEffect") then
+        effect.Enabled = false
+    end
+end
+
+-- 降低地形 (Terrain) 水面畫質
+local Terrain = Workspace:FindFirstChildOfClass("Terrain")
+if Terrain then
+    Terrain.WaterWaveSize = 0
+    Terrain.WaterWaveSpeed = 0
+    Terrain.WaterReflectance = 0
+    Terrain.WaterTransparency = 0
+end
+
+--- 2. 核心屬性極簡化與貼圖徹底停用 ---
+local function ultraOptimize(obj)
+    -- 【特效與光源】直接關閉，不計算動態粒子與光線折射
+    if obj:IsA("ParticleEmitter") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") or obj:IsA("Trail") or obj:IsA("Light") then
+        obj.Enabled = false
+    end
+
+    -- 【2D 貼圖與紋理】清空圖片路徑並設定完全透明，讓 GPU 完全跳過不渲染
+    if obj:IsA("Decal") or obj:IsA("Texture") then
+        obj.Texture = ""
+        obj.Transparency = 1
+    end
+
+    -- 【PBR 高畫質材質】移至 nil 停用（不摧毀，只是暫時移出渲染樹）
+    if obj:IsA("SurfaceAppearance") then
+        obj.Parent = nil
+    end
+
+    -- 【舊版特殊網格貼圖】清空紋理
+    if obj:IsA("SpecialMesh") then
+        obj.TextureId = ""
+    end
+
+    -- 【實體零件優化】
+    if obj:IsA("BasePart") then
+        obj.Material = Enum.Material.SmoothPlastic -- 強制變為最省資源的平滑塑膠
+        obj.CastShadow = false                     -- 關閉陰影計算
+        obj.Reflectance = 0                        -- 關閉表面反光
+        
+        -- 針對 3D 網格模型 (MeshPart)
+        if obj:IsA("MeshPart") then
+            obj.TextureID = ""                     -- 徹底拔除模型表面的 3D 紋理貼圖
+            pcall(function()
+                obj.RenderFidelity = Enum.RenderFidelity.Performance -- 將模型精細度降到最低（外觀會變方塊化）
+            end)
+        end
+    end
+end
+
+--- 3. 執行全面清洗與持續監聽新物件 ---
+for _, obj in pairs(Workspace:GetDescendants()) do
+    pcall(ultraOptimize, obj)
+end
+
+Workspace.DescendantAdded:Connect(function(obj)
+    pcall(ultraOptimize, obj)
+end)
+
+--- 4. 進階動態視距優化（遠處物體自動隱形，走近才渲染） ---
+-- 預設距離為 100 格，數字越小效能越高。如果覺得視野太窄，可以把 100 改大（例如 150 或 200）
+local MAX_DIST = 500 
+
+task.spawn(function()
+    while task.wait(1) do -- 每 1 秒掃描一次周圍，避免頻繁計算造成卡頓
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local myPos = char.HumanoidRootPart.Position
+            
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                -- 排除玩家自己的身體零件
+                if obj:IsA("BasePart") and not obj:IsDescendantOf(char) then
+                    local dist = (obj.Position - myPos).Magnitude
+                    if dist > MAX_DIST then
+                        obj.Transparency = 1 -- 距離太遠，直接隱形，不佔用顯卡資源
+                    else
+                        obj.Transparency = 0 -- 走近時重新顯現
+                    end
+                end
+            end
+        end
+    end
+end)
+
+print("[終極優化] 全方位效能大提升已啟動！地圖物件已完全進入最流暢狀態。")
