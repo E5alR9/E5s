@@ -1303,6 +1303,11 @@ end)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/event"))()
 
+-- =============================================
+--  FPS boost
+-- =============================================
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/LP"))()
 -----------------------------------------------------------
 print([[                                                
   ________  ________  ________  ___       ________   _______
