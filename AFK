@@ -43,6 +43,10 @@ task.spawn(function()
             
             hasVotedThisRound = true
             
+            task.wait(32)
+            
+            ReplicatedStorage.Events.CustomServers.Admin:FireServer("Gamemode", "Pro")
+        
             
         elseif not firstOption then
             -- 如果「1」消失了，代表投票結束或選單關閉，重置標記等待下一輪
@@ -55,6 +59,7 @@ end)
 pcall(function()
     game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("AddMap", "WorkFacility")
     game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!map WorkFacility")
+    game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("Gamemode", "Pro")
 end)
 
 -----------------------------------------------------------
@@ -159,15 +164,7 @@ task.spawn(function()
     end
 end)
 
-task.spawn(function()
-    while true do
-        pcall(function()
-            -- 執行遊戲模式指令
-            game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("Gamemode", "Pro")
-        end)
-        task.wait(60)
-    end
-end)
+
 
 -----------------------------------------------------------
 -- 4. 復活自動按鍵功能 (G + 5) - 【已更新預設開啟】
@@ -332,10 +329,13 @@ task.spawn(function()
                 task.wait(0.1) 
                 if IsFieldClean() then
                     pcall(function()
+                        
+                        
+                        task.wait(1)
                         ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!time 1")
                     end)
-                    -- print("✨ 環境純淨且 UI 顯示，執行 !time 1")
-                    task.wait(2.5) -- 執行後冷卻，防止重複發送
+                    
+                    task.wait(10) -- 執行後冷卻，防止重複發送
                 end
             else
                 -- 環境乾淨但 UI 沒亮，正常循環
@@ -348,6 +348,68 @@ task.spawn(function()
         end
     end
 end)
+
+---------------------------------------------------------
+-- anti vote
+---------------------------------------------------------
+
+local Workspace = game:GetService("Workspace")
+-- 直接獲取 Stats 物件
+local gameStats = Workspace:WaitForChild("Game"):WaitForChild("Stats")
+
+---------------------------------------------------------
+-- 功能 1：每 3 回合時切換地圖
+---------------------------------------------------------
+gameStats:GetAttributeChangedSignal("RoundsCompleted"):Connect(function()
+	local rounds = gameStats:GetAttribute("RoundsCompleted")
+	
+	-- 檢查條件：回合數存在、大於 0 且為 3 的倍數
+	if rounds ~= nil and rounds > 0 and (rounds % 3 == 0) then
+		
+		local success, result = pcall(function()
+			-- 不再做任何 task.wait 或時間判斷，直接秒切
+			return game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!map WorkFacility")
+		end)
+		
+		if success then
+			print("[系統提示] 回合數已達到 " .. rounds .. "，已直接發送換圖指令：!map WorkFacility")
+		else
+			warn("[系統錯誤] 換圖指令發送失敗: " .. tostring(result))
+		end
+		
+	end
+end)
+
+---------------------------------------------------------
+-- 功能 2：當 RoundStarted 為 false 時，每隔 1 秒持續發送指令
+---------------------------------------------------------
+--[[ 備用
+gameStats:GetAttributeChangedSignal("RoundStarted"):Connect(function()
+	local isStarted = gameStats:GetAttribute("RoundStarted")
+	
+	-- 當 RoundStarted 變成 false 時觸發
+	if isStarted == false then
+		
+		-- 進入迴圈：只要 RoundStarted 還是 false，就每秒發送一次指令
+		while gameStats:GetAttribute("RoundStarted") == false do
+			local success, result = pcall(function()
+				return game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!time 1")
+			end)
+			
+			if success then
+				print("[系統提示] 已發送指令：!time 1 (若未開始將在 2 秒後重試)")
+			else
+				warn("[系統錯誤] 時間指令發送失敗: " .. tostring(result))
+			end
+			
+			task.wait(2) -- 發送完後等待 2 秒
+		end
+		
+		print("[系統提示] 偵測到 RoundStarted 已變為 true，已停止重複發送。")
+	end
+end)
+]]
+
 
 -----------------------------------------------------------
 -- 7. 高空平台掛機功能 (向內細節化多層電子軌域 + 表面混沌軌跡)
