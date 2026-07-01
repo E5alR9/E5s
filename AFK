@@ -326,16 +326,16 @@ task.spawn(function()
             -- 第三步：環境乾淨 + UI 顯示 = 執行指令
             if foundVisibleTimer then
                 -- 執行前的微秒確認，確保這瞬間沒有怪跳出來
-                task.wait(0.1) 
+                task.wait(1) 
                 if IsFieldClean() then
                     pcall(function()
                         
-                        
+                        ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!Kill all")
                         task.wait(1)
                         ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!time 1")
                     end)
                     
-                    task.wait(10) -- 執行後冷卻，防止重複發送
+                    task.wait(2) -- 執行後冷卻，防止重複發送
                 end
             else
                 -- 環境乾淨但 UI 沒亮，正常循環
