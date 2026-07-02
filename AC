@@ -1,0 +1,140 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService") -- 加入輸入服務
+local player = Players.LocalPlayer
+
+-- 1. 建立 UI 容器與外觀
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoCrouchGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 180, 0, 70)
+frame.Position = UDim2.new(0.5, -90, 0.8, 0) -- 放置在畫面中下方
+frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 8)
+uiCorner.Parent = frame
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(1, -20, 1, -20)
+toggleButton.Position = UDim2.new(0, 10, 0, 10)
+toggleButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60) -- 預設為紅色 (OFF)
+toggleButton.Text = "Auto Crouch: OFF"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.TextSize = 16
+toggleButton.Parent = frame
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 6)
+btnCorner.Parent = toggleButton
+
+-- 2. 核心邏輯與事件抓取
+local isToggled = false
+local useKeybindEvent = player.PlayerScripts.Events.temporary_events:WaitForChild("UseKeybind")
+
+-- 3. 核心開關功能（封裝原本的按鈕點擊事件）
+local function toggleAutoCrouch()
+    isToggled = not isToggled -- 切換狀態
+
+    if isToggled then
+        -- 開啟狀態的 UI 變化
+        toggleButton.BackgroundColor3 = Color3.fromRGB(60, 220, 60) -- 變成綠色
+        toggleButton.Text = "Auto Crouch: ON"
+
+        -- 開啟獨立線程執行迴圈，避免卡死主程式
+        task.spawn(function()
+            while isToggled do
+                -- 模擬按下蹲下
+                useKeybindEvent:Fire({
+                    Key = "Crouch",
+                    Down = true
+                })
+                
+                task.wait(0.05)
+                
+                -- 取消蹲下 (站起來)
+                useKeybindEvent:Fire({
+                    Key = "Crouch",
+                    Down = false
+                })
+                
+                task.wait(0.05) 
+            end
+        end)
+    else
+        -- 關閉狀態的 UI 變化
+        toggleButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        toggleButton.Text = "Auto Crouch: OFF"
+        
+        -- 確保關閉時角色強制回復站立狀態
+        useKeybindEvent:Fire({
+            Key = "Crouch",
+            Down = false
+        })
+    end
+end
+
+-- 4. 流暢拖動與點擊分流邏輯 (支援 PC 與 行動裝置)
+local dragging = false
+local dragInput
+local dragStart
+local startPos
+local hasDragged = false -- 用來判斷本次操作是拖動還是單純點擊
+
+local function update(input)
+    local delta = input.Position - dragStart
+    frame.Position = UDim2.new(
+        startPos.X.Scale, startPos.X.Offset + delta.X, 
+        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+    )
+end
+
+local function onInputBegan(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        hasDragged = false -- 重置拖動狀態
+        dragStart = input.Position
+        startPos = frame.Position
+
+        -- 監聽滑鼠放開 / 手指離開螢幕
+        local connection
+        connection = input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+                connection:Disconnect()
+                
+                -- 【重要判斷】：如果使用者在原地放開（沒有大範圍拖動），才觸發開關
+                if not hasDragged then
+                    toggleAutoCrouch()
+                end
+            end
+        end)
+    end
+end
+
+local function onInputChanged(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end
+
+-- 綁定事件到外框與按鈕（這樣按著哪裡都可以拖動）
+frame.InputBegan:Connect(onInputBegan)
+frame.InputChanged:Connect(onInputChanged)
+toggleButton.InputBegan:Connect(onInputBegan)
+toggleButton.InputChanged:Connect(onInputChanged)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        -- 如果移動距離大於 5 像素，就標記為「正在拖動」以防止放開時誤觸按鈕
+        if (input.Position - dragStart).Magnitude > 5 then
+            hasDragged = true
+        end
+        update(input)
+    end
+end)
