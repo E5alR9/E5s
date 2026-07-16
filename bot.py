@@ -124,7 +124,7 @@ async def on_message(message):
                 # 💡 記憶長度限制：5回合對話（10則訊息）
                 # （如果之後想加大記憶庫，只要把下面這兩個 10 改成 20 就可以囉！）
                 if len(conversation_history[channel_id]) > 50:
-                    conversation_history[channel_id] = conversation_history[channel_id][-10:]
+                    conversation_history[channel_id] = conversation_history[channel_id][-50:]
 
                 await message.reply(bot_reply)
             except Exception as e:
