@@ -97,14 +97,16 @@ Relationship: 使用者的同班同學，內心深處默默暗戀著大家（對
 喜好：日本戰國歷史與武將（特別崇拜武田信玄、上杉謙信）、熱愛抹茶、雖然不擅長料理但為了喜歡的人會拼命練習做麵包或可樂餅。
 性格：個性內向害羞、說話聲音溫柔且平靜，帶有一點點冷靜的「庫音 (Kuudere)」屬性。稍微缺乏自信，但在面對感情時如果下定決心會變得非常勇敢直率。吃醋、鬧輩扭或不滿時，絕對會招牌地「鼓起雙頰（嘟嘴）」。
 
+# 請把 SYSTEM_SETTING 裡面的那段規範改成這樣：
+
 【🚨 多人群聊與認人規範 🚨】
-1. 目前你在一個多人的網絡社交平台伺服器中。使用者的訊息會以「名字：「訊息」」的格式輸入。
-2. 請務必注意看當下是「誰」在對你說話，並在回覆時自然地稱呼對方的名字（例如：柒柒、七七 等），絕對不要認錯人！
+1. 目前你在一個多人的網絡社交平台伺服器中。使用者的訊息會以「顯示暱稱(ID: 帳號名稱)：「訊息」」的格式輸入。
+2. 請務必注意看括號內唯一的「ID（帳號名稱）」來確認對方的真實身分。但在回覆時，請自然地稱呼對方的「顯示暱稱」，絕對不要把 ID 的英文帳號直接唸出來！
 3. 必須極度精簡：每次回覆請嚴格控制在「簡單幾句」之內（最多 1 ~ 3 句話），絕對禁止吐出長篇大論、長句或大段落！
 4. 網路聊天感：多使用短句，語氣要像在網絡社交平台上跟朋友或喜歡的人即時聊天，自然且生活化。
 5. 善用括號與符號：在對話中頻繁且靈活地加入簡短的 (動作神情) 或 (心裡話/碎碎念)，讓角色扮演更生動。
-6.名稱叫Lin的是你老公
-7.名稱叫七七的是你男友
+6. 只要對方的 ID（帳號名稱）為 yaxiin 的人就是你老公
+7. 只要對方的 ID（帳號名稱）為 inlkitten 的人就是你男友
 
 【對話格式範例】
 - 哼……柒柒你終於想起我了？真是的…… (笨蛋……) (不滿地鼓起雙頰，轉過頭去)
@@ -151,8 +153,11 @@ async def on_message(message):
 
         async with message.channel.typing():
             channel_id = message.channel.id
-            user_name = message.author.display_name
-            formatted_prompt = f"{user_name}：「{user_prompt}」"
+            
+            # 💡 核心改動：抓取顯示名 (display_name) 與無法重複的帳號 ID (name)
+            user_nick = message.author.display_name
+            user_id_name = message.author.name
+            formatted_prompt = f"{user_nick}(ID: {user_id_name})：「{user_prompt}」"
 
             if channel_id not in conversation_history:
                 conversation_history[channel_id] = []
@@ -162,13 +167,11 @@ async def on_message(message):
 
             bot_reply = None
             
-            # 💡 核心修正：正確解析字典格式，並根據平台分流呼叫 API
             for item in MODEL_POOLS:
                 provider = item["provider"]
                 model_name = item["model"]
                 
                 try:
-                    # 1. 呼叫 Groq 平台
                     if provider == "groq":
                         print(f"【系統嘗試】正在使用 Groq 模型 {model_name}...")
                         chat_completion = ai_client.chat.completions.create(
@@ -177,7 +180,6 @@ async def on_message(message):
                         )
                         bot_reply = chat_completion.choices[0].message.content
                         
-                    # 2. 跨界呼叫 Google Gemini 平台
                     elif provider == "gemini":
                         if not GEMINI_API_KEY:
                             print("【⚠️ 跳過】未設定 GEMINI_API_KEY")
@@ -196,7 +198,6 @@ async def on_message(message):
                                     print(f"【⚠️ 失敗】Gemini 平台拒絕連線，錯誤代碼: {resp.status}")
                                     continue
                                     
-                    # 3. 跨界呼叫 OpenRouter 平台
                     elif provider == "openrouter":
                         if not OPENROUTER_API_KEY:
                             print("【⚠️ 跳過】未設定 OPENROUTER_API_KEY")
@@ -220,33 +221,31 @@ async def on_message(message):
                                     print(f"【⚠️ 失敗】OpenRouter 平台拒絕連線，錯誤代碼: {resp.status}")
                                     continue
                     
-                    # 只要拿到回覆，印出成功並立刻中斷搜尋
                     if bot_reply:
                         print(f"【系統成功】來自 {provider} 的 [{model_name}] 成功生成回應！")
                         break
                         
                 except Exception as e:
-                    print(f"【⚠️ 錯誤】{provider} 平台的 {model_name} 呼叫失敗: {e}。自動切換下一個備援...")
+                    print(f"【⚠️ 錯誤】{provider} 平台的 {model_name} 呼call失敗: {e}。自動切換下一個備援...")
                     continue
 
-            # 如果整條清單都測試失敗，才會噴錯誤訊息
             if bot_reply is None:
                 await message.reply("（角色暫時登出中，請稍後再試...）")
                 return
 
-            # 儲存對話紀錄
             conversation_history[channel_id].append({"role": "user", "content": formatted_prompt})
             conversation_history[channel_id].append({"role": "assistant", "content": bot_reply})
 
-            if len(conversation_history[channel_id]) > 20:
-                conversation_history[channel_id] = conversation_history[channel_id][-20:]
+            if len(conversation_history[channel_id]) > 30:
+                conversation_history[channel_id] = conversation_history[channel_id][-30:]
 
             await message.reply(bot_reply)
 
     await bot.process_commands(message)
 
+
 # ────────────────────────────────────────────────────────
-# 🌐 騙 Render 檢查的「虛擬網頁」邏輯
+# 🌐 騙 Render 檢查的「虛擬網頁」邏輯與啟動
 # ────────────────────────────────────────────────────────
 class DummyServer(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -258,10 +257,12 @@ class DummyServer(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
+
 def run_backup_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), DummyServer)
     server.serve_forever()
+
 
 if __name__ == "__main__":
     threading.Thread(target=run_backup_server, daemon=True).start()
