@@ -3,7 +3,8 @@ from discord.ext import commands
 from groq import Groq
 import os
 import asyncio
-from aiohttp import web  # 💡 引入網頁套件來應付 Render 檢查
+import threading  # 💡 新增：讓假網頁跟機器人可以同時跑
+from http.server import HTTPServer, BaseHTTPRequestHandler  # 💡 新增：用來做假網頁
 
 # 填入你的 Token 與 金鑰
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -85,35 +86,29 @@ async def chat_command(interaction: discord.Interaction, 訊息: str):
 # ────────────────────────────────────────────────────────
 @bot.event
 async def on_message(message):
-    # 排除機器人自己的訊息
     if message.author == bot.user:
         return
 
     should_trigger = False
     user_prompt = ""
 
-    # 💡 判斷是否為「回覆機器人」
     is_reply_to_bot = False
     if message.reference and isinstance(message.reference.resolved, discord.Message):
         if message.reference.resolved.author == bot.user:
             is_reply_to_bot = True
 
-    # 1. 檢查是否以 "-" 開頭
     if message.content.startswith("-"):
         should_trigger = True
         user_prompt = message.content[1:].strip()
         
-    # 2. 檢查是否標記了機器人 (@機器人)
     elif bot.user.mentioned_in(message):
         should_trigger = True
         user_prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
         
-    # 3. 檢查是否是直接「回覆」機器人的訊息
     elif is_reply_to_bot:
         should_trigger = True
         user_prompt = message.content.strip()
 
-    # 執行 AI 回覆邏輯
     if should_trigger:
         if not user_prompt:
             await message.channel.send("找我扮演的角色有什麼事嗎？")
@@ -136,4 +131,30 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-bot.run(DISCORD_TOKEN)
+# ────────────────────────────────────────────────────────
+# 💡 核心改動：專門騙 Render 檢查的「虛擬網頁」邏輯
+# ────────────────────────────────────────────────────────
+class DummyServer(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(b"Miku is alive!")  # 當 Render 來敲門時回應它
+
+    def log_message(self, format, *args):
+        return  # 讓日誌乾淨，不顯示網頁戳門的紀錄
+
+def run_backup_server():
+    # 讀取 Render 自動分配的門牌號碼 (Port)，沒抓到就預設 10000
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), DummyServer)
+    server.serve_forever()
+
+# 💡 主程式啟動點
+if __name__ == "__main__":
+    # 1. 先在背景悄悄啟動假網頁
+    threading.Thread(target=run_backup_server, daemon=True).start()
+    print("【系統提示】Render 虛擬網頁伺服器已在背景啟動！")
+    
+    # 2. 啟動 Discord 機器人
+    bot.run(DISCORD_TOKEN)
