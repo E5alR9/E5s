@@ -18,7 +18,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ────────────────────────────────────────────────────────
-# 💡 新增：記憶庫（儲存每個頻道的歷史對話）
+# 📋 記憶庫（儲存每個頻道的歷史對話）
 # ────────────────────────────────────────────────────────
 conversation_history = {}
 
@@ -60,63 +60,26 @@ Relationship: 使用者的同班同學，內心深處默默暗戀著使用者
 @bot.event
 async def on_ready():
     print(f"角色扮演機器人已上線：{bot.user}")
-    try:
-        synced = await bot.tree.sync()
-        print(f"成功同步了 {len(synced)} 個斜線指令！")
-    except Exception as e:
-        print(f"同步指令失敗: {e}")
 
 # ────────────────────────────────────────────────────────
-# 斜線指令 [/chat]（支援對話記憶）
-# ────────────────────────────────────────────────────────
-@bot.tree.command(name="chat", description="和三玖聊天")
-async def chat_command(interaction: discord.Interaction, 訊息: str):
-    await interaction.response.defer()
-    channel_id = interaction.channel_id
-    try:
-        # 1. 抓取該頻道過去的對話歷史（如果沒有就建立空列表）
-        if channel_id not in conversation_history:
-            conversation_history[channel_id] = []
-        history = conversation_history[channel_id]
-
-        # 2. 組裝發送包裹：人設 + 歷史記憶 + 妳這一次剛輸入的話
-        messages = [{"role": "system", "content": SYSTEM_SETTING}] + history + [{"role": "user", "content": 訊息}]
-
-        chat_completion = ai_client.chat.completions.create(
-            messages=messages,
-            model="llama-3.3-70b-versatile",
-        )
-        bot_reply = chat_completion.choices[0].message.content
-        
-        # 3. 把這次的對話記錄進記憶庫中
-        conversation_history[channel_id].append({"role": "user", "content": 訊息})
-        conversation_history[channel_id].append({"role": "assistant", "content": bot_reply})
-
-        # 💡 記憶長度限制：5回合對話（5句使用者 + 5句三玖 = 10則訊息）
-        if len(conversation_history[channel_id]) > 10:
-            conversation_history[channel_id] = conversation_history[channel_id][-10:]
-
-        await interaction.followup.send(bot_reply)
-    except Exception as e:
-        print(f"斜線指令錯誤: {e}")
-        await interaction.followup.send("（角色暫時登出中，請稍後再試...）")
-
-# ────────────────────────────────────────────────────────
-# 一般訊息監聽（支援對話記憶，含 -開頭、@標記、直接回覆）
+# 💬 一般訊息監聽（支援對話記憶，含 -開頭、@標記、直接回覆）
 # ────────────────────────────────────────────────────────
 @bot.event
 async def on_message(message):
+    # 排除機器人自己的訊息，避免無限循環
     if message.author == bot.user:
         return
 
     should_trigger = False
     user_prompt = ""
 
+    # 檢查是否為回覆機器人的訊息
     is_reply_to_bot = False
     if message.reference and isinstance(message.reference.resolved, discord.Message):
         if message.reference.resolved.author == bot.user:
             is_reply_to_bot = True
 
+    # 判斷觸發條件
     if message.content.startswith("-"):
         should_trigger = True
         user_prompt = message.content[1:].strip()
@@ -131,7 +94,7 @@ async def on_message(message):
 
     if should_trigger:
         if not user_prompt:
-            await message.channel.send("找我扮演的角色有什麼事嗎？")
+            await message.channel.send("找我嗎~？")
             return
 
         async with message.channel.typing():
@@ -156,7 +119,8 @@ async def on_message(message):
                 conversation_history[channel_id].append({"role": "assistant", "content": bot_reply})
 
                 # 💡 記憶長度限制：5回合對話（10則訊息）
-                if len(conversation_history[channel_id]) > 10:
+                # （如果之後想加大記憶庫，只要把下面這兩個 10 改成 20 就可以囉！）
+                if len(conversation_history[channel_id]) > 50:
                     conversation_history[channel_id] = conversation_history[channel_id][-10:]
 
                 await message.reply(bot_reply)
@@ -167,7 +131,7 @@ async def on_message(message):
     await bot.process_commands(message)
 
 # ────────────────────────────────────────────────────────
-# 騙 Render 檢查的「虛擬網頁」邏輯
+# 🌐 騙 Render 檢查的「虛擬網頁」邏輯
 # ────────────────────────────────────────────────────────
 class DummyServer(BaseHTTPRequestHandler):
     def do_GET(self):
