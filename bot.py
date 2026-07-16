@@ -129,8 +129,8 @@ async def on_message(message):
                 conversation_history[channel_id].append({"role": "assistant", "content": bot_reply})
 
                 # 💡 妳自己修正過後的超大容量大腦限制（50則訊息，不再打架了，超棒！）
-                if len(conversation_history[channel_id]) > 50:
-                    conversation_history[channel_id] = conversation_history[channel_id][-50:]
+                if len(conversation_history[channel_id]) > 20:
+                    conversation_history[channel_id] = conversation_history[channel_id][-20:]
 
                 await message.reply(bot_reply)
             except Exception as e:
