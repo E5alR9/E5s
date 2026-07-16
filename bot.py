@@ -125,7 +125,7 @@ async def on_ready():
     print(f"角色扮演機器人已上線：{bot.user}")
 
 # ────────────────────────────────────────────────────────
-# 💬 一般訊息監聽（內含跨平台全自動防爆切換核心）
+# 💬 一般訊息監聽（僅限 @標記 與 回覆 觸發）
 # ────────────────────────────────────────────────────────
 @bot.event
 async def on_message(message):
@@ -135,16 +135,14 @@ async def on_message(message):
     should_trigger = False
     user_prompt = ""
 
+    # 檢查是否為「回覆機器人」的訊息
     is_reply_to_bot = False
     if message.reference and isinstance(message.reference.resolved, discord.Message):
         if message.reference.resolved.author == bot.user:
             is_reply_to_bot = True
 
-    if message.content.startswith("-"):
-        should_trigger = True
-        user_prompt = message.content[1:].strip()
-        
-    elif bot.user.mentioned_in(message):
+    # 👑 判定改動：移除原有的減號開頭判定，僅保留 @標記 與 點對點回覆
+    if bot.user.mentioned_in(message):
         should_trigger = True
         user_prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
         
@@ -160,11 +158,10 @@ async def on_message(message):
         async with message.channel.typing():
             channel_id = message.channel.id
             
-            # 💡 核心改動：抓取顯示名 (display_name) 與無法重複的帳號 ID (name)
             user_nick = message.author.display_name
             user_id_name = message.author.name
             
-            # 👑 2.0版全新標籤格式：徹底拉開顯示名稱與 ID 的物理距離，防止 AI 腦混淆
+            # 2.0版標籤格式
             formatted_prompt = f"【發訊人資訊】顯示暱稱：{user_nick} | 帳號ID：{user_id_name}\n訊息內容：「{user_prompt}」"
 
             if channel_id not in conversation_history:
