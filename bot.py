@@ -18,9 +18,17 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ────────────────────────────────────────────────────────
-# 📋 記憶庫（儲存每個頻道的歷史對話）
+# 📋 記憶庫與「大腦輪替清單」設定
 # ────────────────────────────────────────────────────────
 conversation_history = {}
+
+# 💡 這裡放所有免費且好用的模型，由上往下優先嘗試
+MODEL_POOLS = [
+    "llama-3.3-70b-versatile",  # 👑 首選：智商最高，語氣最細膩
+    "llama-3.1-8b-instant",     # ⚡ 備援1：速度極快、免費額度給最大方
+    "llama3-8b-8192",           # ⚡ 備援2：老牌經典 Llama3 輕量版
+    "gemma2-9b-it"              # ⚡ 備援3：Google 輕量模型，中文理解佳
+]
 
 # 統一管理 中野三玖 的核心人設
 SYSTEM_SETTING = """[Character Settings]
@@ -67,24 +75,21 @@ async def on_ready():
     print(f"角色扮演機器人已上線：{bot.user}")
 
 # ────────────────────────────────────────────────────────
-# 💬 一般訊息監聽（支援多個人認人、對話記憶，含 -開頭、@標記、直接回覆）
+# 💬 一般訊息監聽（內含全自動大腦切換機制）
 # ────────────────────────────────────────────────────────
 @bot.event
 async def on_message(message):
-    # 排除機器人自己的訊息，避免無限循環
     if message.author == bot.user:
         return
 
     should_trigger = False
     user_prompt = ""
 
-    # 檢查是否為回覆機器人的訊息
     is_reply_to_bot = False
     if message.reference and isinstance(message.reference.resolved, discord.Message):
         if message.reference.resolved.author == bot.user:
             is_reply_to_bot = True
 
-    # 判斷觸發條件
     if message.content.startswith("-"):
         should_trigger = True
         user_prompt = message.content[1:].strip()
@@ -104,38 +109,46 @@ async def on_message(message):
 
         async with message.channel.typing():
             channel_id = message.channel.id
-            
-            # 💡 核心改動：自動抓取發話者的 Discord 顯示名稱，並打包格式
             user_name = message.author.display_name
             formatted_prompt = f"{user_name}：「{user_prompt}」"
 
-            try:
-                # 1. 抓取該頻道過去的對話歷史
-                if channel_id not in conversation_history:
-                    conversation_history[channel_id] = []
-                history = conversation_history[channel_id]
+            if channel_id not in conversation_history:
+                conversation_history[channel_id] = []
+            history = conversation_history[channel_id]
 
-                # 2. 組裝發送包裹：人設 + 歷史記憶 + 帶有名字標籤的新訊息
-                messages = [{"role": "system", "content": SYSTEM_SETTING}] + history + [{"role": "user", "content": formatted_prompt}]
+            messages = [{"role": "system", "content": SYSTEM_SETTING}] + history + [{"role": "user", "content": formatted_prompt}]
 
-                chat_completion = ai_client.chat.completions.create(
-                    messages=messages,
-                    model="llama-3.3-70b-versatile",
-                )
-                bot_reply = chat_completion.choices[0].message.content
-                
-                # 3. 把這次帶有名字的對話紀錄下來
-                conversation_history[channel_id].append({"role": "user", "content": formatted_prompt})
-                conversation_history[channel_id].append({"role": "assistant", "content": bot_reply})
+            bot_reply = None
+            
+            # 💡 核心亮點：自動依序測試清單中的模型
+            for model_name in MODEL_POOLS:
+                try:
+                    print(f"【系統嘗試】正在使用模型 {model_name} 生成回應...")
+                    chat_completion = ai_client.chat.completions.create(
+                        messages=messages,
+                        model=model_name,
+                    )
+                    bot_reply = chat_completion.choices[0].message.content
+                    print(f"【系統成功】模型 {model_name} 回應成功！")
+                    break  # 成功拿到回應，立刻跳出迴圈！
+                except Exception as e:
+                    # 如果這個模型爆額度或出錯，印出公告並自動切到下一個
+                    print(f"【⚠️ 警告】模型 {model_name} 呼叫失敗！錯誤原因: {e}。正自動切換至下一個備援大腦...")
+                    continue
 
-                # 💡 妳自己修正過後的超大容量大腦限制（50則訊息，不再打架了，超棒！）
-                if len(conversation_history[channel_id]) > 20:
-                    conversation_history[channel_id] = conversation_history[channel_id][-20:]
-
-                await message.reply(bot_reply)
-            except Exception as e:
-                print(f"錯誤: {e}")
+            # 如果整條清單都測試失敗，才會逼不得已噴錯誤訊息
+            if bot_reply is None:
                 await message.reply("（角色暫時登出中，請稍後再試...）")
+                return
+
+            # 儲存對話紀錄
+            conversation_history[channel_id].append({"role": "user", "content": formatted_prompt})
+            conversation_history[channel_id].append({"role": "assistant", "content": bot_reply})
+
+            if len(conversation_history[channel_id]) > 20:
+                conversation_history[channel_id] = conversation_history[channel_id][-20:]
+
+            await message.reply(bot_reply)
 
     await bot.process_commands(message)
 
