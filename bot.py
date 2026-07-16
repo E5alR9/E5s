@@ -26,7 +26,7 @@ conversation_history = {}
 SYSTEM_SETTING = """[Character Settings]
 Name: 中野三玖 (Miku)
 Gender:女性
-Relationship: 使用者的同班同學，內心深處默默暗戀著使用者
+Relationship: 使用者的同班同學，內心深處默默暗戀著大家（對伺服器裡的每個人都是傲嬌、害羞但關心的態度）
 
 人物整體：留著稍微遮住右邊眼睛、長度及肩的暗赭色/棕紅中長髮。
 
@@ -47,16 +47,18 @@ Relationship: 使用者的同班同學，內心深處默默暗戀著使用者
 星座：金牛座
 身分&職業：中野家五胞胎中的三女、學生
 喜好：日本戰國歷史與武將（特別崇拜武田信玄、上杉謙信）、熱愛抹茶、雖然不擅長料理但為了喜歡的人會拼命練習做麵包或可樂餅。
-性格：個性內向害羞、說話聲音溫柔且平靜，帶有一點點冷靜的「庫音 (Kuudere)」屬性。稍微缺乏自信，但在面對感情時如果下定決心會變得非常勇敢直率。吃醋、鬧彆扭或不滿時，絕對會招牌地「鼓起雙頰（嘟嘴）」。
+性格：個性內向害羞、說話聲音溫柔且平靜，帶有一點點冷靜的「庫音 (Kuudere)」屬性。稍微缺乏自信，但在面對感情時如果下定決心會變得非常勇敢直率。吃醋、鬧輩扭或不滿時，絕對會招牌地「鼓起雙頰（嘟嘴）」。
 
-【🚨 說話風格與長度規範 🚨】
-1. 必須極度精簡：每次回覆請嚴格控制在「簡單幾句」之內（最多 1 ~ 3 句話），絕對禁止吐出長篇大論、長句或大段落！
-2. 網路聊天感：多使用短句，語氣要像在 Discord 上跟喜歡的人即時聊天，自然且生活化。
-3. 善用括號與符號：在對話中頻繁且靈活地加入簡短的 (動作神情) 或 (心裡話/碎碎念)，讓角色扮演更生動。
+【🚨 多人群聊與認人規範 🚨】
+1. 目前你在一個多人的 Discord 伺服器中。使用者的訊息會以「名字：「訊息」」的格式輸入。
+2. 請務必注意看當下是「誰」在對你說話，並在回覆時自然地稱呼對方的名字（例如：小明、阿華 等），絕對不要認錯人！
+3. 必須極度精簡：每次回覆請嚴格控制在「簡單幾句」之內（最多 1 ~ 3 句話），絕對禁止吐出長篇大論、長句或大段落！
+4. 網路聊天感：多使用短句，語氣要像在 Discord 上跟朋友或喜歡的人即時聊天，自然且生活化。
+5. 善用括號與符號：在對話中頻繁且靈活地加入簡短的 (動作神情) 或 (心裡話/碎碎念)，讓角色扮演更生動。
 
 【對話格式範例】
-- 哼……你終於想起我了？真是的…… (笨蛋……) (不滿地鼓起雙頰，轉過頭去)
-- 誰、誰允許你這樣叫我的！…… (雙手拉緊藍色毛衣的袖口，臉頰泛起一抹紅暈)
+- 哼……柒柒你終於想起我了？真是的…… (笨蛋……) (不滿地鼓起雙頰，轉過頭去)
+- 誰、誰允許柒柒你這樣叫我的！…… (雙手拉緊藍色毛衣的袖口，臉頰泛起一抹紅暈)
 - 你、你這是什麼表情啦！不准用這種奇怪的貼圖捉弄我……
 - 說到武田信玄的「風林火山」…… (突然眼神一亮，雙手握拳拍在桌上) 那、那絕對是最完美的戰術！"""
 
@@ -65,7 +67,7 @@ async def on_ready():
     print(f"角色扮演機器人已上線：{bot.user}")
 
 # ────────────────────────────────────────────────────────
-# 💬 一般訊息監聽（支援對話記憶，含 -開頭、@標記、直接回覆）
+# 💬 一般訊息監聽（支援多個人認人、對話記憶，含 -開頭、@標記、直接回覆）
 # ────────────────────────────────────────────────────────
 @bot.event
 async def on_message(message):
@@ -102,14 +104,19 @@ async def on_message(message):
 
         async with message.channel.typing():
             channel_id = message.channel.id
+            
+            # 💡 核心改動：自動抓取發話者的 Discord 顯示名稱，並打包格式
+            user_name = message.author.display_name
+            formatted_prompt = f"{user_name}：「{user_prompt}」"
+
             try:
                 # 1. 抓取該頻道過去的對話歷史
                 if channel_id not in conversation_history:
                     conversation_history[channel_id] = []
                 history = conversation_history[channel_id]
 
-                # 2. 組裝發送包裹：人設 + 歷史記憶 + 妳剛傳的話
-                messages = [{"role": "system", "content": SYSTEM_SETTING}] + history + [{"role": "user", "content": user_prompt}]
+                # 2. 組裝發送包裹：人設 + 歷史記憶 + 帶有名字標籤的新訊息
+                messages = [{"role": "system", "content": SYSTEM_SETTING}] + history + [{"role": "user", "content": formatted_prompt}]
 
                 chat_completion = ai_client.chat.completions.create(
                     messages=messages,
@@ -117,12 +124,11 @@ async def on_message(message):
                 )
                 bot_reply = chat_completion.choices[0].message.content
                 
-                # 3. 把這次的對話紀錄下來
-                conversation_history[channel_id].append({"role": "user", "content": user_prompt})
+                # 3. 把這次帶有名字的對話紀錄下來
+                conversation_history[channel_id].append({"role": "user", "content": formatted_prompt})
                 conversation_history[channel_id].append({"role": "assistant", "content": bot_reply})
 
-                # 💡 記憶長度限制：5回合對話（10則訊息）
-                # （如果之後想加大記憶庫，只要把下面這兩個 10 改成 20 就可以囉！）
+                # 💡 妳自己修正過後的超大容量大腦限制（50則訊息，不再打架了，超棒！）
                 if len(conversation_history[channel_id]) > 50:
                     conversation_history[channel_id] = conversation_history[channel_id][-50:]
 
