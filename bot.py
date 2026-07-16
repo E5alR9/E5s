@@ -351,8 +351,8 @@ def bot_factory(bot_key, config):
                 conversation_history[bot_key][channel_id].append({"role": "user", "content": formatted_prompt})
                 conversation_history[bot_key][channel_id].append({"role": "assistant", "content": bot_reply})
 
-                if len(conversation_history[bot_key][channel_id]) > 30:
-                    conversation_history[bot_key][channel_id] = conversation_history[bot_key][channel_id][-30:]
+                if len(conversation_history[bot_key][channel_id]) > 50:
+                    conversation_history[bot_key][channel_id] = conversation_history[bot_key][channel_id][-50:]
 
                 await message.reply(bot_reply)
 
