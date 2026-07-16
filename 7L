@@ -1,6 +1,9 @@
 import discord
 from discord.ext import commands
 from groq import Groq
+import os
+import asyncio
+from aiohttp import web  # 💡 引入網頁套件來應付 Render 檢查
 
 # 填入你的 Token 與 金鑰
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
