@@ -4,6 +4,7 @@ from groq import Groq
 import os
 import asyncio
 import threading  # 💡 讓假網頁跟機器人可以同時跑
+import aiohttp  # 👑 關鍵修正：補上這個才能跨界戳 Google 和 OpenRouter 的 API！
 from http.server import HTTPServer, BaseHTTPRequestHandler  # 💡 用來做假網頁
 
 # 填入你的 Token 與 金鑰
