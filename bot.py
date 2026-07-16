@@ -162,6 +162,8 @@ async def on_message(message):
             # 💡 核心改動：抓取顯示名 (display_name) 與無法重複的帳號 ID (name)
             user_nick = message.author.display_name
             user_id_name = message.author.name
+            
+            # 👑 2.0版全新標籤格式：徹底拉開顯示名稱與 ID 的物理距離，防止 AI 腦混淆
             formatted_prompt = f"【發訊人資訊】顯示暱稱：{user_nick} | 帳號ID：{user_id_name}\n訊息內容：「{user_prompt}」"
 
             if channel_id not in conversation_history:
