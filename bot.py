@@ -3,8 +3,8 @@ from discord.ext import commands
 from groq import Groq
 import os
 import asyncio
-import threading  # 💡 新增：讓假網頁跟機器人可以同時跑
-from http.server import HTTPServer, BaseHTTPRequestHandler  # 💡 新增：用來做假網頁
+import threading  # 💡 讓假網頁跟機器人可以同時跑
+from http.server import HTTPServer, BaseHTTPRequestHandler  # 💡 用來做假網頁
 
 # 填入你的 Token 與 金鑰
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -17,10 +17,15 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# ────────────────────────────────────────────────────────
+# 💡 新增：記憶庫（儲存每個頻道的歷史對話）
+# ────────────────────────────────────────────────────────
+conversation_history = {}
+
 # 統一管理 中野三玖 的核心人設
 SYSTEM_SETTING = """[Character Settings]
 Name: 中野三玖 (Miku)
-Gender: 女性
+Gender:女性
 Relationship: 使用者的同班同學，內心深處默默暗戀著使用者
 
 人物整體：留著稍微遮住右邊眼睛、長度及肩的暗赭色/棕紅中長髮。
@@ -62,27 +67,42 @@ async def on_ready():
         print(f"同步指令失敗: {e}")
 
 # ────────────────────────────────────────────────────────
-# 斜線指令 [/chat]
+# 斜線指令 [/chat]（支援對話記憶）
 # ────────────────────────────────────────────────────────
 @bot.tree.command(name="chat", description="和三玖聊天")
 async def chat_command(interaction: discord.Interaction, 訊息: str):
     await interaction.response.defer()
+    channel_id = interaction.channel_id
     try:
+        # 1. 抓取該頻道過去的對話歷史（如果沒有就建立空列表）
+        if channel_id not in conversation_history:
+            conversation_history[channel_id] = []
+        history = conversation_history[channel_id]
+
+        # 2. 組裝發送包裹：人設 + 歷史記憶 + 妳這一次剛輸入的話
+        messages = [{"role": "system", "content": SYSTEM_SETTING}] + history + [{"role": "user", "content": 訊息}]
+
         chat_completion = ai_client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": SYSTEM_SETTING},
-                {"role": "user", "content": 訊息}
-            ],
+            messages=messages,
             model="llama-3.3-70b-versatile",
         )
         bot_reply = chat_completion.choices[0].message.content
+        
+        # 3. 把這次的對話記錄進記憶庫中
+        conversation_history[channel_id].append({"role": "user", "content": 訊息})
+        conversation_history[channel_id].append({"role": "assistant", "content": bot_reply})
+
+        # 💡 記憶長度限制：5回合對話（5句使用者 + 5句三玖 = 10則訊息）
+        if len(conversation_history[channel_id]) > 10:
+            conversation_history[channel_id] = conversation_history[channel_id][-10:]
+
         await interaction.followup.send(bot_reply)
     except Exception as e:
         print(f"斜線指令錯誤: {e}")
         await interaction.followup.send("（角色暫時登出中，請稍後再試...）")
 
 # ────────────────────────────────────────────────────────
-# 一般訊息監聽（支援 -開頭、@標記、直接回覆）
+# 一般訊息監聽（支援對話記憶，含 -開頭、@標記、直接回覆）
 # ────────────────────────────────────────────────────────
 @bot.event
 async def on_message(message):
@@ -115,15 +135,30 @@ async def on_message(message):
             return
 
         async with message.channel.typing():
+            channel_id = message.channel.id
             try:
+                # 1. 抓取該頻道過去的對話歷史
+                if channel_id not in conversation_history:
+                    conversation_history[channel_id] = []
+                history = conversation_history[channel_id]
+
+                # 2. 組裝發送包裹：人設 + 歷史記憶 + 妳剛傳的話
+                messages = [{"role": "system", "content": SYSTEM_SETTING}] + history + [{"role": "user", "content": user_prompt}]
+
                 chat_completion = ai_client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": SYSTEM_SETTING},
-                        {"role": "user", "content": user_prompt}
-                    ],
+                    messages=messages,
                     model="llama-3.3-70b-versatile",
                 )
                 bot_reply = chat_completion.choices[0].message.content
+                
+                # 3. 把這次的對話紀錄下來
+                conversation_history[channel_id].append({"role": "user", "content": user_prompt})
+                conversation_history[channel_id].append({"role": "assistant", "content": bot_reply})
+
+                # 💡 記憶長度限制：5回合對話（10則訊息）
+                if len(conversation_history[channel_id]) > 10:
+                    conversation_history[channel_id] = conversation_history[channel_id][-10:]
+
                 await message.reply(bot_reply)
             except Exception as e:
                 print(f"錯誤: {e}")
@@ -132,29 +167,24 @@ async def on_message(message):
     await bot.process_commands(message)
 
 # ────────────────────────────────────────────────────────
-# 💡 核心改動：專門騙 Render 檢查的「虛擬網頁」邏輯
+# 騙 Render 檢查的「虛擬網頁」邏輯
 # ────────────────────────────────────────────────────────
 class DummyServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.end_headers()
-        self.wfile.write(b"Miku is alive!")  # 當 Render 來敲門時回應它
+        self.wfile.write(b"Miku is alive!")
 
     def log_message(self, format, *args):
-        return  # 讓日誌乾淨，不顯示網頁戳門的紀錄
+        return
 
 def run_backup_server():
-    # 讀取 Render 自動分配的門牌號碼 (Port)，沒抓到就預設 10000
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), DummyServer)
     server.serve_forever()
 
-# 💡 主程式啟動點
 if __name__ == "__main__":
-    # 1. 先在背景悄悄啟動假網頁
     threading.Thread(target=run_backup_server, daemon=True).start()
     print("【系統提示】Render 虛擬網頁伺服器已在背景啟動！")
-    
-    # 2. 啟動 Discord 機器人
     bot.run(DISCORD_TOKEN)
