@@ -24,10 +24,16 @@ conversation_history = {}
 
 # 💡 這裡放所有免費且好用的模型，由上往下優先嘗試
 MODEL_POOLS = [
-    "llama-3.3-70b-versatile",  # 👑 首選：智商最高，語氣最細膩
-    "llama-3.1-8b-instant",     # ⚡ 備援1：速度極快、免費額度給最大方
-    "llama3-8b-8192",           # ⚡ 備援2：老牌經典 Llama3 輕量版
-    "gemma2-9b-it"              # ⚡ 備援3：Google 輕量模型，中文理解佳
+    "llama-3.3-70b-versatile",       # 🥇 首選：目前最高智商，語氣最細膩
+    "llama-3.1-70b-versatile",       # 🥈 備援：舊版 70B 高智商模型
+    "llama-3.1-8b-instant",          # ⚡ 備援：速度極快、群聊最難刷爆的刷話神器
+    "llama-3.2-11b-vision-preview",  # 🤖 備援：支援視覺的 11B 中型模型（文字表現也很讚）
+    "llama-3.2-3b-preview",          # 🍃 備援：超輕量 3B 模型，反應速度極快
+    "llama-3.2-1b-preview",          # 🍃 備援：極輕量 1B 模型，極限備用
+    "llama3-70b-8192",               # 👑 備援：經典 Llama3 大模型
+    "llama3-8b-8192",                # ⚡ 備援：經典 Llama3 輕量版
+    "gemma2-9b-it",                  # 🔴 備援：Google 經典優質中文理解模型
+    "mixtral-8x7b-32768"             # 🔮 備援：法國 Mistral 混合專家老牌模型
 ]
 
 # 統一管理 中野三玖 的核心人設
