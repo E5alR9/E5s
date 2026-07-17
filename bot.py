@@ -244,6 +244,10 @@ def bot_factory(bot_key, config):
         if message.author == bot.user:
             return
 
+        # 🚨 防護一：如果是 @everyone 或 @here 的全服廣播，直接無視！
+        if message.mention_everyone:
+            return
+
         should_trigger = False
         user_prompt = ""
 
@@ -254,7 +258,7 @@ def bot_factory(bot_key, config):
                 is_reply_to_bot = True
 
         # 判定：只有被 @標記 或 被直接回覆 才會被喚醒
-        if bot.user.mentioned_in(message):
+        if bot.user in message.mentions:
             should_trigger = True
             user_prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
             
@@ -263,8 +267,15 @@ def bot_factory(bot_key, config):
             user_prompt = message.content.strip()
 
         if should_trigger:
+            # 🚨 調整標記權限：
+            # everyone=False (絕對禁止 @everyone / @here)
+            # users=True     (【允許】標記個別用戶！這樣她們標記人才會有通知)
+            # roles=False     (禁止 @身分組)
+            # replied_user=True (回覆訊息時，預設會 Ping 原發文者。如果不想要回覆自帶 Ping，可以改 False)
+            smart_mentions = discord.AllowedMentions(everyone=False, users=True, roles=False, replied_user=True)
+
             if not user_prompt:
-                await message.channel.send("找我嗎~？")
+                await message.channel.send("找我嗎~？", allowed_mentions=smart_mentions)
                 return
 
             async with message.channel.typing():
@@ -272,9 +283,14 @@ def bot_factory(bot_key, config):
                 
                 user_nick = message.author.display_name
                 user_id_name = message.author.name
+                # 💡 取得當前發訊人的 Discord 物理標記代碼 (格式為 <@數字ID>)
+                user_mention_code = f"<@{message.author.id}>"
                 
-                # 結構化防偽格式
-                formatted_prompt = f"【發訊人資訊】顯示暱稱：{user_nick} | 帳號ID：{user_id_name}\n訊息內容：「{user_prompt}」"
+                # 結構化防偽格式（偷偷把標記代碼塞進去，教大腦怎麼標記這個人）
+                formatted_prompt = (
+                    f"【發訊人資訊】顯示暱稱：{user_nick} | 帳號ID：{user_id_name} | 標記此人的代碼：{user_mention_code}\n"
+                    f"訊息內容：「{user_prompt}」"
+                )
 
                 # 確保這個機器人在這個頻道擁有獨立的記憶夾，防人格混淆
                 if bot_key not in conversation_history:
@@ -345,7 +361,7 @@ def bot_factory(bot_key, config):
                                         continue
                         
                         if bot_reply:
-                            print(f"【{bot_key.upper()} 成功】來自 {provider} 的 [{model_name}] 生成成功！")
+                            print(f"// {bot_key.upper()} 成功】來自 {provider} 的 [{model_name}] 生成成功！")
                             break
                             
                     except Exception as e:
@@ -353,17 +369,18 @@ def bot_factory(bot_key, config):
                         continue
 
                 if bot_reply is None:
-                    await message.reply("（角色暫時登出中，請稍後再試...）")
+                    await message.reply("（角色暫時登出中，請稍後再試...）", allowed_mentions=smart_mentions)
                     return
 
-                # 將乾淨的對話寫入專屬該機器人的記憶歷史
+                # 將對話寫入歷史
                 conversation_history[bot_key][channel_id].append({"role": "user", "content": formatted_prompt})
                 conversation_history[bot_key][channel_id].append({"role": "assistant", "content": bot_reply})
 
                 if len(conversation_history[bot_key][channel_id]) > 50:
                     conversation_history[bot_key][channel_id] = conversation_history[bot_key][channel_id][-50:]
 
-                await message.reply(bot_reply)
+                # 🚨 送出訊息，這時如果 bot_reply 裡面含有 <@數字> 格式，就會成功 Ping 出去！
+                await message.reply(bot_reply, allowed_mentions=smart_mentions)
 
         await bot.process_commands(message)
 
