@@ -21,6 +21,8 @@ ai_client = AsyncGroq(api_key=GROQ_API_KEY)
 # ────────────────────────────────────────────────────────
 # 升級為雙層架構：{ "miku": { channel_id: [] }, "nino": { channel_id: [] } }
 conversation_history = {}
+# 🚨 用來追蹤每個頻道裡，機器人之間連續對話了幾次
+bot_loop_tracker = {}
 
 # 💡 這裡放所有免費且好用的模型，由上往下優先嘗試
 # 💡 終極跨平台防禦矩陣：嚴格依模型體型（Billion參數）與智商由大到小排序
@@ -204,7 +206,7 @@ BOT_CONFIGS = {
 }
 
 # ────────────────────────────────────────────────────────
-# 🤖 核心動態工廠：用同一套邏輯去完美打造、封裝每一個機器人
+# 🤖 核心動態工廠：用同一套邏輯去完美打造、封裝每一個機器人（內建防無限迴圈鎖）
 # ────────────────────────────────────────────────────────
 def bot_factory(bot_key, config):
     intents = discord.Intents.default()
@@ -244,11 +246,23 @@ def bot_factory(bot_key, config):
             user_prompt = message.content.strip()
 
         if should_trigger:
-            # 🚨 調整標記權限：
-            # everyone=False (絕對禁止 @everyone / @here)
-            # users=True     (【允許】標記個別用戶！這樣她們標記人才會有通知)
-            # roles=False     (禁止 @身分組)
-            # replied_user=True (回覆訊息時，預設會 Ping 原發文者。如果不想要回覆自帶 Ping，可以改 False)
+            channel_id = message.channel.id
+
+            # 🛑 【核心改良：機器人無限連鎖對話中斷機制】
+            if message.author.bot:
+                # 如果是機器人來觸發我，該頻道的連續對話計數 +1
+                bot_loop_tracker[channel_id] = bot_loop_tracker.get(channel_id, 0) + 1
+                print(f"【🤖 機器人互動偵測】頻道 ({channel_id}) 目前連續紀錄：{bot_loop_tracker[channel_id]} 句。")
+                
+                # 當聊到第 6 句時（> 5），強行句點退出，不再送出 API 請求
+                if bot_loop_tracker[channel_id] > 5:
+                    print(f"【🚨 迴圈強行中斷】偵測到機器人集體串供！已達上限 5-6 句，【{bot_key.upper()}】決定已讀不回。")
+                    return
+            else:
+                # 💡 只要有任何「真正的真人」說話，立刻重設該頻道的計數器，解鎖對話！
+                bot_loop_tracker[channel_id] = 0
+
+            # 🚨 調整標記權限
             smart_mentions = discord.AllowedMentions(everyone=False, users=True, roles=False, replied_user=True)
 
             if not user_prompt:
@@ -256,20 +270,17 @@ def bot_factory(bot_key, config):
                 return
 
             async with message.channel.typing():
-                channel_id = message.channel.id
-                
                 user_nick = message.author.display_name
                 user_id_name = message.author.name
-                # 💡 取得當前發訊人的 Discord 物理標記代碼 (格式為 <@數字ID>)
                 user_mention_code = f"<@{message.author.id}>"
                 
-                # 結構化防偽格式（偷偷把標記代碼塞進去，教大腦怎麼標記這個人）
+                # 結構化防偽格式
                 formatted_prompt = (
                     f"【發訊人資訊】顯示暱稱：{user_nick} | 帳號ID：{user_id_name} | 標記此人的代碼：{user_mention_code}\n"
                     f"訊息內容：「{user_prompt}」"
                 )
 
-                # 確保這個機器人在這個頻道擁有獨立的記憶夾，防人格混淆
+                # 確保這個機器人在這個頻道擁有獨立的記憶夾
                 if bot_key not in conversation_history:
                     conversation_history[bot_key] = {}
                 if channel_id not in conversation_history[bot_key]:
@@ -338,7 +349,7 @@ def bot_factory(bot_key, config):
                                         continue
                         
                         if bot_reply:
-                            print(f"// {bot_key.upper()} 成功】來自 {provider} 的 [{model_name}] 生成成功！")
+                            print(f"【{bot_key.upper()} 成功】來自 {provider} 的 [{model_name}] 生成成功！")
                             break
                             
                     except Exception as e:
@@ -356,13 +367,12 @@ def bot_factory(bot_key, config):
                 if len(conversation_history[bot_key][channel_id]) > 50:
                     conversation_history[bot_key][channel_id] = conversation_history[bot_key][channel_id][-50:]
 
-                # 🚨 送出訊息，這時如果 bot_reply 裡面含有 <@數字> 格式，就會成功 Ping 出去！
+                # 送出訊息
                 await message.reply(bot_reply, allowed_mentions=smart_mentions)
 
         await bot.process_commands(message)
 
     return bot
-
 
 # ────────────────────────────────────────────────────────
 # 🌐 騙 Render 檢查的「虛擬網頁」
