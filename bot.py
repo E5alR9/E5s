@@ -206,7 +206,7 @@ BOT_CONFIGS = {
 }
 
 # ────────────────────────────────────────────────────────
-# 🤖 核心動態工廠：用同一套邏輯去完美打造、封裝每一個機器人（內建防無限迴圈鎖）
+# 🤖 核心動態工廠：用同一套邏輯去完美打造、封裝每一個機器人（內建防無限迴圈與死訊鎖）
 # ────────────────────────────────────────────────────────
 def bot_factory(bot_key, config):
     intents = discord.Intents.default()
@@ -225,6 +225,11 @@ def bot_factory(bot_key, config):
 
         # 🚨 防護一：如果是 @everyone 或 @here 的全服廣播，直接無視！
         if message.mention_everyone:
+            return
+
+        # 🚨 防護二【新增】：如果文字裡包含崩潰死訊，代表別隻 Bot 掛了，絕對不要理它，直接句點！
+        if "角色暫時登出中" in message.content:
+            print(f"【⚠️ 偵測到同伴死訊】頻道 ({message.channel.id}) 有機器人掛掉，【{bot_key.upper()}】主動已讀不回，避免無效對話。")
             return
 
         should_trigger = False
@@ -248,18 +253,18 @@ def bot_factory(bot_key, config):
         if should_trigger:
             channel_id = message.channel.id
 
-            # 🛑 【核心改良：機器人無限連鎖對話中斷機制】
+            # 🛑 【機器人無限連鎖對話中斷機制】
             if message.author.bot:
                 # 如果是機器人來觸發我，該頻道的連續對話計數 +1
                 bot_loop_tracker[channel_id] = bot_loop_tracker.get(channel_id, 0) + 1
                 print(f"【🤖 機器人互動偵測】頻道 ({channel_id}) 目前連續紀錄：{bot_loop_tracker[channel_id]} 句。")
                 
-                # 當聊到第 6 句時（> 5），強行句點退出，不再送出 API 請求
+                # 當聊到第 6 句時（> 5），強行句點退出
                 if bot_loop_tracker[channel_id] > 5:
                     print(f"【🚨 迴圈強行中斷】偵測到機器人集體串供！已達上限 5-6 句，【{bot_key.upper()}】決定已讀不回。")
                     return
             else:
-                # 💡 只要有任何「真正的真人」說話，立刻重設該頻道的計數器，解鎖對話！
+                # 💡 只要有任何「真正的真人」說話，立刻重設該頻道的計數器
                 bot_loop_tracker[channel_id] = 0
 
             # 🚨 調整標記權限
@@ -357,6 +362,7 @@ def bot_factory(bot_key, config):
                         continue
 
                 if bot_reply is None:
+                    # ⚠️ 這裡吐出死訊訊息
                     await message.reply("（角色暫時登出中，請稍後再試...）", allowed_mentions=smart_mentions)
                     return
 
