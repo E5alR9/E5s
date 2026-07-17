@@ -38,18 +38,12 @@ MODEL_POOLS = [
     {"provider": "openrouter", "model": "meta-llama/llama-3.3-70b-instruct:free"},   # 🥉 OpenRouter 最新 70B 防線
     {"provider": "gemini", "model": "gemini-1.5-flash"},                             # 🔮 Google - 跨平台中斷盾
     {"provider": "openrouter", "model": "qwen/qwen-2.5-72b-instruct:free"},          # 👑 OpenRouter - 阿里最強 720億中文大腦
-    {"provider": "groq", "client": ai_client_1, "model": "llama-3.1-70b-versatile"},                        # 🌀 帳號 A - 舊版 700億主力
-    {"provider": "groq", "client": ai_client_2, "model": "llama-3.1-70b-versatile"},                        # 🌀 帳號 B - 舊版 700億主力
     {"provider": "openrouter", "model": "meta-llama/llama-3.1-70b-instruct:free"},   # 🍃 OpenRouter 備援
-    {"provider": "groq", "client": ai_client_1, "model": "llama3-70b-8192"},                                # ⚡ 帳號 A - 老牌 700億
-    {"provider": "groq", "client": ai_client_2, "model": "llama3-70b-8192"},                                # ⚡ 帳號 B - 老牌 700億
 
     # ────────────────────────────────────────────────────────
     # 💎 第二梯隊：32B ~ 45B 中大型大腦（實力派中階，兼顧智商與速度）
     # ────────────────────────────────────────────────────────
     {"provider": "openrouter", "model": "qwen/qwen-2.5-32b-instruct:free"},          # 🎯 OpenRouter - 320億中文超順
-    {"provider": "groq", "client": ai_client_1, "model": "mixtral-8x7b-32768"},                             # 🌀 帳號 A - 450億專家模型
-    {"provider": "groq", "client": ai_client_2, "model": "mixtral-8x7b-32768"},                             # 🌀 帳號 B - 450億專家模型
     {"provider": "openrouter", "model": "mistralai/mixtral-8x7b-instruct:free"},     # 🌀 OpenRouter 專家模型備援
 
     # ────────────────────────────────────────────────────────
@@ -58,13 +52,10 @@ MODEL_POOLS = [
     {"provider": "groq", "client": ai_client_1, "model": "llama-3.2-11b-vision-preview"},                   # 🤖 帳號 A - 110億多模態
     {"provider": "groq", "client": ai_client_2, "model": "llama-3.2-11b-vision-preview"},                   # 🤖 帳號 B - 110億多模態
     {"provider": "openrouter", "model": "google/gemma-2-9b-it:free"},                # 🔴 OpenRouter - 90億 Google 腦備援
-    {"provider": "groq", "client": ai_client_1, "model": "gemma2-9b-it"},                                   # 🔴 帳號 A - 90億 Google 腦
-    {"provider": "groq", "client": ai_client_2, "model": "gemma2-9b-it"},                                   # 🔴 帳號 B - 90億 Google 腦
     {"provider": "openrouter", "model": "meta-llama/llama-3-8b-instruct:free"},      # ⚡ OpenRouter - Llama3 80億備援
     {"provider": "groq", "client": ai_client_1, "model": "llama-3.1-8b-instant"},                           # ⚡ 帳號 A - 80億刷話神器
     {"provider": "groq", "client": ai_client_2, "model": "llama-3.1-8b-instant"},                           # ⚡ 帳號 B - 80億刷話神器
     {"provider": "openrouter", "model": "mistralai/mistral-7b-instruct:free"},       # 🔮 OpenRouter - Mistral 70億備援
-    {"provider": "groq", "client": ai_client_1, "model": "llama3-8b-8192"},                                 # ⚡ 帳號 A - 經典 Llama3 8B
 
     # ────────────────────────────────────────────────────────
     # 🛡️ 第四梯隊：1B ~ 3B 袖珍型口袋腦（極限墊底，死守最後防線）
