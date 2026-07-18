@@ -9,16 +9,23 @@ import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ────────────────────────────────────────────────────────
-# 🔑 全域 API 金鑰初始化（升級為雙 Groq 獨立帳號金鑰）
+# 🔑 全域 API 金鑰初始化（升級為單一變數、逗號分隔無限擴充模式）
 # ────────────────────────────────────────────────────────
-GROQ_API_KEY_1 = os.getenv("GROQ_API_KEY_1")  # 👈 帳號 A
-GROQ_API_KEY_2 = os.getenv("GROQ_API_KEY_2")  # 👈 帳號 B
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# 初始化兩個完全獨立的客戶端，若沒設定則為 None
-ai_client_1 = AsyncGroq(api_key=GROQ_API_KEY_1) if GROQ_API_KEY_1 else None
-ai_client_2 = AsyncGroq(api_key=GROQ_API_KEY_2) if GROQ_API_KEY_2 else None
+# 👇 核心大招：從單一環境變數中讀取所有 Groq 金鑰，並用英文逗號切割
+raw_groq_keys = os.getenv("GROQ_API_KEYS", "")
+GROQ_KEYS = [k.strip() for k in raw_groq_keys.split(",") if k.strip()]
+
+# 💡 黑科技動態映射：自動將切開的金鑰註冊為 ai_client_1~30 (完美相容下方寫死的變數)
+for i in range(1, 31):
+    key = GROQ_KEYS[i-1] if i <= len(GROQ_KEYS) else None
+    globals()[f"GROQ_API_KEY_{i}"] = key
+    try:
+        globals()[f"ai_client_{i}"] = AsyncGroq(api_key=key) if key else None
+    except Exception:
+        globals()[f"ai_client_{i}"] = None
 
 # ────────────────────────────────────────────────────────
 # 📋 記憶庫與「大腦輪替清單」設定 (全域共用)
