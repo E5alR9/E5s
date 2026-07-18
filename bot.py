@@ -34,48 +34,36 @@ conversation_history = {}
 bot_loop_tracker = {}
 
 # ────────────────────────────────────────────────────────
-# 📋 終極跨平台防禦矩陣：融入「雙 Groq 帳號多輪替機制」
+# 📋 終極跨平台防禦矩陣：全自動動態擴充金鑰輪替池
 # ────────────────────────────────────────────────────────
+# 💡 抓取全域中所有有效的 Groq 客戶端 (準備好讓下方自動輪詢)
+ACTIVE_GROQ_CLIENTS = [globals()[f"ai_client_{i}"] for i in range(1, 31) if globals().get(f"ai_client_{i}")]
+
 MODEL_POOLS = [
-    # ────────────────────────────────────────────────────────
-    # 🌟 第一梯隊：頂級旗艦大腦（智商天花板，優先調用）
-    # ────────────────────────────────────────────────────────
-    {"provider": "groq", "client": ai_client_2, "model": "llama-3.3-70b-versatile"},                        # 🥇 帳號 B - 700億開源首選
-    {"provider": "groq", "client": ai_client_1, "model": "llama-3.3-70b-versatile"},                        # 🥈 帳號 A - 700億同模型多帳號備援
-    {"provider": "groq", "client": ai_client_2, "model": "openai/gpt-oss-120b"},                            # 🚀 帳號 B - 120B 頂級推理旗艦 (新上架)
-    {"provider": "groq", "client": ai_client_1, "model": "openai/gpt-oss-120b"},                            # 🚀 帳號 A - 120B 頂級推理旗艦 (新上架)
-    {"provider": "openrouter", "model": "meta-llama/llama-3.3-70b-instruct:free"},   # 🥉 OpenRouter 最新 70B 防線
-    {"provider": "gemini", "model": "gemini-1.5-flash"},                             # 🔮 Google - 跨平台中斷盾
-    {"provider": "openrouter", "model": "qwen/qwen-2.5-72b-instruct:free"},          # 👑 OpenRouter - 阿里最強 720億中文大腦
-    {"provider": "openrouter", "model": "meta-llama/llama-3.1-70b-instruct:free"},   # 🍃 OpenRouter 備援
+    # 🌟 第一梯隊：頂級旗艦大腦
+    {"provider": "groq", "model": "llama-3.3-70b-versatile"},             # 🥇 700億開源首選 (會自動輪詢所有金鑰)
+    {"provider": "groq", "model": "openai/gpt-oss-120b"},                 # 🚀 120B 頂級推理旗艦 
+    {"provider": "openrouter", "model": "meta-llama/llama-3.3-70b-instruct:free"},
+    {"provider": "gemini", "model": "gemini-1.5-flash"},
+    {"provider": "openrouter", "model": "qwen/qwen-2.5-72b-instruct:free"},
+    {"provider": "openrouter", "model": "meta-llama/llama-3.1-70b-instruct:free"},
 
-    # ────────────────────────────────────────────────────────
-    # 💎 第二梯隊：32B ~ 45B 中大型大腦（實力派中階，兼顧智商與速度）
-    # ────────────────────────────────────────────────────────
-    {"provider": "openrouter", "model": "qwen/qwen-2.5-32b-instruct:free"},          # 🎯 OpenRouter - 320億中文超順
-    {"provider": "groq", "client": ai_client_2, "model": "openai/gpt-oss-20b"},     # ⚡ 帳號 B - 1000 tps 極速大腦 (新上架)
-    {"provider": "groq", "client": ai_client_1, "model": "openai/gpt-oss-20b"},     # ⚡ 帳號 A - 1000 tps 極速大腦 (新上架)
-    {"provider": "groq", "client": ai_client_2, "model": "qwen/qwen3-32b"},         # 🔮 帳號 B - 全新 Qwen3 預覽 (新上架)
-    {"provider": "groq", "client": ai_client_1, "model": "qwen/qwen3-32b"},         # 🔮 帳號 A - 全新 Qwen3 預覽 (新上架)
-    {"provider": "openrouter", "model": "mistralai/mixtral-8x7b-instruct:free"},     # 🌀 OpenRouter 專家模型備援
+    # 💎 第二梯隊：32B ~ 45B 中大型大腦
+    {"provider": "openrouter", "model": "qwen/qwen-2.5-32b-instruct:free"},
+    {"provider": "groq", "model": "openai/gpt-oss-20b"},
+    {"provider": "groq", "model": "qwen/qwen3-32b"},
+    {"provider": "openrouter", "model": "mistralai/mixtral-8x7b-instruct:free"},
 
-    # ────────────────────────────────────────────────────────
-    # ⚡ 第三梯隊：7B ~ 11B 輕量級主力（速度極快，群聊刷話防護盾）
-    # ────────────────────────────────────────────────────────
-    {"provider": "groq", "client": ai_client_2, "model": "meta-llama/llama-4-scout-17b-16e-instruct"},       # 🏹 帳號 B - Llama 4 搶先預覽 (750 tps)
-    {"provider": "groq", "client": ai_client_1, "model": "meta-llama/llama-4-scout-17b-16e-instruct"},       # 🏹 帳號 A - Llama 4 搶先預覽 (750 tps)
-    {"provider": "groq", "client": ai_client_2, "model": "qwen/qwen3.6-27b"},                               # 🔮 帳號 B - Qwen3.6 高性能預覽 (新上架)
-    {"provider": "groq", "client": ai_client_1, "model": "qwen/qwen3.6-27b"},                               # 🔮 帳號 A - Qwen3.6 高性能預覽 (新上架)
-    {"provider": "openrouter", "model": "google/gemma-2-9b-it:free"},                # 🔴 OpenRouter - 90億 Google 腦備援
-    {"provider": "openrouter", "model": "meta-llama/llama-3-8b-instruct:free"},      # ⚡ OpenRouter - Llama3 80億備援
-    {"provider": "groq", "client": ai_client_2, "model": "llama-3.1-8b-instant"},                           # 🥦 帳號 B - 官方認證穩定生產版
-    {"provider": "groq", "client": ai_client_1, "model": "llama-3.1-8b-instant"},                           # 🥦 帳號 A - 官方認證穩定生產版
-    {"provider": "openrouter", "model": "mistralai/mistral-7b-instruct:free"},       # 🔮 OpenRouter - Mistral 70億備援
+    # ⚡ 第三梯隊：7B ~ 11B 輕量級主力
+    {"provider": "groq", "model": "meta-llama/llama-4-scout-17b-16e-instruct"},
+    {"provider": "groq", "model": "qwen/qwen3.6-27b"},
+    {"provider": "openrouter", "model": "google/gemma-2-9b-it:free"},
+    {"provider": "openrouter", "model": "meta-llama/llama-3-8b-instruct:free"},
+    {"provider": "groq", "model": "llama-3.1-8b-instant"},
+    {"provider": "openrouter", "model": "mistralai/mistral-7b-instruct:free"},
 
-    # ────────────────────────────────────────────────────────
-    # 🛡️ 第四梯隊：1B ~ 3B 袖珍型口袋腦（極限墊底，死守最後防線）
-    # ────────────────────────────────────────────────────────
-    {"provider": "openrouter", "model": "meta-llama/llama-3.2-3b-instruct:free"}     # 🍃 OpenRouter - 30億超輕量防線
+    # 🛡️ 第四梯隊：1B ~ 3B 袖珍型口袋腦
+    {"provider": "openrouter", "model": "meta-llama/llama-3.2-3b-instruct:free"}
 ]
 
 # ────────────────────────────────────────────────────────
@@ -302,24 +290,40 @@ def bot_factory(bot_key, config):
 
                 bot_reply = None
                 
-                # 全自動跨平台防爆切換矩陣
+                # 🚀 全自動跨平台防爆切換矩陣 (終極無限金鑰輪詢版)
                 for item in MODEL_POOLS:
                     provider = item["provider"]
                     model_name = item["model"]
                     
                     try:
                         if provider == "groq":
-                            target_client = item.get("client")
-                            if not target_client:
+                            if not ACTIVE_GROQ_CLIENTS:
                                 continue
-                                
-                            print(f"【{bot_key.upper()} 嘗試】正在使用 Groq 模型 {model_name}...")
-                            chat_completion = await target_client.chat.completions.create(
-                                messages=messages,
-                                model=model_name,
-                            )
-                            bot_reply = chat_completion.choices[0].message.content
                             
+                            # 💡 內部小迴圈：將手上所有 Groq 金鑰全部輪流轟炸一次！
+                            groq_success = False
+                            for idx, target_client in enumerate(ACTIVE_GROQ_CLIENTS, 1):
+                                try:
+                                    print(f"【{bot_key.upper()} 嘗試】Groq 槽位 {idx} -> 模型 {model_name}...")
+                                    chat_completion = await target_client.chat.completions.create(
+                                        messages=messages,
+                                        model=model_name,
+                                    )
+                                    bot_reply = chat_completion.choices[0].message.content
+                                    if bot_reply:
+                                        print(f"【{bot_key.upper()} 成功】Groq 槽位 {idx} 生成成功！")
+                                        groq_success = True
+                                        break  # 只要其中一把鑰匙成功，就打斷內部金鑰迴圈
+                                except Exception as e:
+                                    print(f"【⚠️ 錯誤】Groq 槽位 {idx} 限流/失敗: {e}。瞬間切換下一把鑰匙...")
+                                    await asyncio.sleep(0.5)
+                                    continue
+                            
+                            if groq_success:
+                                break  # 成功了，打斷外部模型池迴圈，準備發送訊息
+                            else:
+                                continue # 所有 Groq 鑰匙都死光了，換下一個備援模型
+
                         elif provider == "gemini":
                             if not GEMINI_API_KEY: continue
                             print(f"【{bot_key.upper()} 嘗試】正在使用 Google Gemini 模型 {model_name}...")
