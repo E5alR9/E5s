@@ -269,8 +269,7 @@ task.spawn(function()
             if foundVisibleTimer then
                 task.wait(0.1) 
                 if IsFieldClean() then
-                    pcall(function()
-                        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Kill all") 
+                    pcall(function() 
                         task.wait(1)
                         ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!time 1")
                     end)
