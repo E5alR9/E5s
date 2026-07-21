@@ -17,17 +17,35 @@ end
 
 _G.AutoFarmActive = true
 _G.IsBusy = false 
-print("🟢 已開啟：極速傳送 (新增 5 秒安全確認機制，誤入禁區自動傳送 3000)")
+print("🟢 已開啟：極速傳送 (已更新為 workspace.Effects.Tickets 與 workspace.Map 路徑)")
 
 -- ==========================
--- 工具函式
+-- 1. 精準取得資料夾 (優先搜尋直屬 Workspace)
+-- ==========================
+local function getGameFolders()
+    -- 優先對應 workspace.Map 與 workspace.Effects
+    local mapFolder = workspace:FindFirstChild("Map") 
+                    or (workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Map"))
+                    
+    local effectsFolder = workspace:FindFirstChild("Effects") 
+                       or (workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Effects"))
+
+    local playersFolder = workspace:FindFirstChild("Players") 
+                        or (workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Players"))
+
+    return playersFolder, mapFolder, effectsFolder
+end
+
+-- ==========================
+-- 2. 工具函式
 -- ==========================
 
--- 檢查位置是否在「任何一個 SafeZone」裡面
+-- 檢查位置是否在 SafeZone 禁區內 (直接指向 workspace.Map.SafeZones)
 local function isInsideForbiddenZone(pos)
     local isForbidden = false
     pcall(function()
-        local safeZonesFolder = workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Map") and workspace.Game.Map:FindFirstChild("SafeZones")
+        local _, mapFolder, _ = getGameFolders()
+        local safeZonesFolder = mapFolder and mapFolder:FindFirstChild("SafeZones")
         
         if safeZonesFolder then
             for _, zone in ipairs(safeZonesFolder:GetChildren()) do
@@ -56,11 +74,13 @@ local function getObjInfo(item)
     return nil, nil
 end
 
-local function getActiveAIs(gamePlayersFolder)
+-- 抓取場上的鬼 (怪物)
+local function getActiveAIs(playersFolder)
     local ais = {}
-    if gamePlayersFolder then
-        for _, item in ipairs(gamePlayersFolder:GetChildren()) do
-            if item:FindFirstChild("Hitbox") then
+    if playersFolder then
+        for _, item in ipairs(playersFolder:GetChildren()) do
+            local isRealPlayer = Players:GetPlayerFromCharacter(item)
+            if item:FindFirstChild("Hitbox") or (not isRealPlayer and item:FindFirstChild("HumanoidRootPart")) then
                 local _, pos = getObjInfo(item)
                 if pos then table.insert(ais, pos) end
             end
@@ -72,14 +92,14 @@ end
 local function isSafe(targetPos, ais)
     if not targetPos then return false end
     
-    -- 檢查附近有沒有鬼
+    -- 檢查周圍是否有鬼
     for _, aiPos in ipairs(ais) do
         if (targetPos - aiPos).Magnitude < DANGER_RADIUS then
             return false
         end
     end
     
-    -- 檢查是不是無獎勵禁區 (物品掉在裡面不吃)
+    -- 檢查是否在禁區
     if isInsideForbiddenZone(targetPos) then
         return false
     end
@@ -143,10 +163,9 @@ local function emergencyEvade(rootPart, currentPos, ais)
 end
 
 -- ==========================
--- 🏃 主程序：自動收集與防鬼
+-- 🏃 3. 主程序：自動收集與防鬼
 -- ==========================
 
--- 【新增】用來記錄每個物件「第一次被發現的時間」
 local targetAges = {}
 
 task.spawn(function()
@@ -155,24 +174,21 @@ task.spawn(function()
         local character = player.Character
         local rootPart = character and character:FindFirstChild("HumanoidRootPart")
         
-        -- 【新增】清理已經消失的物件紀錄，防止記憶體外洩
+        -- 清理過期的物件紀錄
         for t, _ in pairs(targetAges) do
-            if not t.Parent then
+            if not t or not t.Parent then
                 targetAges[t] = nil
             end
         end
         
         if rootPart then
-            local gameFolder = workspace:FindFirstChild("Game")
-            local gamePlayersFolder = gameFolder and gameFolder:FindFirstChild("Players")
+            local playersFolder, mapFolder, effectsFolder = getGameFolders()
             
-            if gameFolder then
-                local ais = getActiveAIs(gamePlayersFolder)
+            if playersFolder or effectsFolder then
+                local ais = getActiveAIs(playersFolder)
                 local myPos = rootPart.Position
                 
-                -- ==========================================
-                -- 【特判】如果自己不小心進入了 SafeZones 禁區
-                -- ==========================================
+                -- 【特判】誤入禁區時強制傳送
                 if isInsideForbiddenZone(myPos) then
                     _G.IsBusy = true
                     rootPart.CFrame = CFrame.new(3000, 3010, 3000)
@@ -181,9 +197,7 @@ task.spawn(function()
                     continue
                 end
                 
-                -- ==========================================
-                -- 防鬼檢測 (躲避)
-                -- ==========================================
+                -- 防鬼檢測
                 if not isSafe(myPos, ais) then
                     _G.IsBusy = true 
                     emergencyEvade(rootPart, myPos, ais)
@@ -191,11 +205,8 @@ task.spawn(function()
                     continue 
                 end
                 
-                -- ==========================================
-                -- 尋找目標
-                -- ==========================================
+                -- 搜尋目標 (直接讀取 workspace.Effects.Tickets)
                 local allTargets = {}
-                local effectsFolder = gameFolder:FindFirstChild("Effects")
                 local ticketsFolder = effectsFolder and effectsFolder:FindFirstChild("Tickets")
                 
                 if ticketsFolder then
@@ -204,8 +215,9 @@ task.spawn(function()
                     end
                 end
                 
-                if gamePlayersFolder then
-                    for _, item in ipairs(gamePlayersFolder:GetChildren()) do
+                -- 搜尋可救援對象/其他物品
+                if playersFolder then
+                    for _, item in ipairs(playersFolder:GetChildren()) do
                         local isRealPlayer = Players:GetPlayerFromCharacter(item)
                         local isAI = item:FindFirstChild("Hitbox")
                         if not isRealPlayer and not isAI then
@@ -217,17 +229,13 @@ task.spawn(function()
                 local safeTargets = {}
                 
                 for _, target in ipairs(allTargets) do
-                    -- 【新增】如果這個目標是第一次看到，記錄當下的時間
                     if not targetAges[target] then
                         targetAges[target] = os.clock()
                     end
                     
                     local _, targetPos = getObjInfo(target)
-                    
-                    -- 【新增】檢查這個物件是不是已經存在超過 5 秒
                     local isOldEnough = (os.clock() - targetAges[target]) >= 5
                     
-                    -- 目標有鬼、在禁區內都不會加入，且【必須存在超過 5 秒】才去吃
                     if targetPos and isSafe(targetPos, ais) and isOldEnough then
                         table.insert(safeTargets, target)
                     end
@@ -237,9 +245,10 @@ task.spawn(function()
                     _G.IsBusy = true 
                     local randomTarget = safeTargets[math.random(1, #safeTargets)]
                     
-                    while randomTarget.Parent and _G.AutoFarmActive do
+                    while randomTarget and randomTarget.Parent and _G.AutoFarmActive do
                         local cf, pos = getObjInfo(randomTarget)
-                        if not cf or not isSafe(rootPart.Position, getActiveAIs(gamePlayersFolder)) then
+                        local currentAIs = getActiveAIs(playersFolder)
+                        if not cf or not isSafe(rootPart.Position, currentAIs) then
                             break 
                         end
                         rootPart.CFrame = cf
