@@ -6,7 +6,7 @@ local player = LocalPlayer
 -- 參數設定
 -- ==========================
 local DANGER_RADIUS = 40    -- 鬼的危險警戒距離
-local SAFE_HEIGHT_POS = Vector3.new(3000, 3003, 3000) -- 避難/待命傳送座標
+local SAFE_HEIGHT_POS = Vector3.new(3000, 3005, 3000) -- 避難/待命傳送座標
 
 -- 啟動/關閉開關
 if _G.AutoFarmActive then
@@ -112,6 +112,7 @@ end
 -- ==========================
 
 local targetAges = {}
+local hasEvacuated = false -- 狀態標記：記錄是否已經完成單次避難傳送
 
 task.spawn(function()
     while _G.AutoFarmActive do
@@ -133,20 +134,26 @@ task.spawn(function()
                 local ais = getActiveAIs(playersFolder)
                 local myPos = rootPart.Position
                 
-                -- 【特判 A】誤入禁區時強制傳送
+                -- 【特判 A】誤入禁區時單次傳送避難
                 if isInsideForbiddenZone(myPos) then
                     _G.IsBusy = true
-                    rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
-                    print("⚠️ 偵測到誤入禁區！已強制傳送至 3000, 3100, 3000")
+                    if not hasEvacuated then
+                        rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
+                        hasEvacuated = true
+                        print("⚠️ 偵測到誤入禁區！已傳送至避難點")
+                    end
                     task.wait(1)
                     continue
                 end
                 
-                -- 【特判 B】周圍有鬼時直接放棄並傳送至 3000, 3100, 3000
+                -- 【特判 B】周圍有鬼時單次傳送避難（不會鎖定）
                 if not isSafe(myPos, ais) then
                     _G.IsBusy = true 
-                    rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
-                    print("⚠️ 偵測到鬼靠近警戒範圍！直接放棄當前動作，避難至 3000, 3100, 3000")
+                    if not hasEvacuated then
+                        rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
+                        hasEvacuated = true
+                        print("⚠️ 偵測到鬼靠近！已避難至 3000, 3003, 3000（放開控制）")
+                    end
                     task.wait(1) 
                     continue 
                 end
@@ -189,16 +196,18 @@ task.spawn(function()
                 
                 if #safeTargets > 0 then
                     _G.IsBusy = true 
+                    hasEvacuated = false -- 重新找到目標，重置避難狀態標記
                     local randomTarget = safeTargets[math.random(1, #safeTargets)]
                     
                     while randomTarget and randomTarget.Parent and _G.AutoFarmActive do
                         local cf, pos = getObjInfo(randomTarget)
                         local currentAIs = getActiveAIs(playersFolder)
                         
-                        -- 飛到一半如果發現鬼靠近，立刻中止循環並退回高空
+                        -- 飛到一半如果發現鬼靠近，立刻中斷並傳送一次退回高空
                         if not cf or not isSafe(rootPart.Position, currentAIs) then
                             rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
-                            print("⚠️ 飛行途中發現鬼接近！立即中斷並回到 3000, 3100, 3000")
+                            hasEvacuated = true
+                            print("⚠️ 飛行途中發現鬼接近！中斷並返回避難點")
                             break 
                         end
                         
@@ -206,8 +215,12 @@ task.spawn(function()
                         task.wait()
                     end
                 else
-                    -- 【新增】當場上沒有可撿取的目標時，自動飛回 3000, 3100, 3000 高空待命
-                    rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
+                    -- 場上無安全目標時，僅傳送一次至待命點，後續不鎖定角色
+                    if not hasEvacuated then
+                        rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
+                        hasEvacuated = true
+                        print("⚠️ 無安全目標，已飛往待命點（放開控制）")
+                    end
                 end
             end
         else
