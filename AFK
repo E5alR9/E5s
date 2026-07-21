@@ -1,76 +1,7 @@
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local player = LocalPlayer
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
--- 遠端事件路徑
-local voteEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Player"):WaitForChild("Vote")
-
--- UI 偵測路徑
-local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-local choicesFolder = playerGui:WaitForChild("Global"):WaitForChild("CanDisable"):WaitForChild("Vote"):WaitForChild("Choices")
-
--- 用來防止重複投票的標記
-local hasVotedThisRound = false
-
-task.spawn(function()
-    while true do
-        -- 每 0.5 秒檢查一次，反應速度夠快且不佔資源
-        task.wait(0.5)
-
-        -- 檢查「1」是否存在
-        local firstOption = choicesFolder:FindFirstChild("1")
-
-        if firstOption and not hasVotedThisRound then
-            -- 發現目標！直接開火
-            
-            
-            -- 執行地圖投票
-            voteEvent:FireServer(1)
-            
-            -- 稍微停 0.1 秒確保伺服器能收兩個訊號
-            task.wait(0.1)
-            
-            -- 執行模式投票
-            voteEvent:FireServer(1, true)
-            
-            hasVotedThisRound = true
-            
-            task.wait(32)
-            
-            ReplicatedStorage.Events.CustomServers.Admin:FireServer("Gamemode", "Pro")
-        
-            
-        elseif not firstOption then
-            -- 如果「1」消失了，代表投票結束或選單關閉，重置標記等待下一輪
-            hasVotedThisRound = false
-        end
-    end
-end)
-
--- 執行初始伺服器設定
-pcall(function()
-    game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("AddMap", "WorkFacility")
-    game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!map WorkFacility")
-    game.ReplicatedStorage.Events.CustomServers.Admin:FireServer("Gamemode", "Pro")
-end)
-
------------------------------------------------------------
--- 1. 載入外部腳本 (EvadeEvent & E5s)
------------------------------------------------------------
-task.spawn(function()
-    
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/script.txt"))()
-    end)
-end)
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -----------------------------------------------------------
 -- 2. 建立 UI 主容器
@@ -81,91 +12,7 @@ ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.ResetOnSpawn = false
 
 -----------------------------------------------------------
--- 自動點擊功能 (紅圈 & 控制按鈕)
------------------------------------------------------------
-local TargetCircle = Instance.new("Frame")
-local UICornerDot = Instance.new("UICorner")
-local TargetLabel = Instance.new("TextLabel")
-
-TargetCircle.Name = "TargetCircle"
-TargetCircle.Parent = ScreenGui 
-TargetCircle.Size = UDim2.new(0, 50, 0, 50)
-TargetCircle.Position = UDim2.new(0.8, 0, 0.55, 0)
-TargetCircle.AnchorPoint = Vector2.new(0.5, 0.5)
-TargetCircle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-TargetCircle.BackgroundTransparency = 0.5
-TargetCircle.Active = true
-TargetCircle.Draggable = true 
-
-UICornerDot.CornerRadius = UDim.new(1, 0)
-UICornerDot.Parent = TargetCircle
-
-TargetLabel.Size = UDim2.new(1, 0, 1, 0)
-TargetLabel.BackgroundTransparency = 1
-TargetLabel.Text = "對準按鈕 click here"
-TargetLabel.TextColor3 = Color3.new(1, 1, 1)
-TargetLabel.TextSize = 10
-TargetLabel.Parent = TargetCircle
-
--- 控制按鈕
-local ClickBtn = Instance.new("TextButton")
-local UICornerClick = Instance.new("UICorner")
-ClickBtn.Name = "AutoClickToggle"
-ClickBtn.Parent = ScreenGui
-ClickBtn.Size = UDim2.new(0, 140, 0, 45)
-ClickBtn.Position = UDim2.new(0.1, 0, 0.4, 0)
-ClickBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-ClickBtn.Text = "自動點擊: 關閉off"
-ClickBtn.TextColor3 = Color3.new(1, 1, 1)
-ClickBtn.Font = Enum.Font.GothamBold
-ClickBtn.TextSize = 14
-ClickBtn.Draggable = true
-UICornerClick.Parent = ClickBtn
-
-local isClickActive = false
-ClickBtn.MouseButton1Click:Connect(function()
-    isClickActive = not isClickActive
-    ClickBtn.Text = isClickActive and "自動點擊: 開啟on" or "自動點擊: 關閉off"
-    ClickBtn.BackgroundColor3 = isClickActive and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(40, 40, 40)
-    TargetCircle.BackgroundTransparency = isClickActive and 0.7 or 0.5
-end)
-
--- 點擊循環邏輯
-task.spawn(function()
-    while true do
-        if isClickActive then
-            local targetX = TargetCircle.AbsolutePosition.X + (TargetCircle.AbsoluteSize.X / 2)
-            local targetY = TargetCircle.AbsolutePosition.Y + (TargetCircle.AbsoluteSize.Y / 2)
-            
-            pcall(function()
-                VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, true, game, 1)
-                task.wait(0.1)
-                VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, false, game, 1)
-            end)
-            
-            TargetCircle.BackgroundColor3 = Color3.new(1, 1, 1)
-            task.wait(0.1)
-            TargetCircle.BackgroundColor3 = Color3.new(1, 0, 0)
-        end
-        task.wait(1)
-    end
-end)
-
------------------------------------------------------------
--- 3. 自動指令循環
------------------------------------------------------------
-task.spawn(function()
-    while true do
-        pcall(function()
-            -- 執行特殊回合指令
-            game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!specialround Plushie Hell")
-        end)
-        task.wait(3)
-    end
-end)
-
------------------------------------------------------------
--- 4. 復活自動按鍵功能 (G + 5) - 【已更新預設開啟】
+-- 4. 復活自動按鍵功能 (G + 5) - 【預設開啟】
 -----------------------------------------------------------
 local KeyBtn = Instance.new("TextButton")
 local UICornerKey = Instance.new("UICorner")
@@ -178,7 +25,6 @@ KeyBtn.Position = UDim2.new(0.1, 0, 0.5, 0)
 local isAutoKeyEnabled = true 
 KeyBtn.BackgroundColor3 = Color3.fromRGB(130, 0, 255)
 KeyBtn.Text = "G5按鍵: 開啟on"
-
 KeyBtn.TextColor3 = Color3.new(1, 1, 1)
 KeyBtn.Font = Enum.Font.GothamBold
 KeyBtn.TextSize = 14
@@ -216,36 +62,35 @@ end
 -----------------------------------------------------------
 -- 5. 狀態檢測與自動復活 (Workspace 實體檢測法)
 -----------------------------------------------------------
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
-    and ReplicatedStorage.Events:FindFirstChild("Player")
-    and ReplicatedStorage.Events.Player:FindFirstChild("ChangePlayerMode")
-
 task.spawn(function()
     while true do
-        task.wait(2) -- 每  秒檢測一次狀態
+        task.wait(0.5) -- 每 0.5 秒檢測一次狀態
         
+        -- 動態獲取 Remote，避免載入時間差導致變數永久變成 nil
+        local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
+            and ReplicatedStorage.Events:FindFirstChild("SetPlayerMode")
+
         if reviveRemote then
             pcall(function()
-                local gameFolder = workspace:FindFirstChild("Game")
-                local playersFolder = gameFolder and gameFolder:FindFirstChild("Players")
-                
+                local playersFolder = workspace:FindFirstChild("Players")
                 local inGameCharacter = nil
+                
                 if playersFolder then
                     inGameCharacter = playersFolder:FindFirstChild(LocalPlayer.Name) 
-                                       or playersFolder:FindFirstChild(tostring(LocalPlayer.UserId))
+                                   or playersFolder:FindFirstChild(tostring(LocalPlayer.UserId))
                 end
                 
                 if not inGameCharacter then
-                    -- 【情況 A】不在遊戲裡 (代表卡在菜單/大廳)
+                    -- 【情況 A】不在遊戲場上 (卡在菜單/大廳)
                     reviveRemote:FireServer(true)
-                    task.wait(3) -- 冷卻避免斷線
-					reviveRemote:FireServer(true)
+                    task.wait(3) -- 冷卻避免頻率過高斷線
+                    reviveRemote:FireServer(true)
                 else
                     -- 【情況 B】在遊戲場上，檢查是否需要復活
                     local humanoid = inGameCharacter:FindFirstChild("Humanoid")
                     local isDead = humanoid and (humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead)
                     
+                    -- 讀取角色狀態屬性
                     local state = inGameCharacter:GetAttribute("State") or ""
                     local isDowned = inGameCharacter:GetAttribute("Downed") or (state == "Downed") or (state == "Dead")
 
@@ -260,9 +105,120 @@ task.spawn(function()
 end)
 
 -----------------------------------------------------------
--- 6. 自動時間加速 (環境優先偵測版：先看雜質，再看 UI)
+-- 0. 執行初始伺服器設定
 -----------------------------------------------------------
+pcall(function()
+    game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("AddMap", "WorkFacility")
+    game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!map WorkFacility")
+    game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Gamemode Pro")
+end)
 
+-----------------------------------------------------------
+-- 1. 載入外部腳本 (EvadeEvent & E5s)
+-----------------------------------------------------------
+task.spawn(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/script.txt"))()
+    end)
+end)
+
+-----------------------------------------------------------
+-- 2. 自動指令循環 (!specialround)
+-----------------------------------------------------------
+task.spawn(function()
+    while true do
+        pcall(function()
+            game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!specialround Plushie Hell")
+        end)
+        task.wait(3)
+    end
+end)
+
+-----------------------------------------------------------
+-- 3. 狀態檢測與自動復活 (Workspace 實體檢測法)
+-----------------------------------------------------------
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
+    and ReplicatedStorage.Events:FindFirstChild("SetPlayerMode")
+
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        
+        if reviveRemote then
+            pcall(function()
+                local playersFolder = workspace:FindFirstChild("Players")
+                local inGameCharacter = nil
+                if playersFolder then
+                    inGameCharacter = playersFolder:FindFirstChild(LocalPlayer.Name) 
+                                   or playersFolder:FindFirstChild(tostring(LocalPlayer.UserId))
+                end
+                
+                if not inGameCharacter then
+                    -- 卡在大廳/菜單時
+                    reviveRemote:FireServer(true)
+                    task.wait(3)
+                    reviveRemote:FireServer(true)
+                else
+                    -- 遊戲中檢測死亡/倒地
+                    local humanoid = inGameCharacter:FindFirstChild("Humanoid")
+                    local isDead = humanoid and (humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead)
+                    local state = inGameCharacter:GetAttribute("State") or ""
+                    local isDowned = inGameCharacter:GetAttribute("Downed") or (state == "Downed") or (state == "Dead")
+
+                    if isDead or isDowned then
+                        reviveRemote:FireServer(true)
+                        task.wait(2) 
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-----------------------------------------------------------
+-- 4. 通用輔助函式與 UI 懸浮面板
+-----------------------------------------------------------
+local CoreGui = game:GetService("CoreGui")
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "RoundCounterGui"
+screenGui.ResetOnSpawn = false
+
+local success, _ = pcall(function()
+    screenGui.Parent = CoreGui
+end)
+if not success then
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local counterLabel = Instance.new("TextLabel")
+counterLabel.Name = "CounterLabel"
+counterLabel.Parent = screenGui
+counterLabel.Size = UDim2.new(0, 180, 0, 40)
+counterLabel.Position = UDim2.new(0.5, -90, 0.05, 0)
+counterLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+counterLabel.BackgroundTransparency = 0.25
+counterLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+counterLabel.TextSize = 18
+counterLabel.Font = Enum.Font.SourceSansBold
+counterLabel.Text = "目前累計回合: 0"
+counterLabel.Active = true
+counterLabel.Draggable = true
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 8)
+uiCorner.Parent = counterLabel
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Thickness = 1.5
+uiStroke.Color = Color3.fromRGB(100, 100, 100)
+uiStroke.Parent = counterLabel
+
+-- UI 可見度檢測函式
 local function IsTrulyVisible(element)
     if not element or not element.Visible then return false end
     local current = element.Parent
@@ -274,139 +230,100 @@ local function IsTrulyVisible(element)
     return true
 end
 
--- 🕵️ 核心偵測：檢查是否有「非真人玩家」的實體在場
+-- 檢測場上是否乾淨（無鬼）
 local function IsFieldClean()
-    local gameFolder = workspace:FindFirstChild("Game")
-    local playersFolder = gameFolder and gameFolder:FindFirstChild("Players")
-    
-    -- 如果資料夾不存在，通常代表還在大廳，視為「不乾淨」以保安全
+    local playersFolder = workspace:FindFirstChild("Players")
     if not playersFolder then return false end
 
     local entities = playersFolder:GetChildren()
     for _, entity in pairs(entities) do
-        -- 檢查這是否為真人玩家
-        local isActualPlayer = game.Players:GetPlayerFromCharacter(entity)
-        
-        -- 只要掃描到任何一個東西不是真人（Wolf, Rebel, Nextbot）
+        local isActualPlayer = Players:GetPlayerFromCharacter(entity)
         if not isActualPlayer then
-            -- 發現雜質，立刻判定「不乾淨」
             return false 
         end
     end
-    
-    -- 掃描完畢，場上只有真人，判定「乾淨」
     return true
 end
 
+-----------------------------------------------------------
+-- 5. 自動時間加速 (完整補回原本邏輯)
+-----------------------------------------------------------
 task.spawn(function()
     while true do
-        -- 第一步：優先檢查環境
         if IsFieldClean() then
-            -- 第二步：環境乾淨了，才去檢查 UI 是否顯示
             local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
             local foundVisibleTimer = false
             
             if PlayerGui then
-                for _, name in pairs({"IntermissionTimer", "RoundTimer"}) do
-                    -- 這裡改用遍歷 Descendants 以確保抓到所有可能的計時器位置
-                    for _, element in pairs(PlayerGui:GetDescendants()) do
-                        if element.Name == name and element:IsA("GuiObject") then
-                            if IsTrulyVisible(element) then
-                                foundVisibleTimer = true
-                                break
-                            end
-                        end
-                    end
-                    if foundVisibleTimer then break end
+                local gameUI = PlayerGui:FindFirstChild("Game")
+                local hud = gameUI and gameUI:FindFirstChild("HUD")
+                local overlay = hud and hud:FindFirstChild("Overlay")
+                local roundOverlay = overlay and overlay:FindFirstChild("RoundOverlay")
+                local roundTimer = roundOverlay and roundOverlay:FindFirstChild("RoundTimer")
+
+                if roundTimer and IsTrulyVisible(roundTimer) then
+                    foundVisibleTimer = true
                 end
             end
 
-            -- 第三步：環境乾淨 + UI 顯示 = 執行指令
             if foundVisibleTimer then
-                -- 執行前的微秒確認，確保這瞬間沒有怪跳出來
                 task.wait(0.1) 
                 if IsFieldClean() then
                     pcall(function()
-                        
-                        ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!Kill all")
+                        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Kill all") 
                         task.wait(1)
-                        ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!time 1")
+                        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!time 1")
                     end)
-                    
-                    task.wait(2) -- 執行後冷卻，防止重複發送
+                    task.wait(2)
                 end
             else
-                -- 環境乾淨但 UI 沒亮，正常循環
                 task.wait(0.5)
             end
         else
-            -- 場上有 Wolf 或 Rebel，絕對保持沉默
-            -- print("🛡️ 偵測到實體 NPC，停止所有加速指令")
-            task.wait(1) -- 有怪在場時，降低掃描頻率減輕負擔
+            task.wait(1)
         end
     end
 end)
 
----------------------------------------------------------
--- anti vote
----------------------------------------------------------
+-----------------------------------------------------------
+-- 6. 鬼實體無到有檢測 (獨立計數 + 滿 3 回合換圖)
+-----------------------------------------------------------
+local currentRounds = 0
+local wasMonsterPresent = false -- 記錄上一刻鬼是否存在
 
-local Workspace = game:GetService("Workspace")
--- 直接獲取 Stats 物件
-local gameStats = Workspace:WaitForChild("Game"):WaitForChild("Stats")
+-- 換圖觸發函式
+local function TriggerMapChange(rounds)
+    pcall(function()
+        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!map WorkFacility")
+    end)
+    print("[系統提示] 累計回合達 " .. tostring(rounds) .. "，已發送換圖指令：WorkFacility")
+end
 
----------------------------------------------------------
--- 功能 1：每 3 回合時切換地圖
----------------------------------------------------------
-gameStats:GetAttributeChangedSignal("RoundsCompleted"):Connect(function()
-	local rounds = gameStats:GetAttribute("RoundsCompleted")
-	
-	-- 檢查條件：回合數存在、大於 0 且為 3 的倍數
-	if rounds ~= nil and rounds > 0 and (rounds % 3 == 0) then
-		
-		local success, result = pcall(function()
-			-- 不再做任何 task.wait 或時間判斷，直接秒切
-			return game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!map WorkFacility")
-		end)
-		
-		if success then
-			print("[系統提示] 回合數已達到 " .. rounds .. "，已直接發送換圖指令：!map WorkFacility")
-		else
-			warn("[系統錯誤] 換圖指令發送失敗: " .. tostring(result))
-		end
-		
-	end
+task.spawn(function()
+    print("[系統提示] 鬼實體 (無到有) 獨立計數器已啟動...")
+    
+    while true do
+        local isMonsterPresentNow = not IsFieldClean()
+
+        -- 關鍵判定：【上一刻無鬼】且【這一刻鬼出現】(無到有)
+        if not wasMonsterPresent and isMonsterPresentNow then
+            currentRounds = currentRounds + 1
+            counterLabel.Text = "目前累計回合: " .. currentRounds
+            print("[系統提示] 偵測到鬼刷出！回合數 $+1$，當前累計: " .. currentRounds)
+
+            -- 每滿 3 回合觸發換圖
+            if currentRounds > 0 and (currentRounds % 3 == 0) then
+                task.wait(0.5)
+                TriggerMapChange(currentRounds)
+            end
+        end
+
+        -- 更新狀態供下一次循環對比
+        wasMonsterPresent = isMonsterPresentNow
+
+        task.wait(0.5)
+    end
 end)
-
----------------------------------------------------------
--- 功能 2：當 RoundStarted 為 false 時，每隔 1 秒持續發送指令
----------------------------------------------------------
---[[ 備用
-gameStats:GetAttributeChangedSignal("RoundStarted"):Connect(function()
-	local isStarted = gameStats:GetAttribute("RoundStarted")
-	
-	-- 當 RoundStarted 變成 false 時觸發
-	if isStarted == false then
-		
-		-- 進入迴圈：只要 RoundStarted 還是 false，就每秒發送一次指令
-		while gameStats:GetAttribute("RoundStarted") == false do
-			local success, result = pcall(function()
-				return game.ReplicatedStorage.Events.Admin.VIPCommand:InvokeServer("!time 1")
-			end)
-			
-			if success then
-				print("[系統提示] 已發送指令：!time 1 (若未開始將在 2 秒後重試)")
-			else
-				warn("[系統錯誤] 時間指令發送失敗: " .. tostring(result))
-			end
-			
-			task.wait(2) -- 發送完後等待 2 秒
-		end
-		
-		print("[系統提示] 偵測到 RoundStarted 已變為 true，已停止重複發送。")
-	end
-end)
-]]
 
 -----------------------------------------------------------
 -- 7. 高空平台掛機功能 (向內細節化多層電子軌域 + 表面混沌軌跡)
