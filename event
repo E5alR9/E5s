@@ -6,7 +6,7 @@ local player = LocalPlayer
 -- 參數設定
 -- ==========================
 local DANGER_RADIUS = 40    -- 鬼的危險警戒距離
-local SAFE_HEIGHT_POS = Vector3.new(3000, 3100, 3000) -- 避難傳送座標
+local SAFE_HEIGHT_POS = Vector3.new(3000, 3100, 3000) -- 避難/待命傳送座標
 
 -- 啟動/關閉開關
 if _G.AutoFarmActive then
@@ -17,7 +17,7 @@ end
 
 _G.AutoFarmActive = true
 _G.IsBusy = false 
-print("🟢 已開啟：極速傳送 (偵測到鬼直接傳送至 3000, 3100, 3000)")
+print("🟢 已開啟：極速傳送 (無目標或偵測到鬼時自動回到 3000, 3100, 3000)")
 
 -- ==========================
 -- 1. 精準取得資料夾
@@ -108,7 +108,7 @@ local function isSafe(targetPos, ais)
 end
 
 -- ==========================
--- 🏃 3. 主程序：自動收集與防鬼避難
+-- 🏃 3. 主程序：自動收集與防鬼待命
 -- ==========================
 
 local targetAges = {}
@@ -205,6 +205,9 @@ task.spawn(function()
                         rootPart.CFrame = cf
                         task.wait()
                     end
+                else
+                    -- 【新增】當場上沒有可撿取的目標時，自動飛回 3000, 3100, 3000 高空待命
+                    rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
                 end
             end
         else
