@@ -6,7 +6,7 @@ local player = LocalPlayer
 -- 參數設定
 -- ==========================
 local DANGER_RADIUS = 40    -- 鬼的危險警戒距離
-local SAFE_HEIGHT_POS = Vector3.new(3000, 3100, 3000) -- 避難/待命傳送座標
+local SAFE_HEIGHT_POS = Vector3.new(3000, 3003, 3000) -- 避難/待命傳送座標
 
 -- 啟動/關閉開關
 if _G.AutoFarmActive then
