@@ -342,6 +342,69 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads
 -- =============================================
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/LP"))()
+
+-- =============================================
+--  Timer
+-- =============================================
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ==========================================
+-- 1. 建立自訂 UI 介面
+-- ==========================================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CustomTimerGui"
+screenGui.ResetOnSpawn = false -- 角色死亡重生時不銷毀 UI
+screenGui.Parent = PlayerGui
+
+local timerLabel = Instance.new("TextLabel")
+timerLabel.Name = "DisplayTimer"
+timerLabel.Size = UDim2.new(0, 180, 0, 45)                 -- UI 寬度 180，高度 45
+timerLabel.Position = UDim2.new(0.5, -90, 0.05, 0)          -- 預設擺在畫面正上方中央
+timerLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)  -- 半透明深灰背景
+timerLabel.BackgroundTransparency = 0.3
+timerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)      -- 白色文字
+timerLabel.TextSize = 22
+timerLabel.Font = Enum.Font.SourceSansBold
+timerLabel.Text = "--:--"
+timerLabel.Parent = screenGui
+
+-- 加上圓角美化 UI
+local uiCorner = Instance.new("UICorner")
+uiCorner.Parent = timerLabel
+
+-- ==========================================
+-- 2. 監聽與同步 Timer 文字
+-- ==========================================
+task.spawn(function()
+	-- 尋找目標 Timer 物件的輔助函數
+	local function getTargetTimer()
+		local success, result = pcall(function()
+			return PlayerGui.Game.HUD.Overlay.RoundOverlay.RoundTimer.IngameRoundTimer.Timer
+		end)
+		return success and result or nil
+	end
+
+	-- 等待 UI 載入
+	local targetTimer = getTargetTimer()
+	while not targetTimer and task.wait(0.5) do
+		targetTimer = getTargetTimer()
+	end
+
+	-- 當找到目標 Timer 時進行同步
+	if targetTimer then
+		-- 1. 立即同步當前文字
+		timerLabel.Text = targetTimer.Text
+
+		-- 2. 綁定事件：只要原版的 Text 一有變化就立刻更新
+		targetTimer:GetPropertyChangedSignal("Text"):Connect(function()
+			timerLabel.Text = targetTimer.Text
+		end)
+	end
+end)
+
 -----------------------------------------------------------
 print([[                                                
   ________  ________  ________  ___       ________   _______
