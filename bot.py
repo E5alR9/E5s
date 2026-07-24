@@ -7,6 +7,10 @@ import threading
 import aiohttp
 import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from dotenv import load_dotenv
+
+# 1. 自動讀取同目錄下的 .env 檔案
+load_dotenv()
 
 # ────────────────────────────────────────────────────────
 # 🔑 全域 API 金鑰初始化（升級為單一變數、逗號分隔無限擴充模式）
