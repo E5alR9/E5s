@@ -5,14 +5,11 @@ local Players = game:GetService("Players")
 -- [ 參數設定 ] --
 local MIN_SIZE_TO_DELETE = 200    
 
--- 動態獲取特定路徑 (避免地圖刷新導致抓到已刪除的舊資料夾)
+-- 動態獲取特定路徑 (已修改為直接尋找 Workspace.Map.InvisParts)
 local function getSpecificPath()
-	local gameFolder = Workspace:FindFirstChild("Game")
-	if gameFolder then
-		local mapFolder = gameFolder:FindFirstChild("Map")
-		if mapFolder then
-			return mapFolder:FindFirstChild("InvisParts")
-		end
+	local mapFolder = Workspace:FindFirstChild("Map")
+	if mapFolder then
+		return mapFolder:FindFirstChild("InvisParts")
 	end
 	return nil
 end
@@ -125,7 +122,7 @@ elseif _G.WallMode == 2 then
 	local targetFolder = getSpecificPath()
 	
 	if targetFolder then
-		-- 改用 GetDescendants() 避免忽略嵌套的物件
+		-- 使用 GetDescendants() 避免忽略嵌套的物件
 		for _, v in pairs(targetFolder:GetDescendants()) do
 			if checkAndRemove(v, 2) then deletedCount = deletedCount + 1 end
 		end
