@@ -6,7 +6,7 @@ local PlayerGui = player:WaitForChild("PlayerGui")
 -- ==========================
 -- 參數設定
 -- ==========================
-local DANGER_RADIUS = 100              -- 鬼的危險警戒距離
+local DANGER_RADIUS = 100             -- 鬼的危險警戒距離
 local SAFE_HEIGHT_POS = Vector3.new(3000, 3005, 3000) -- 避難/待命傳送座標
 local currentRemainingTime = 9999     -- 紀錄目前剩餘秒數
 
@@ -44,46 +44,24 @@ local function parseTimeToSeconds(cleanText)
 end
 
 -- ==========================================
--- 2. 直接讀取原版 Timer
+-- 2. 動態讀取原版 Timer (防 GUI 重建失效)
 -- ==========================================
 task.spawn(function()
-    local function getTargetTimer()
-        local ok, result = pcall(function()
-            return PlayerGui.Game.HUD.Overlay.RoundOverlay.RoundTimer.IngameRoundTimer.Timer
+    while _G.AutoFarmActive do
+        local targetTimer = nil
+        pcall(function()
+            targetTimer = PlayerGui.Game.HUD.Overlay.RoundOverlay.RoundTimer.IngameRoundTimer.Timer
         end)
-        if ok and result and result:IsA("TextLabel") then
-            return result
-        end
-        return nil
-    end
 
-    local targetTimer = getTargetTimer()
-    while _G.AutoFarmActive and not targetTimer do
-        targetTimer = getTargetTimer()
-        task.wait(0.5)
-    end
-
-    if targetTimer then
-        local lastTimePrinted = -1
-        local function updateTime()
-            if not _G.AutoFarmActive then return end
+        if targetTimer and targetTimer:IsA("TextLabel") and targetTimer:IsDescendantOf(game) then
             local txt = (targetTimer.ContentText ~= "" and targetTimer.ContentText) or targetTimer.Text
-            local secs = parseTimeToSeconds(txt)
-            currentRemainingTime = secs
-            
-            if secs <= 5 and secs ~= lastTimePrinted then
-                lastTimePrinted = secs
-                print("⏱️ [Timer監聽] 讀取 ContentText: [" .. tostring(txt) .. "] -> 解析秒數: [" .. tostring(secs) .. "]")
-            end
+            currentRemainingTime = parseTimeToSeconds(txt)
+        else
+            -- 找不到 UI 時（例如回合切換中），將時間設為安全預設值
+            currentRemainingTime = 9999
         end
-
-        targetTimer:GetPropertyChangedSignal("ContentText"):Connect(updateTime)
-        targetTimer:GetPropertyChangedSignal("Text"):Connect(updateTime)
         
-        while _G.AutoFarmActive do
-            updateTime()
-            task.wait(0.2)
-        end
+        task.wait(0.1) -- 高頻動態抓取，完全不怕 UI 被遊戲重新建立
     end
 end)
 
@@ -168,7 +146,7 @@ end
 -- ==========================
 local targetAges = {}
 local hasEvacuated = false
-local previousTime = 9999 -- 用於記錄上一幀的時間，以精準判斷回合重置
+local previousTime = 9999
 
 task.spawn(function()
     while _G.AutoFarmActive do
@@ -183,33 +161,34 @@ task.spawn(function()
             end
         end
 
-        -- 【關鍵修正】只有當秒數從「<= 5 秒」跳變回「> 10 秒」時，才認定為真實的新回合開始
+        -- 回合重置判定
         if previousTime <= 5 and currentRemainingTime > 10 then
             hasEvacuated = false
             print("🔄 新回合開始，重置避難標記！")
         end
-        previousTime = currentRemainingTime -- 更新時間紀錄
+        previousTime = currentRemainingTime
         
         if rootPart then
+            -- 【最高優先權】剩餘秒數 <= 5 秒：絕對停止撿取並鎖定在高空待命點
+            if currentRemainingTime <= 5 then
+                _G.IsBusy = true
+                rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
+                
+                if not hasEvacuated then
+                    hasEvacuated = true
+                    print("⏳ [緊急避難] 倒數剩餘 " .. tostring(currentRemainingTime) .. " 秒！強制停止撿取並飛往高空！")
+                end
+                
+                task.wait(0.2)
+                continue -- 直接跳過後續所有目標搜尋與傳送撿取邏輯
+            end
+
             local playersFolder, mapFolder, effectsFolder = getGameFolders()
             
             if playersFolder or effectsFolder then
                 local ais = getActiveAIs(playersFolder)
                 local myPos = rootPart.Position
                 
-                -- 【判斷 1】倒數剩餘 <= 5 秒：強制飛往高空待命
-                if currentRemainingTime <= 5 then
-                    _G.IsBusy = true
-                    if not hasEvacuated then
-                        rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
-                        hasEvacuated = true
-                        game:GetService("ReplicatedStorage").Events.SetPlayerMode:FireServer(true)
-                        print("⏳ [安全避難] 倒數剩餘 " .. tostring(currentRemainingTime) .. " 秒！已飛往高空待命點！")
-                    end
-                    task.wait(0.2)
-                    continue
-                end
-
                 -- 【判斷 2】誤入禁區或周圍有鬼：傳送避難
                 if isInsideForbiddenZone(myPos) or not isSafe(myPos, ais) then
                     _G.IsBusy = true
@@ -256,20 +235,19 @@ task.spawn(function()
                     end
                 end
                 
-                -- 執行撿取
-                if #safeTargets > 0 then
+                -- 執行撿取 (雙重防護：確認時間 > 5 秒才允許傳送)
+                if #safeTargets > 0 and currentRemainingTime > 5 then
                     _G.IsBusy = true 
-                    -- 只要重新發現安全目標，便解除避難標記，恢復自動傳送撿取
                     hasEvacuated = false 
                     
                     local randomTarget = safeTargets[math.random(1, #safeTargets)]
                     local cf, pos = getObjInfo(randomTarget)
                     
-                    if cf and currentRemainingTime > 5 then
+                    if cf then
                         rootPart.CFrame = cf
                     end
                 else
-                    -- 場上無安全目標時飛往待命點 (只觸發一次)
+                    -- 場上無安全目標時飛往待命點
                     if not hasEvacuated then
                         rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
                         hasEvacuated = true
