@@ -1,3 +1,7 @@
+game:GetService("ReplicatedStorage").Events.SetPlayerMode:FireServer(true)
+ 
+task.wait(3)
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -60,51 +64,6 @@ if LocalPlayer.Character then
 end
 
 -----------------------------------------------------------
--- 5. 狀態檢測與自動復活 (Workspace 實體檢測法)
------------------------------------------------------------
-task.spawn(function()
-    while true do
-        task.wait(0.5) -- 每 0.5 秒檢測一次狀態
-        
-        -- 動態獲取 Remote，避免載入時間差導致變數永久變成 nil
-        local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
-            and ReplicatedStorage.Events:FindFirstChild("SetPlayerMode")
-
-        if reviveRemote then
-            pcall(function()
-                local playersFolder = workspace:FindFirstChild("Players")
-                local inGameCharacter = nil
-                
-                if playersFolder then
-                    inGameCharacter = playersFolder:FindFirstChild(LocalPlayer.Name) 
-                                   or playersFolder:FindFirstChild(tostring(LocalPlayer.UserId))
-                end
-                
-                if not inGameCharacter then
-                    -- 【情況 A】不在遊戲場上 (卡在菜單/大廳)
-                    reviveRemote:FireServer(true)
-                    task.wait(3) -- 冷卻避免頻率過高斷線
-                    reviveRemote:FireServer(true)
-                else
-                    -- 【情況 B】在遊戲場上，檢查是否需要復活
-                    local humanoid = inGameCharacter:FindFirstChild("Humanoid")
-                    local isDead = humanoid and (humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead)
-                    
-                    -- 讀取角色狀態屬性
-                    local state = inGameCharacter:GetAttribute("State") or ""
-                    local isDowned = inGameCharacter:GetAttribute("Downed") or (state == "Downed") or (state == "Dead")
-
-                    if isDead or isDowned then
-                        reviveRemote:FireServer(true)
-                        task.wait(2) 
-                    end
-                end
-            end)
-        end
-    end
-end)
-
------------------------------------------------------------
 -- 0. 執行初始伺服器設定
 -----------------------------------------------------------
 pcall(function()
@@ -135,42 +94,42 @@ task.spawn(function()
 end)
 
 -----------------------------------------------------------
--- 3. 狀態檢測與自動復活 (Workspace 實體檢測法)
+-- 5. 狀態檢測與自動復活 (Workspace 實體檢測法)
 -----------------------------------------------------------
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
-    and ReplicatedStorage.Events:FindFirstChild("SetPlayerMode")
-
 task.spawn(function()
     while true do
-        task.wait(0.5)
+        task.wait(0.5) -- 每 0.5 秒檢測一次狀態
         
+        -- 動態獲取 Remote，避免載入時間差導致變數永久變成 nil
+        local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
+            and ReplicatedStorage.Events:FindFirstChild("SetPlayerMode")
+
         if reviveRemote then
             pcall(function()
                 local playersFolder = workspace:FindFirstChild("Players")
                 local inGameCharacter = nil
+                
                 if playersFolder then
                     inGameCharacter = playersFolder:FindFirstChild(LocalPlayer.Name) 
                                    or playersFolder:FindFirstChild(tostring(LocalPlayer.UserId))
                 end
                 
                 if not inGameCharacter then
-                    -- 卡在大廳/菜單時
+                    -- 【情況 A】不在遊戲場上 (卡在菜單/大廳)
                     reviveRemote:FireServer(true)
-                    task.wait(3)
-                    reviveRemote:FireServer(true)
+                    print("revive")
                 else
-                    -- 遊戲中檢測死亡/倒地
+                    -- 【情況 B】在遊戲場上，檢查是否需要復活
                     local humanoid = inGameCharacter:FindFirstChild("Humanoid")
                     local isDead = humanoid and (humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead)
+                    
+                    -- 讀取角色狀態屬性
                     local state = inGameCharacter:GetAttribute("State") or ""
                     local isDowned = inGameCharacter:GetAttribute("Downed") or (state == "Downed") or (state == "Dead")
 
                     if isDead or isDowned then
                         reviveRemote:FireServer(true)
+                        print("respawn")
                         task.wait(2) 
                     end
                 end
@@ -272,8 +231,9 @@ task.spawn(function()
                     pcall(function() 
                         task.wait(1)
                         ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!time 1")
+                        print("time 1")
                     end)
-                    task.wait(2)
+                    task.wait(3)
                 end
             else
                 task.wait(0.5)
