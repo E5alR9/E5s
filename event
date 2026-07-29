@@ -6,7 +6,7 @@ local PlayerGui = player:WaitForChild("PlayerGui")
 -- ==========================
 -- 參數設定
 -- ==========================
-local DANGER_RADIUS = 40              -- 鬼的危險警戒距離
+local DANGER_RADIUS = 100              -- 鬼的危險警戒距離
 local SAFE_HEIGHT_POS = Vector3.new(3000, 3005, 3000) -- 避難/待命傳送座標
 local currentRemainingTime = 9999     -- 紀錄目前剩餘秒數
 
@@ -203,6 +203,7 @@ task.spawn(function()
                     if not hasEvacuated then
                         rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
                         hasEvacuated = true
+                        game:GetService("ReplicatedStorage").Events.SetPlayerMode:FireServer(true)
                         print("⏳ [安全避難] 倒數剩餘 " .. tostring(currentRemainingTime) .. " 秒！已飛往高空待命點！")
                     end
                     task.wait(0.2)
