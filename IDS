@@ -1,0 +1,606 @@
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+
+-- --- [CONFIGURATION] Settings ---
+-- 你可以在這裡更換背景圖片 ID
+local BG_IMAGE_ID = "rbxassetid://130181538648632" 
+
+-- --- [CORE FEATURE] Toggle Logic (Show/Hide) ---
+if _G.RenamerUI_Instance and _G.RenamerUI_Instance.Parent then
+    _G.RenamerUI_Instance:Destroy()
+    _G.RenamerUI_Instance = nil
+    return -- Stop execution (Hide)
+end
+
+-- ==========================================
+-- Show UI Logic
+-- ==========================================
+
+-- --- Settings & Paths ---
+local ITEMS_FOLDER = ReplicatedStorage:WaitForChild("Items", 5)
+
+-- State Variables
+local currentCategory = "Emotes"
+local targetItem = nil
+local sourceItem = nil
+
+-- --- Recursive Item Scanner ---
+local function GetAllCategoryItems(catName)
+    local results = {}
+    if not ITEMS_FOLDER then return results end
+    
+    local function CollectFromFolder(folder)
+        for _, child in ipairs(folder:GetChildren()) do
+            local isTierFolder = child:IsA("Folder") and (
+                string.match(child.Name, "^Tier%d+$") ~= nil or 
+                string.find(child.Name, "Exclusive") ~= nil
+            )
+            if isTierFolder then
+                CollectFromFolder(child)
+            else
+                table.insert(results, child)
+            end
+        end
+    end
+
+    for _, desc in ipairs(ITEMS_FOLDER:GetDescendants()) do
+        if desc:IsA("Folder") and desc.Name == catName then
+            CollectFromFolder(desc)
+        end
+    end
+    
+    return results
+end
+
+-- --- UI Creation ---
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EnglishRenamer_WithBackground"
+_G.RenamerUI_Instance = ScreenGui -- Store instance globally
+
+if syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+    ScreenGui.Parent = CoreGui
+elseif gethui then
+    ScreenGui.Parent = gethui()
+else
+    ScreenGui.Parent = CoreGui
+end
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 450, 0, 380) 
+MainFrame.Position = UDim2.new(0, 610, 0, -40)
+MainFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+MainFrame.BackgroundTransparency = 0.5
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+-- Background Image Logic
+local BgImage = Instance.new("ImageLabel")
+BgImage.Name = "BackgroundImage"
+BgImage.Size = UDim2.new(1, 0, 1, 0)
+BgImage.Position = UDim2.new(0, 0, 0, 0)
+BgImage.Image = BG_IMAGE_ID
+BgImage.ScaleType = Enum.ScaleType.Stretch 
+BgImage.BackgroundTransparency = 1
+BgImage.ZIndex = 0 
+BgImage.Parent = MainFrame
+Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 10)
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 0, 40)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Item Data Swapper"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 24
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 2
+Title.Parent = MainFrame
+
+-- Close Button (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+CloseBtn.BackgroundTransparency = 0.5
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 18
+CloseBtn.ZIndex = 2
+CloseBtn.Parent = MainFrame
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    _G.RenamerUI_Instance = nil
+    ScreenGui:Destroy()
+end)
+
+-- Style Helper
+local function ApplyStyle(btn)
+    btn.BackgroundColor3 = Color3.new(0, 0, 0)
+    btn.BackgroundTransparency = 0.6 
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 18
+    btn.ZIndex = 2
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+end
+
+-- === 1. Tabs ===
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(0.92, 0, 0, 45)
+TabContainer.Position = UDim2.new(0.04, 0, 0.12, 0)
+TabContainer.BackgroundTransparency = 1
+TabContainer.ZIndex = 2
+TabContainer.Parent = MainFrame
+
+local EmoteTab = Instance.new("TextButton")
+EmoteTab.Size = UDim2.new(0.48, 0, 1, 0)
+EmoteTab.Text = "Emotes"
+EmoteTab.Parent = TabContainer
+ApplyStyle(EmoteTab)
+EmoteTab.TextSize = 20
+
+local CosmeticTab = Instance.new("TextButton")
+CosmeticTab.Size = UDim2.new(0.48, 0, 1, 0)
+CosmeticTab.Position = UDim2.new(0.52, 0, 0, 0)
+CosmeticTab.Text = "Cosmetics"
+CosmeticTab.Parent = TabContainer
+ApplyStyle(CosmeticTab)
+CosmeticTab.TextSize = 20
+
+-- === 2. Dropdowns ===
+local LeftDropBtn = Instance.new("TextButton")
+LeftDropBtn.Name = "TargetBtn"
+LeftDropBtn.Size = UDim2.new(0.44, 0, 0, 45)
+LeftDropBtn.Position = UDim2.new(0.04, 0, 0.28, 0)
+LeftDropBtn.Text = "Select Target"
+LeftDropBtn.Parent = MainFrame
+ApplyStyle(LeftDropBtn)
+
+local WantLabel = Instance.new("TextLabel")
+WantLabel.Size = UDim2.new(0.44, 0, 0, 15)
+WantLabel.Position = UDim2.new(0.04, 0, 0.40, 0)
+WantLabel.BackgroundTransparency = 1
+WantLabel.Text = "(Want)"
+WantLabel.TextColor3 = Color3.fromRGB(200, 200, 200) 
+WantLabel.TextSize = 12
+WantLabel.Font = Enum.Font.Gotham
+WantLabel.ZIndex = 2
+WantLabel.Parent = MainFrame
+
+local RightDropBtn = Instance.new("TextButton")
+RightDropBtn.Name = "SourceBtn"
+RightDropBtn.Size = UDim2.new(0.44, 0, 0, 45)
+RightDropBtn.Position = UDim2.new(0.52, 0, 0.28, 0)
+RightDropBtn.Text = "Select Source"
+RightDropBtn.Parent = MainFrame
+ApplyStyle(RightDropBtn)
+
+local HaveLabel = Instance.new("TextLabel")
+HaveLabel.Size = UDim2.new(0.44, 0, 0, 15)
+HaveLabel.Position = UDim2.new(0.52, 0, 0.40, 0)
+HaveLabel.BackgroundTransparency = 1
+HaveLabel.Text = "(Have)"
+HaveLabel.TextColor3 = Color3.fromRGB(200, 200, 200) 
+HaveLabel.TextSize = 12
+HaveLabel.Font = Enum.Font.Gotham
+HaveLabel.ZIndex = 2
+HaveLabel.Parent = MainFrame
+
+-- === PREVIEW BOX ===
+local PreviewLabel = Instance.new("TextLabel")
+PreviewLabel.Text = "Action Preview:"
+PreviewLabel.Size = UDim2.new(1, 0, 0, 20)
+PreviewLabel.Position = UDim2.new(0.04, 0, 0.48, 0)
+PreviewLabel.BackgroundTransparency = 1
+PreviewLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+PreviewLabel.TextXAlignment = Enum.TextXAlignment.Left
+PreviewLabel.Font = Enum.Font.Gotham
+PreviewLabel.TextSize = 14
+PreviewLabel.ZIndex = 2
+PreviewLabel.Parent = MainFrame
+
+local PreviewBox = Instance.new("TextBox")
+PreviewBox.Size = UDim2.new(0.92, 0, 0, 35)
+PreviewBox.Position = UDim2.new(0.04, 0, 0.54, 0)
+PreviewBox.BackgroundColor3 = Color3.new(0, 0, 0)
+PreviewBox.BackgroundTransparency = 0.6
+PreviewBox.TextColor3 = Color3.new(0.5, 1, 1) 
+PreviewBox.Font = Enum.Font.Code
+PreviewBox.TextSize = 13
+PreviewBox.TextXAlignment = Enum.TextXAlignment.Left
+PreviewBox.ClearTextOnFocus = false
+PreviewBox.TextEditable = false
+PreviewBox.ZIndex = 2
+PreviewBox.Parent = MainFrame
+Instance.new("UICorner", PreviewBox).CornerRadius = UDim.new(0, 6)
+Instance.new("UIPadding", PreviewBox).PaddingLeft = UDim.new(0, 10)
+
+-- Function to Update Preview Logic
+local function UpdatePreview()
+    local targetName = targetItem and targetItem.Name or "[Target]"
+    local sourceName = sourceItem and sourceItem.Name or "[Source]"
+    
+    PreviewBox.Text = string.format("Clear [%s] -> Copy contents from [%s]", sourceName, targetName)
+end
+
+-- === Create List with Search Box ===
+local function CreateDropdownList(parentBtn)
+    local Container = Instance.new("Frame")
+    Container.Name = "DropdownContainer"
+    Container.Size = UDim2.new(1, 0, 5, 0)
+    Container.Position = UDim2.new(0, 0, 1.1, 0)
+    Container.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
+    Container.BackgroundTransparency = 0.1
+    Container.BorderSizePixel = 0
+    Container.Visible = false
+    Container.ZIndex = 20
+    Container.Parent = parentBtn
+    Instance.new("UICorner", Container).CornerRadius = UDim.new(0, 6)
+    
+    local SearchBox = Instance.new("TextBox")
+    SearchBox.Name = "SearchBar"
+    SearchBox.Size = UDim2.new(1, -10, 0, 30)
+    SearchBox.Position = UDim2.new(0, 5, 0, 5)
+    SearchBox.BackgroundColor3 = Color3.new(0, 0, 0)
+    SearchBox.BackgroundTransparency = 0.5
+    SearchBox.TextColor3 = Color3.new(1, 1, 1)
+    SearchBox.PlaceholderText = "Search item..."
+    SearchBox.Font = Enum.Font.Gotham
+    SearchBox.TextSize = 14
+    SearchBox.ClearTextOnFocus = false
+    SearchBox.ZIndex = 21
+    SearchBox.Parent = Container
+    Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
+
+    local Scroll = Instance.new("ScrollingFrame")
+    Scroll.Name = "List"
+    Scroll.Size = UDim2.new(1, 0, 1, -40)
+    Scroll.Position = UDim2.new(0, 0, 0, 40)
+    Scroll.BackgroundTransparency = 1
+    Scroll.BorderSizePixel = 0
+    Scroll.ScrollBarThickness = 4
+    Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Scroll.ZIndex = 21
+    Scroll.Parent = Container
+    
+    local Layout = Instance.new("UIListLayout")
+    Layout.Parent = Scroll
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local query = string.lower(SearchBox.Text)
+        for _, btn in pairs(Scroll:GetChildren()) do
+            if btn:IsA("TextButton") then
+                local lbl = btn:FindFirstChildWhichIsA("TextLabel")
+                local itemText = lbl and lbl.Text or ""
+                if query == "" or string.find(string.lower(itemText), query, 1, true) then
+                    btn.Visible = true
+                else
+                    btn.Visible = false
+                end
+            end
+        end
+    end)
+    
+    return Container, Scroll, SearchBox
+end
+
+-- Initialize Dropdowns
+local LeftContainer, LeftList, LeftSearch = CreateDropdownList(LeftDropBtn)
+local RightContainer, RightList, RightSearch = CreateDropdownList(RightDropBtn)
+
+-- === 3. Apply Button ===
+local ApplyBtn = Instance.new("TextButton")
+ApplyBtn.Size = UDim2.new(0.92, 0, 0, 55)
+ApplyBtn.Position = UDim2.new(0.04, 0, 0.72, 0)
+ApplyBtn.Text = "TRANSFER DATA"
+ApplyBtn.Parent = MainFrame
+ApplyStyle(ApplyBtn)
+ApplyBtn.TextSize = 24
+ApplyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50) 
+ApplyBtn.ZIndex = 2
+
+-- Status Label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 25)
+StatusLabel.Position = UDim2.new(0, 0, 0.90, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Ready"
+StatusLabel.TextColor3 = Color3.new(0.9, 0.9, 0.9)
+StatusLabel.TextSize = 16
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.ZIndex = 2
+StatusLabel.Parent = MainFrame
+
+-- --- [建立基礎人偶作不時之需] ---
+local function CreateBasicDummy()
+    local dummy = Instance.new("Model")
+    dummy.Name = "AnimationDummy"
+    
+    local hrp = Instance.new("Part")
+    hrp.Name = "HumanoidRootPart"
+    hrp.Size = Vector3.new(2, 2, 1)
+    hrp.Transparency = 1
+    hrp.CanCollide = false
+    hrp.Anchored = true
+    hrp.Parent = dummy
+    dummy.PrimaryPart = hrp
+
+    local body = Instance.new("Part")
+    body.Name = "UpperTorso"
+    body.Size = Vector3.new(2, 1.5, 1)
+    body.Color = Color3.fromRGB(220, 220, 220)
+    body.CanCollide = false
+    body.Parent = dummy
+    body.CFrame = hrp.CFrame
+
+    local head = Instance.new("Part")
+    head.Name = "Head"
+    head.Size = Vector3.new(1.2, 1.2, 1.2)
+    head.Color = Color3.fromRGB(240, 200, 150)
+    head.CanCollide = false
+    head.Parent = dummy
+    head.CFrame = body.CFrame * CFrame.new(0, 1.3, 0)
+
+    local hum = Instance.new("Humanoid")
+    hum.RigType = Enum.HumanoidRigType.R15
+    hum.Parent = dummy
+
+    return dummy
+end
+
+-- --- 支援 Animation 的預覽圖生成器 ---
+local function CreateMiniPreview(itemInstance, parentUI)
+    local vp = Instance.new("ViewportFrame")
+    vp.Size = UDim2.new(0, 36, 0, 36) 
+    vp.AnchorPoint = Vector2.new(0, 0.5) 
+    vp.Position = UDim2.new(0, 5, 0.5, 0) 
+    vp.BackgroundTransparency = 1
+    vp.ZIndex = parentUI.ZIndex + 1
+    vp.Parent = parentUI
+
+    local worldModel = Instance.new("WorldModel")
+    worldModel.Parent = vp
+
+    local cloneToRender = nil
+    local isAnimationOnly = itemInstance:IsA("Animation")
+
+    if not isAnimationOnly then
+        if itemInstance:IsA("Model") or itemInstance:IsA("BasePart") then
+            cloneToRender = itemInstance:Clone()
+        else
+            local foundModel = itemInstance:FindFirstChildWhichIsA("Model", true) or itemInstance:FindFirstChildWhichIsA("BasePart", true)
+            if foundModel then
+                cloneToRender = foundModel:Clone()
+            else
+                local anim = itemInstance:FindFirstChildWhichIsA("Animation", true)
+                if anim then
+                    isAnimationOnly = true
+                    itemInstance = anim
+                end
+            end
+        end
+    end
+
+    if isAnimationOnly then
+        cloneToRender = CreateBasicDummy()
+        local hum = cloneToRender:FindFirstChildWhichIsA("Humanoid")
+        local animator = hum and (hum:FindFirstChildWhichIsA("Animator") or Instance.new("Animator", hum))
+        if animator then
+            pcall(function()
+                local track = animator:LoadAnimation(itemInstance)
+                track:Play()
+                track:Sample() 
+                track:Stop()
+            end)
+        end
+    end
+
+    if not cloneToRender then 
+        vp:Destroy()
+        return 
+    end
+    cloneToRender.Parent = worldModel
+
+    if cloneToRender:IsA("Model") then
+        if not cloneToRender.PrimaryPart then
+            cloneToRender.PrimaryPart = cloneToRender:FindFirstChildWhichIsA("BasePart")
+        end
+        if cloneToRender.PrimaryPart then
+            cloneToRender:PivotTo(CFrame.identity)
+        end
+    elseif cloneToRender:IsA("BasePart") then
+        cloneToRender.CFrame = CFrame.identity
+    end
+
+    local camera = Instance.new("Camera")
+    camera.FieldOfView = 25 
+    camera.Parent = vp
+    vp.CurrentCamera = camera
+
+    local size = Vector3.new(2, 2, 2)
+    if cloneToRender:IsA("Model") then
+        local _, bbSize = cloneToRender:GetBoundingBox()
+        size = bbSize
+    elseif cloneToRender:IsA("BasePart") then
+        size = cloneToRender.Size
+    end
+
+    local maxDim = math.max(size.X, size.Y, size.Z)
+    local dist = maxDim * 1.25
+    if dist < 0.4 then dist = 0.4 end
+    
+    camera.CFrame = CFrame.new(Vector3.new(dist * 0.8, dist * 0.4, dist * 0.8), Vector3.new(0, 0, 0))
+end
+
+-- --- Core Logic ---
+
+local function RefreshLists()
+    -- Clear old
+    for _, v in pairs(LeftList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    for _, v in pairs(RightList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    
+    -- Reset Search bars
+    LeftSearch.Text = ""
+    RightSearch.Text = ""
+    
+    local items = GetAllCategoryItems(currentCategory)
+    
+    -- Sorting: A-Z
+    table.sort(items, function(a, b)
+        return a.Name < b.Name
+    end)
+    
+    for _, item in ipairs(items) do
+        -- Left Option (Target / Want)
+        local btnL = Instance.new("TextButton")
+        btnL.Size = UDim2.new(1, 0, 0, 42)
+        btnL.BackgroundTransparency = 1
+        btnL.Text = ""
+        btnL.ZIndex = 22
+        btnL.Parent = LeftList
+        
+        local textL = Instance.new("TextLabel")
+        textL.Size = UDim2.new(1, -50, 1, 0)
+        textL.Position = UDim2.new(0, 50, 0, 0)
+        textL.BackgroundTransparency = 1
+        textL.Text = item.Name
+        textL.TextColor3 = Color3.new(1, 1, 1)
+        textL.Font = Enum.Font.GothamMedium
+        textL.TextSize = 15
+        textL.TextXAlignment = Enum.TextXAlignment.Left
+        textL.ZIndex = 23
+        textL.Parent = btnL
+
+        CreateMiniPreview(item, btnL)
+        
+        btnL.MouseButton1Click:Connect(function()
+            targetItem = item
+            LeftDropBtn.Text = item.Name
+            LeftContainer.Visible = false
+            UpdatePreview() 
+        end)
+        
+        -- Right Option (Source / Have)
+        local btnR = Instance.new("TextButton")
+        btnR.Size = UDim2.new(1, 0, 0, 42)
+        btnR.BackgroundTransparency = 1
+        btnR.Text = ""
+        btnR.ZIndex = 22
+        btnR.Parent = RightList
+        
+        local textR = Instance.new("TextLabel")
+        textR.Size = UDim2.new(1, -50, 1, 0)
+        textR.Position = UDim2.new(0, 50, 0, 0)
+        textR.BackgroundTransparency = 1
+        textR.Text = item.Name
+        textR.TextColor3 = Color3.new(1, 1, 1)
+        textR.Font = Enum.Font.GothamMedium
+        textR.TextSize = 15
+        textR.TextXAlignment = Enum.TextXAlignment.Left
+        textR.ZIndex = 23
+        textR.Parent = btnR
+        
+        CreateMiniPreview(item, btnR)
+        
+        btnR.MouseButton1Click:Connect(function()
+            sourceItem = item
+            RightDropBtn.Text = item.Name
+            RightContainer.Visible = false
+            UpdatePreview() 
+        end)
+    end
+end
+
+-- Switch Tabs
+local function SwitchTab(cat)
+    currentCategory = cat
+    targetItem = nil
+    sourceItem = nil
+    
+    LeftDropBtn.Text = "Select Target"
+    RightDropBtn.Text = "Select Source"
+    
+    LeftContainer.Visible = false
+    RightContainer.Visible = false
+    
+    if cat == "Emotes" then
+        EmoteTab.BackgroundTransparency = 0.4
+        CosmeticTab.BackgroundTransparency = 0.8
+    else
+        CosmeticTab.BackgroundTransparency = 0.4
+        EmoteTab.BackgroundTransparency = 0.8
+    end
+    
+    RefreshLists()
+    UpdatePreview() 
+end
+
+-- Button Events
+LeftDropBtn.MouseButton1Click:Connect(function()
+    LeftContainer.Visible = not LeftContainer.Visible
+    RightContainer.Visible = false
+end)
+
+RightDropBtn.MouseButton1Click:Connect(function()
+    RightContainer.Visible = not RightContainer.Visible
+    LeftContainer.Visible = false
+end)
+
+EmoteTab.MouseButton1Click:Connect(function() SwitchTab("Emotes") end)
+CosmeticTab.MouseButton1Click:Connect(function() SwitchTab("Cosmetics") end)
+
+-- === 純內部資料轉移邏輯 ===
+ApplyBtn.MouseButton1Click:Connect(function()
+    if not targetItem then
+        StatusLabel.Text = "Please select a target item!"
+        StatusLabel.TextColor3 = Color3.new(1, 0.3, 0.3)
+        return
+    end
+    
+    if not sourceItem then
+        StatusLabel.Text = "Please select a source item!"
+        StatusLabel.TextColor3 = Color3.new(1, 0.3, 0.3)
+        return
+    end
+
+    local success, err = pcall(function()
+        if sourceItem ~= targetItem then
+            -- 1. 清空你擁有的物品 (Source/Have) 裡面的舊資料/舊模型
+            sourceItem:ClearAllChildren()
+            
+            -- 2. 將想要的物品 (Target/Want) 內部的資料複製過去
+            for _, child in ipairs(targetItem:GetChildren()) do
+                child:Clone().Parent = sourceItem
+            end
+            
+            -- 注意：名字完全不變！保持原本的 sourceItem.Name
+        end
+    end)
+    
+    if success then
+        StatusLabel.Text = "Success! Content transferred directly."
+        StatusLabel.TextColor3 = Color3.new(0.3, 1, 0.3)
+        RefreshLists() 
+        UpdatePreview() 
+    else
+        StatusLabel.Text = "Failed (Permission Denied)"
+        warn(err)
+    end
+end)
+
+SwitchTab("Emotes")
