@@ -782,6 +782,11 @@ ApplyBtn.MouseButton1Click:Connect(function()
                     end
                 end
 
+                -- 先清空 sItem 底下的所有舊子物件
+                for _, oldChild in ipairs(sItem:GetChildren()) do
+                    pcall(function() oldChild:Destroy() end)
+                end
+
                 -- 複製模型與動畫
                 for _, child in ipairs(tItem:GetChildren()) do
                     pcall(function()
