@@ -76,31 +76,50 @@ local ITEMS_FOLDER = ReplicatedStorage:WaitForChild("Items", 5)
 
 -- State Variables
 local currentCategory = "Emotes"
-local targetItem = nil
-local sourceItem = nil
+local targetItem = nil -- 可以是 Item 實體或字串 "ALL"
+local sourceItem = nil -- 可以是 Item 實體或字串 "ALL"
 
--- --- Recursive Item Scanner ---
+-- --- Strict Classification Scanner (只抓最上層 ModuleScript) ---
 local function GetAllCategoryItems(catName)
     local results = {}
+    local seen = {}
     if not ITEMS_FOLDER then return results end
     
-    local function CollectFromFolder(folder)
-        for _, child in ipairs(folder:GetChildren()) do
-            local isTierFolder = child:IsA("Folder") and (
-                string.match(child.Name, "^Tier%d+$") ~= nil or 
-                string.find(child.Name, "Exclusive") ~= nil
-            )
-            if isTierFolder then
-                CollectFromFolder(child)
-            else
-                table.insert(results, child)
-            end
+    -- 1. 找出所有名稱為 "Emotes" 的資料夾
+    local emoteFolders = {}
+    for _, desc in ipairs(ITEMS_FOLDER:GetDescendants()) do
+        if desc:IsA("Folder") and desc.Name == "Emotes" then
+            table.insert(emoteFolders, desc)
         end
     end
 
-    for _, desc in ipairs(ITEMS_FOLDER:GetDescendants()) do
-        if desc:IsA("Folder") and desc.Name == catName then
-            CollectFromFolder(desc)
+    -- 檢查物品是否屬於 Emotes 資料夾內部
+    local function IsUnderEmotes(obj)
+        for _, eFolder in ipairs(emoteFolders) do
+            if obj:IsDescendantOf(eFolder) then
+                return true
+            end
+        end
+        return false
+    end
+
+    if catName == "Emotes" then
+        -- 只收集位於 Emotes 資料夾內部的【頂層】ModuleScript
+        for _, eFolder in ipairs(emoteFolders) do
+            for _, desc in ipairs(eFolder:GetDescendants()) do
+                if desc:IsA("ModuleScript") and not desc:FindFirstAncestorWhichIsA("ModuleScript") and not seen[desc] then
+                    seen[desc] = true
+                    table.insert(results, desc)
+                end
+            end
+        end
+    else
+        -- 不在 Emotes 底下的所有【頂層】ModuleScript 通通歸類為 Cosmetics
+        for _, desc in ipairs(ITEMS_FOLDER:GetDescendants()) do
+            if desc:IsA("ModuleScript") and not desc:FindFirstAncestorWhichIsA("ModuleScript") and not IsUnderEmotes(desc) and not seen[desc] then
+                seen[desc] = true
+                table.insert(results, desc)
+            end
         end
     end
     
@@ -124,7 +143,7 @@ end
 -- Main Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 450, 0, 380) 
+MainFrame.Size = UDim2.new(0, 450, 0, 390) 
 MainFrame.Position = UDim2.new(0, 610, 0, -40)
 MainFrame.BackgroundColor3 = Color3.new(0, 0, 0)
 MainFrame.BackgroundTransparency = 0.5
@@ -216,14 +235,14 @@ CosmeticTab.TextSize = 20
 local LeftDropBtn = Instance.new("TextButton")
 LeftDropBtn.Name = "TargetBtn"
 LeftDropBtn.Size = UDim2.new(0.44, 0, 0, 45)
-LeftDropBtn.Position = UDim2.new(0.04, 0, 0.28, 0)
+LeftDropBtn.Position = UDim2.new(0.04, 0, 0.27, 0)
 LeftDropBtn.Text = "Select Target"
 LeftDropBtn.Parent = MainFrame
 ApplyStyle(LeftDropBtn)
 
 local WantLabel = Instance.new("TextLabel")
 WantLabel.Size = UDim2.new(0.44, 0, 0, 15)
-WantLabel.Position = UDim2.new(0.04, 0, 0.40, 0)
+WantLabel.Position = UDim2.new(0.04, 0, 0.39, 0)
 WantLabel.BackgroundTransparency = 1
 WantLabel.Text = "(Want)"
 WantLabel.TextColor3 = Color3.fromRGB(200, 200, 200) 
@@ -235,14 +254,14 @@ WantLabel.Parent = MainFrame
 local RightDropBtn = Instance.new("TextButton")
 RightDropBtn.Name = "SourceBtn"
 RightDropBtn.Size = UDim2.new(0.44, 0, 0, 45)
-RightDropBtn.Position = UDim2.new(0.52, 0, 0.28, 0)
+RightDropBtn.Position = UDim2.new(0.52, 0, 0.27, 0)
 RightDropBtn.Text = "Select Source"
 RightDropBtn.Parent = MainFrame
 ApplyStyle(RightDropBtn)
 
 local HaveLabel = Instance.new("TextLabel")
 HaveLabel.Size = UDim2.new(0.44, 0, 0, 15)
-HaveLabel.Position = UDim2.new(0.52, 0, 0.40, 0)
+HaveLabel.Position = UDim2.new(0.52, 0, 0.39, 0)
 HaveLabel.BackgroundTransparency = 1
 HaveLabel.Text = "(Have)"
 HaveLabel.TextColor3 = Color3.fromRGB(200, 200, 200) 
@@ -251,40 +270,55 @@ HaveLabel.Font = Enum.Font.Gotham
 HaveLabel.ZIndex = 2
 HaveLabel.Parent = MainFrame
 
--- === PREVIEW BOX ===
-local PreviewLabel = Instance.new("TextLabel")
-PreviewLabel.Text = "Action Preview:"
-PreviewLabel.Size = UDim2.new(1, 0, 0, 20)
-PreviewLabel.Position = UDim2.new(0.04, 0, 0.48, 0)
-PreviewLabel.BackgroundTransparency = 1
-PreviewLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-PreviewLabel.TextXAlignment = Enum.TextXAlignment.Left
-PreviewLabel.Font = Enum.Font.Gotham
-PreviewLabel.TextSize = 14
-PreviewLabel.ZIndex = 2
-PreviewLabel.Parent = MainFrame
+-- === LIVE CONSOLE / LOG BOX ===
+local ConsoleLabel = Instance.new("TextLabel")
+ConsoleLabel.Text = "Console Log:"
+ConsoleLabel.Size = UDim2.new(1, 0, 0, 18)
+ConsoleLabel.Position = UDim2.new(0.04, 0, 0.45, 0)
+ConsoleLabel.BackgroundTransparency = 1
+ConsoleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+ConsoleLabel.TextXAlignment = Enum.TextXAlignment.Left
+ConsoleLabel.Font = Enum.Font.GothamBold
+ConsoleLabel.TextSize = 13
+ConsoleLabel.ZIndex = 2
+ConsoleLabel.Parent = MainFrame
 
-local PreviewBox = Instance.new("TextBox")
-PreviewBox.Size = UDim2.new(0.92, 0, 0, 35)
-PreviewBox.Position = UDim2.new(0.04, 0, 0.54, 0)
-PreviewBox.BackgroundColor3 = Color3.new(0, 0, 0)
-PreviewBox.BackgroundTransparency = 0.6
-PreviewBox.TextColor3 = Color3.new(0.5, 1, 1) 
-PreviewBox.Font = Enum.Font.Code
-PreviewBox.TextSize = 13
-PreviewBox.TextXAlignment = Enum.TextXAlignment.Left
-PreviewBox.ClearTextOnFocus = false
-PreviewBox.TextEditable = false
-PreviewBox.ZIndex = 2
-PreviewBox.Parent = MainFrame
-Instance.new("UICorner", PreviewBox).CornerRadius = UDim.new(0, 6)
-Instance.new("UIPadding", PreviewBox).PaddingLeft = UDim.new(0, 10)
+local ConsoleBox = Instance.new("TextBox")
+ConsoleBox.Size = UDim2.new(0.92, 0, 0, 55)
+ConsoleBox.Position = UDim2.new(0.04, 0, 0.50, 0)
+ConsoleBox.BackgroundColor3 = Color3.new(0, 0, 0)
+ConsoleBox.BackgroundTransparency = 0.7
+ConsoleBox.TextColor3 = Color3.fromRGB(100, 255, 180) 
+ConsoleBox.Font = Enum.Font.Code
+ConsoleBox.TextSize = 12
+ConsoleBox.TextXAlignment = Enum.TextXAlignment.Left
+ConsoleBox.TextYAlignment = Enum.TextYAlignment.Top
+ConsoleBox.MultiLine = true
+ConsoleBox.ClearTextOnFocus = false
+ConsoleBox.TextEditable = false
+ConsoleBox.TextWrapped = true
+ConsoleBox.Text = "System ready. Select items to start."
+ConsoleBox.ZIndex = 2
+ConsoleBox.Parent = MainFrame
 
-local function UpdatePreview()
-    local targetName = targetItem and targetItem.Name or "[Target]"
-    local sourceName = sourceItem and sourceItem.Name or "[Source]"
-    
-    PreviewBox.Text = string.format("Data & Sound: [%s] -> Overwrite [%s]", targetName, sourceName)
+Instance.new("UICorner", ConsoleBox).CornerRadius = UDim.new(0, 6)
+local consolePadding = Instance.new("UIPadding", ConsoleBox)
+consolePadding.PaddingLeft = UDim.new(0, 8)
+consolePadding.PaddingTop = UDim.new(0, 5)
+
+-- 即時 Log 控制系統
+local logList = {}
+local function AddLog(msg)
+    table.insert(logList, msg)
+    if #logList > 4 then
+        table.remove(logList, 1)
+    end
+    ConsoleBox.Text = table.concat(logList, "\n")
+end
+
+local function ClearLog()
+    logList = {}
+    ConsoleBox.Text = ""
 end
 
 -- === Create List with Search Box ===
@@ -355,23 +389,23 @@ local RightContainer, RightList, RightSearch = CreateDropdownList(RightDropBtn)
 
 -- === Apply Button ===
 local ApplyBtn = Instance.new("TextButton")
-ApplyBtn.Size = UDim2.new(0.92, 0, 0, 55)
+ApplyBtn.Size = UDim2.new(0.92, 0, 0, 50)
 ApplyBtn.Position = UDim2.new(0.04, 0, 0.72, 0)
 ApplyBtn.Text = "TRANSFER DATA & SOUND"
 ApplyBtn.Parent = MainFrame
 ApplyStyle(ApplyBtn)
-ApplyBtn.TextSize = 22
+ApplyBtn.TextSize = 20
 ApplyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50) 
 ApplyBtn.ZIndex = 2
 
 -- Status Label
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, 0, 0, 25)
-StatusLabel.Position = UDim2.new(0, 0, 0.90, 0)
+StatusLabel.Position = UDim2.new(0, 0, 0.88, 0)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "Ready"
 StatusLabel.TextColor3 = Color3.new(0.9, 0.9, 0.9)
-StatusLabel.TextSize = 16
+StatusLabel.TextSize = 15
 StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.ZIndex = 2
 StatusLabel.Parent = MainFrame
@@ -504,6 +538,64 @@ local function RefreshLists()
     LeftSearch.Text = ""
     RightSearch.Text = ""
     
+    -- === 1. Want (LeftList) [ ALL ] ===
+    local btnAllL = Instance.new("TextButton")
+    btnAllL.Size = UDim2.new(1, 0, 0, 42)
+    btnAllL.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btnAllL.BackgroundTransparency = 0.3
+    btnAllL.Text = ""
+    btnAllL.ZIndex = 22
+    btnAllL.LayoutOrder = -9999
+    btnAllL.Parent = LeftList
+    Instance.new("UICorner", btnAllL).CornerRadius = UDim.new(0, 4)
+
+    local textAllL = Instance.new("TextLabel")
+    textAllL.Size = UDim2.new(1, -20, 1, 0)
+    textAllL.Position = UDim2.new(0, 15, 0, 0)
+    textAllL.BackgroundTransparency = 1
+    textAllL.Text = "[ ALL ] - Select All Items"
+    textAllL.TextColor3 = Color3.fromRGB(255, 215, 0)
+    textAllL.Font = Enum.Font.GothamBold
+    textAllL.TextSize = 15
+    textAllL.TextXAlignment = Enum.TextXAlignment.Left
+    textAllL.ZIndex = 23
+    textAllL.Parent = btnAllL
+
+    btnAllL.MouseButton1Click:Connect(function()
+        targetItem = "ALL"
+        LeftDropBtn.Text = "[ ALL ]"
+        LeftContainer.Visible = false
+    end)
+
+    -- === 2. Have (RightList) [ ALL ] ===
+    local btnAllR = Instance.new("TextButton")
+    btnAllR.Size = UDim2.new(1, 0, 0, 42)
+    btnAllR.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btnAllR.BackgroundTransparency = 0.3
+    btnAllR.Text = ""
+    btnAllR.ZIndex = 22
+    btnAllR.LayoutOrder = -9999
+    btnAllR.Parent = RightList
+    Instance.new("UICorner", btnAllR).CornerRadius = UDim.new(0, 4)
+
+    local textAllR = Instance.new("TextLabel")
+    textAllR.Size = UDim2.new(1, -20, 1, 0)
+    textAllR.Position = UDim2.new(0, 15, 0, 0)
+    textAllR.BackgroundTransparency = 1
+    textAllR.Text = "[ ALL ] - Select All Items"
+    textAllR.TextColor3 = Color3.fromRGB(255, 215, 0)
+    textAllR.Font = Enum.Font.GothamBold
+    textAllR.TextSize = 15
+    textAllR.TextXAlignment = Enum.TextXAlignment.Left
+    textAllR.ZIndex = 23
+    textAllR.Parent = btnAllR
+
+    btnAllR.MouseButton1Click:Connect(function()
+        sourceItem = "ALL"
+        RightDropBtn.Text = "[ ALL ]"
+        RightContainer.Visible = false
+    end)
+
     local items = GetAllCategoryItems(currentCategory)
     
     table.sort(items, function(a, b)
@@ -537,7 +629,6 @@ local function RefreshLists()
             targetItem = item
             LeftDropBtn.Text = item.Name
             LeftContainer.Visible = false
-            UpdatePreview() 
         end)
         
         -- Source / Have Option
@@ -566,7 +657,6 @@ local function RefreshLists()
             sourceItem = item
             RightDropBtn.Text = item.Name
             RightContainer.Visible = false
-            UpdatePreview() 
         end)
     end
 end
@@ -591,7 +681,6 @@ local function SwitchTab(cat)
     end
     
     RefreshLists()
-    UpdatePreview() 
 end
 
 LeftDropBtn.MouseButton1Click:Connect(function()
@@ -607,7 +696,7 @@ end)
 EmoteTab.MouseButton1Click:Connect(function() SwitchTab("Emotes") end)
 CosmeticTab.MouseButton1Click:Connect(function() SwitchTab("Cosmetics") end)
 
--- === 轉移與資料/音效覆寫邏輯 ===
+-- === 轉移與資料/音效覆寫邏輯 (強化容錯版本) ===
 ApplyBtn.MouseButton1Click:Connect(function()
     if not targetItem then
         StatusLabel.Text = "Please select a target item!"
@@ -621,70 +710,114 @@ ApplyBtn.MouseButton1Click:Connect(function()
         return
     end
 
-    local success, err = pcall(function()
-        if sourceItem ~= targetItem then
-            -- 1. 處理 ModuleScript 的資料與 Sound 替換
-            if sourceItem:IsA("ModuleScript") and targetItem:IsA("ModuleScript") then
-                local sourceData = require(sourceItem)
-                local targetData = require(targetItem)
-                
-                -- 讀取與設置 Name 對照 (GUI 文字替換)
-                local oldDisplayName = (sourceData.AppearanceInfo and sourceData.AppearanceInfo.Name) or sourceItem.Name
-                local newDisplayName = (targetData.AppearanceInfo and targetData.AppearanceInfo.Name) or targetItem.Name
-                _G.NameSwaps[oldDisplayName] = newDisplayName
-                _G.NameSwaps[sourceItem.Name] = targetItem.Name
+    ClearLog()
+    AddLog("Starting transfer process...")
+    StatusLabel.Text = "Processing..."
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
+    task.wait(0.05)
 
-                -- 讀取與設置 Sound 對照
-                local oldSound = sourceData.EmoteInfo and sourceData.EmoteInfo.Sound
-                local newSound = targetData.EmoteInfo and targetData.EmoteInfo.Sound
-                if oldSound and newSound then
-                    _G.SoundSwaps[tostring(oldSound)] = tostring(newSound)
-                end
+    local overallSuccess = true
+    local allItems = GetAllCategoryItems(currentCategory)
 
-                -- 深度複製 targetData 至 sourceData 表單中
-                local function DeepCopy(orig)
-                    local copy
-                    if type(orig) == 'table' then
-                        copy = {}
-                        for orig_key, orig_value in pairs(orig) do
-                            copy[orig_key] = DeepCopy(orig_value)
-                        end
-                    else
-                        copy = orig
-                    end
-                    return copy
-                end
+    -- 1. 確定 Sources 陣列
+    local sourcesToProcess = {}
+    if sourceItem == "ALL" then
+        sourcesToProcess = allItems
+    else
+        table.insert(sourcesToProcess, sourceItem)
+    end
 
-                table.clear(sourceData)
-                for k, v in pairs(DeepCopy(targetData)) do
-                    sourceData[k] = v
+    -- 2. 開始逐一轉換，獨立捕獲每一個物品對的錯誤
+    for _, sItem in ipairs(sourcesToProcess) do
+        local targetsToProcess = {}
+        if targetItem == "ALL" then
+            for _, item in ipairs(allItems) do
+                if item ~= sItem then
+                    table.insert(targetsToProcess, item)
                 end
             end
-
-            -- 2. 清空並複製子物件（模型/動畫等）
-            sourceItem:ClearAllChildren()
-            for _, child in ipairs(targetItem:GetChildren()) do
-                child:Clone().Parent = sourceItem
-            end
-
-            -- 3. 手動掃描並更新一次目前的 PlayerGui
-            if localPlayer and localPlayer:FindFirstChild("PlayerGui") then
-                for _, desc in ipairs(localPlayer.PlayerGui:GetDescendants()) do
-                    CheckAndReplaceText(desc)
-                end
+        else
+            if targetItem ~= sItem then
+                table.insert(targetsToProcess, targetItem)
             end
         end
-    end)
-    
-    if success then
-        StatusLabel.Text = "Data, Sound & Name Transferred!"
-        StatusLabel.TextColor3 = Color3.new(0.3, 1, 0.3)
-        RefreshLists() 
-        UpdatePreview() 
-    else
-        StatusLabel.Text = "Failed (Permission Denied)"
-        warn(err)
+
+        for _, tItem in ipairs(targetsToProcess) do
+            local itemSuccess, itemErr = pcall(function()
+                -- ModuleScript 的資料與 Sound 覆寫
+                if sItem:IsA("ModuleScript") and tItem:IsA("ModuleScript") then
+                    local sourceData = require(sItem)
+                    local targetData = require(tItem)
+                    
+                    if type(sourceData) == "table" and type(targetData) == "table" then
+                        local oldDisplayName = (type(sourceData.AppearanceInfo) == "table" and sourceData.AppearanceInfo.Name) or sItem.Name
+                        local newDisplayName = (type(targetData.AppearanceInfo) == "table" and targetData.AppearanceInfo.Name) or tItem.Name
+                        _G.NameSwaps[oldDisplayName] = newDisplayName
+                        _G.NameSwaps[sItem.Name] = tItem.Name
+
+                        local oldSound = type(sourceData.EmoteInfo) == "table" and sourceData.EmoteInfo.Sound
+                        local newSound = type(targetData.EmoteInfo) == "table" and targetData.EmoteInfo.Sound
+                        if oldSound and newSound then
+                            _G.SoundSwaps[tostring(oldSound)] = tostring(newSound)
+                        end
+
+                        local function DeepCopy(orig)
+                            local copy
+                            if type(orig) == 'table' then
+                                copy = {}
+                                for orig_key, orig_value in pairs(orig) do
+                                    copy[orig_key] = DeepCopy(orig_value)
+                                end
+                            else
+                                copy = orig
+                            end
+                            return copy
+                        end
+
+                        -- 安全覆寫（防止 Table 被凍結導致整體中斷）
+                        pcall(function() table.clear(sourceData) end)
+                        for k, v in pairs(DeepCopy(targetData)) do
+                            pcall(function() sourceData[k] = v end)
+                        end
+                    end
+                end
+
+                -- 複製模型與動畫
+                for _, child in ipairs(tItem:GetChildren()) do
+                    pcall(function()
+                        child:Clone().Parent = sItem
+                    end)
+                end
+            end)
+
+            if itemSuccess then
+                AddLog(string.format("[%s] -> [%s] done!", tItem.Name, sItem.Name))
+            else
+                overallSuccess = false
+                AddLog(string.format("[%s] -> [%s] skipped (err)", tItem.Name, sItem.Name))
+                warn(string.format("Swap failed between %s and %s: %s", tItem.Name, sItem.Name, tostring(itemErr)))
+            end
+            task.wait(0.02)
+        end
     end
+
+    -- 3. 手動觸發 UI 文字替換
+    if localPlayer and localPlayer:FindFirstChild("PlayerGui") then
+        for _, desc in ipairs(localPlayer.PlayerGui:GetDescendants()) do
+            CheckAndReplaceText(desc)
+        end
+    end
+
+    if overallSuccess then
+        AddLog("All operations completed successfully!")
+        StatusLabel.Text = "Transferred Completed!"
+        StatusLabel.TextColor3 = Color3.new(0.3, 1, 0.3)
+    else
+        AddLog("Done with some skipped items.")
+        StatusLabel.Text = "Completed with warnings"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
+    end
+    RefreshLists()
 end)
 
 SwitchTab("Emotes")
