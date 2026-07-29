@@ -4,21 +4,74 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 
 -- --- [CONFIGURATION] Settings ---
--- 你可以在這裡更換背景圖片 ID
 local BG_IMAGE_ID = "rbxassetid://130181538648632" 
 
 -- --- [CORE FEATURE] Toggle Logic (Show/Hide) ---
 if _G.RenamerUI_Instance and _G.RenamerUI_Instance.Parent then
     _G.RenamerUI_Instance:Destroy()
     _G.RenamerUI_Instance = nil
-    return -- Stop execution (Hide)
+    return
 end
+
+-- ==========================================
+-- 全域替換對照表 (Global Swap Tables)
+-- ==========================================
+_G.NameSwaps = _G.NameSwaps or {}   -- [舊名字] = 新名字
+_G.SoundSwaps = _G.SoundSwaps or {} -- [舊音效ID] = 新音效ID
+
+-- === 1. 全域 UI 文字自動替換監聽器 ===
+local function CheckAndReplaceText(obj)
+    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+        for oldName, newName in pairs(_G.NameSwaps) do
+            if string.find(obj.Text, oldName, 1, true) then
+                obj.Text = string.gsub(obj.Text, oldName, newName)
+            end
+        end
+    end
+end
+
+local localPlayer = Players.LocalPlayer
+if localPlayer then
+    local playerGui = localPlayer:WaitForChild("PlayerGui", 5)
+    if playerGui then
+        playerGui.DescendantAdded:Connect(function(desc)
+            task.wait()
+            CheckAndReplaceText(desc)
+            if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
+                desc:GetPropertyChangedSignal("Text"):Connect(function()
+                    CheckAndReplaceText(desc)
+                end)
+            end
+        end)
+    end
+end
+
+-- === 2. 全域 Sound 音效播放即時攔截器 ===
+local function CheckAndReplaceSound(soundObj)
+    if soundObj:IsA("Sound") then
+        local currentSoundId = string.match(soundObj.SoundId, "%d+")
+        if currentSoundId and _G.SoundSwaps[currentSoundId] then
+            soundObj.SoundId = "rbxassetid://" .. tostring(_G.SoundSwaps[currentSoundId])
+        end
+    end
+end
+
+game.DescendantAdded:Connect(function(desc)
+    if desc:IsA("Sound") then
+        CheckAndReplaceSound(desc)
+        desc:GetPropertyChangedSignal("SoundId"):Connect(function()
+            CheckAndReplaceSound(desc)
+        end)
+        desc.Played:Connect(function()
+            CheckAndReplaceSound(desc)
+        end)
+    end
+end)
 
 -- ==========================================
 -- Show UI Logic
 -- ==========================================
 
--- --- Settings & Paths ---
 local ITEMS_FOLDER = ReplicatedStorage:WaitForChild("Items", 5)
 
 -- State Variables
@@ -57,7 +110,7 @@ end
 -- --- UI Creation ---
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "EnglishRenamer_WithBackground"
-_G.RenamerUI_Instance = ScreenGui -- Store instance globally
+_G.RenamerUI_Instance = ScreenGui 
 
 if syn and syn.protect_gui then
     syn.protect_gui(ScreenGui)
@@ -82,7 +135,7 @@ MainFrame.Parent = ScreenGui
 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
--- Background Image Logic
+-- Background Image
 local BgImage = Instance.new("ImageLabel")
 BgImage.Name = "BackgroundImage"
 BgImage.Size = UDim2.new(1, 0, 1, 0)
@@ -107,7 +160,7 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.ZIndex = 2
 Title.Parent = MainFrame
 
--- Close Button (X)
+-- Close Button
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.Position = UDim2.new(1, -35, 0, 5)
@@ -126,7 +179,6 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- Style Helper
 local function ApplyStyle(btn)
     btn.BackgroundColor3 = Color3.new(0, 0, 0)
     btn.BackgroundTransparency = 0.6 
@@ -137,7 +189,7 @@ local function ApplyStyle(btn)
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 end
 
--- === 1. Tabs ===
+-- === Tabs ===
 local TabContainer = Instance.new("Frame")
 TabContainer.Size = UDim2.new(0.92, 0, 0, 45)
 TabContainer.Position = UDim2.new(0.04, 0, 0.12, 0)
@@ -160,7 +212,7 @@ CosmeticTab.Parent = TabContainer
 ApplyStyle(CosmeticTab)
 CosmeticTab.TextSize = 20
 
--- === 2. Dropdowns ===
+-- === Dropdowns ===
 local LeftDropBtn = Instance.new("TextButton")
 LeftDropBtn.Name = "TargetBtn"
 LeftDropBtn.Size = UDim2.new(0.44, 0, 0, 45)
@@ -228,12 +280,11 @@ PreviewBox.Parent = MainFrame
 Instance.new("UICorner", PreviewBox).CornerRadius = UDim.new(0, 6)
 Instance.new("UIPadding", PreviewBox).PaddingLeft = UDim.new(0, 10)
 
--- Function to Update Preview Logic
 local function UpdatePreview()
     local targetName = targetItem and targetItem.Name or "[Target]"
     local sourceName = sourceItem and sourceItem.Name or "[Source]"
     
-    PreviewBox.Text = string.format("Clear [%s] -> Copy contents from [%s]", sourceName, targetName)
+    PreviewBox.Text = string.format("Data & Sound: [%s] -> Overwrite [%s]", targetName, sourceName)
 end
 
 -- === Create List with Search Box ===
@@ -299,18 +350,17 @@ local function CreateDropdownList(parentBtn)
     return Container, Scroll, SearchBox
 end
 
--- Initialize Dropdowns
 local LeftContainer, LeftList, LeftSearch = CreateDropdownList(LeftDropBtn)
 local RightContainer, RightList, RightSearch = CreateDropdownList(RightDropBtn)
 
--- === 3. Apply Button ===
+-- === Apply Button ===
 local ApplyBtn = Instance.new("TextButton")
 ApplyBtn.Size = UDim2.new(0.92, 0, 0, 55)
 ApplyBtn.Position = UDim2.new(0.04, 0, 0.72, 0)
-ApplyBtn.Text = "TRANSFER DATA"
+ApplyBtn.Text = "TRANSFER DATA & SOUND"
 ApplyBtn.Parent = MainFrame
 ApplyStyle(ApplyBtn)
-ApplyBtn.TextSize = 24
+ApplyBtn.TextSize = 22
 ApplyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50) 
 ApplyBtn.ZIndex = 2
 
@@ -326,7 +376,7 @@ StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.ZIndex = 2
 StatusLabel.Parent = MainFrame
 
--- --- [建立基礎人偶作不時之需] ---
+-- --- Dummy Preview Helper ---
 local function CreateBasicDummy()
     local dummy = Instance.new("Model")
     dummy.Name = "AnimationDummy"
@@ -363,7 +413,6 @@ local function CreateBasicDummy()
     return dummy
 end
 
--- --- 支援 Animation 的預覽圖生成器 ---
 local function CreateMiniPreview(itemInstance, parentUI)
     local vp = Instance.new("ViewportFrame")
     vp.Size = UDim2.new(0, 36, 0, 36) 
@@ -447,26 +496,22 @@ local function CreateMiniPreview(itemInstance, parentUI)
     camera.CFrame = CFrame.new(Vector3.new(dist * 0.8, dist * 0.4, dist * 0.8), Vector3.new(0, 0, 0))
 end
 
--- --- Core Logic ---
-
+-- Refresh List
 local function RefreshLists()
-    -- Clear old
     for _, v in pairs(LeftList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     for _, v in pairs(RightList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     
-    -- Reset Search bars
     LeftSearch.Text = ""
     RightSearch.Text = ""
     
     local items = GetAllCategoryItems(currentCategory)
     
-    -- Sorting: A-Z
     table.sort(items, function(a, b)
         return a.Name < b.Name
     end)
     
     for _, item in ipairs(items) do
-        -- Left Option (Target / Want)
+        -- Target / Want Option
         local btnL = Instance.new("TextButton")
         btnL.Size = UDim2.new(1, 0, 0, 42)
         btnL.BackgroundTransparency = 1
@@ -495,7 +540,7 @@ local function RefreshLists()
             UpdatePreview() 
         end)
         
-        -- Right Option (Source / Have)
+        -- Source / Have Option
         local btnR = Instance.new("TextButton")
         btnR.Size = UDim2.new(1, 0, 0, 42)
         btnR.BackgroundTransparency = 1
@@ -526,7 +571,6 @@ local function RefreshLists()
     end
 end
 
--- Switch Tabs
 local function SwitchTab(cat)
     currentCategory = cat
     targetItem = nil
@@ -550,7 +594,6 @@ local function SwitchTab(cat)
     UpdatePreview() 
 end
 
--- Button Events
 LeftDropBtn.MouseButton1Click:Connect(function()
     LeftContainer.Visible = not LeftContainer.Visible
     RightContainer.Visible = false
@@ -564,7 +607,7 @@ end)
 EmoteTab.MouseButton1Click:Connect(function() SwitchTab("Emotes") end)
 CosmeticTab.MouseButton1Click:Connect(function() SwitchTab("Cosmetics") end)
 
--- === 純內部資料轉移邏輯 ===
+-- === 轉移與資料/音效覆寫邏輯 ===
 ApplyBtn.MouseButton1Click:Connect(function()
     if not targetItem then
         StatusLabel.Text = "Please select a target item!"
@@ -580,20 +623,61 @@ ApplyBtn.MouseButton1Click:Connect(function()
 
     local success, err = pcall(function()
         if sourceItem ~= targetItem then
-            -- 1. 清空你擁有的物品 (Source/Have) 裡面的舊資料/舊模型
+            -- 1. 處理 ModuleScript 的資料與 Sound 替換
+            if sourceItem:IsA("ModuleScript") and targetItem:IsA("ModuleScript") then
+                local sourceData = require(sourceItem)
+                local targetData = require(targetItem)
+                
+                -- 讀取與設置 Name 對照 (GUI 文字替換)
+                local oldDisplayName = (sourceData.AppearanceInfo and sourceData.AppearanceInfo.Name) or sourceItem.Name
+                local newDisplayName = (targetData.AppearanceInfo and targetData.AppearanceInfo.Name) or targetItem.Name
+                _G.NameSwaps[oldDisplayName] = newDisplayName
+                _G.NameSwaps[sourceItem.Name] = targetItem.Name
+
+                -- 讀取與設置 Sound 對照
+                local oldSound = sourceData.EmoteInfo and sourceData.EmoteInfo.Sound
+                local newSound = targetData.EmoteInfo and targetData.EmoteInfo.Sound
+                if oldSound and newSound then
+                    _G.SoundSwaps[tostring(oldSound)] = tostring(newSound)
+                end
+
+                -- 深度複製 targetData 至 sourceData 表單中
+                local function DeepCopy(orig)
+                    local copy
+                    if type(orig) == 'table' then
+                        copy = {}
+                        for orig_key, orig_value in pairs(orig) do
+                            copy[orig_key] = DeepCopy(orig_value)
+                        end
+                    else
+                        copy = orig
+                    end
+                    return copy
+                end
+
+                table.clear(sourceData)
+                for k, v in pairs(DeepCopy(targetData)) do
+                    sourceData[k] = v
+                end
+            end
+
+            -- 2. 清空並複製子物件（模型/動畫等）
             sourceItem:ClearAllChildren()
-            
-            -- 2. 將想要的物品 (Target/Want) 內部的資料複製過去
             for _, child in ipairs(targetItem:GetChildren()) do
                 child:Clone().Parent = sourceItem
             end
-            
-            -- 注意：名字完全不變！保持原本的 sourceItem.Name
+
+            -- 3. 手動掃描並更新一次目前的 PlayerGui
+            if localPlayer and localPlayer:FindFirstChild("PlayerGui") then
+                for _, desc in ipairs(localPlayer.PlayerGui:GetDescendants()) do
+                    CheckAndReplaceText(desc)
+                end
+            end
         end
     end)
     
     if success then
-        StatusLabel.Text = "Success! Content transferred directly."
+        StatusLabel.Text = "Data, Sound & Name Transferred!"
         StatusLabel.TextColor3 = Color3.new(0.3, 1, 0.3)
         RefreshLists() 
         UpdatePreview() 
