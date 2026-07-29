@@ -546,6 +546,7 @@ local function createUI()
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/oldmenu"))() end)
     end)
 
+
 	-- 初始化 Sky ID
     _G.skyid = _G.skyid or 654808887 
 
@@ -579,7 +580,9 @@ local function createUI()
         end
     end)
 
-
+	createButton(pageEntertain, "Item Data Swapper", function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/IDS"))() end)
+    end)
 
 
     -- ==========================================
