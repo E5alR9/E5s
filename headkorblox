@@ -1,18 +1,56 @@
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local lp = Players.LocalPlayer
 
 -- [[ 設定 ]]
 -- 無頭 Mesh ID (僅適用於 R6 角色)
 local HEADLESS_MESH_ID = "rbxassetid://6686307858"
 
+-- ==========================================
+-- 核心功能與驗證機制
+-- ==========================================
+
+-- 【新增】檢查是否為完整的 R6 角色/玩家模型
+local function isValidCharacter(char)
+    if not char or not char:IsA("Model") then return false end
+
+    -- 必須具備的完整身體部位清單 (R6 標準結構)
+    local requiredParts = {
+        "Head",
+        "Torso",
+        "Left Arm",
+        "Left Leg",
+        "Right Arm",
+        "Right Leg"
+    }
+
+    for _, partName in ipairs(requiredParts) do
+        if not char:FindFirstChild(partName) then
+            return false
+        end
+    end
+
+    -- 必須含有 Humanoid
+    if not char:FindFirstChildOfClass("Humanoid") then
+        return false
+    end
+
+    return true
+end
+
 -- [[ 核心功能：應用外觀效果 (無頭 + 斷腳) ]]
 local function applyAppearance(char)
     if not char then return end
+
+    -- 驗證模型結構，如果不符合標準 R6 角色就不執行
+    if not isValidCharacter(char) then
+        return
+    end
     
     -- 1. 處理 UI 控制台 (僅針對本地玩家自己)
     -- 當你重生時，確保你的 E5_Console 介面會重新顯示
     local charPlayer = Players:GetPlayerFromCharacter(char)
-    if charPlayer == lp then
+    if lp and (charPlayer == lp or char == lp.Character) then
         task.spawn(function()
             local gui = lp:WaitForChild("PlayerGui", 10)
             if gui then
@@ -28,7 +66,7 @@ local function applyAppearance(char)
     task.spawn(function()
         -- 等待頭部加載，最長等待 10 秒
         local head = char:WaitForChild("Head", 10)
-        if not head then return end
+        if not head or not isValidCharacter(char) then return end
         
         task.wait(0.2) -- 稍微延長等待，確保所有裝飾品加載完畢
 
@@ -43,8 +81,7 @@ local function applyAppearance(char)
         -- 判斷角色類型並執行對應的無頭邏輯
         if head:IsA("MeshPart") then
             -- [R15 角色]
-            -- 技術限制：MeshPart 的 MeshId 不能在遊戲中修改，只能改透明度
-            head.Transparency = 0 
+            head.Transparency = 1
         else
             -- [R6 角色]
             -- R6 是普通 Part + SpecialMesh，可以修改 ID 來達成真正的無頭 Mesh
@@ -57,48 +94,46 @@ local function applyAppearance(char)
                 mesh.MeshId = HEADLESS_MESH_ID
                 mesh.TextureId = "" -- 清空貼圖
                 mesh.Scale = Vector3.new(1, 1, 1) -- 確保大小正常
-                
-                -- 因為改了 ID，頭部本體要保持不透明才看得到 Mesh
                 head.Transparency = 1 
-                -- 你可以視需要調整顏色，例如：head.Color = Color3.fromRGB(163, 162, 165)
             end
         end
 
         -- [[ B. 斷腳處理 (Korblox) ]]
-        -- 執行你原本的遠端斷腳腳本
+        -- 執行原本的遠端斷腳腳本
         pcall(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/bestkorblox"))()
         end)
     end)
 end
 
--- [[ 角色監控系統 ]]
-local function setupPlayer(player)
-    -- 1. 如果腳本執行時角色已存在，直接套用
-    if player.Character then
-        applyAppearance(player.Character)
-    end
-    
-    -- 2. 監聽該玩家未來每一次的重生 (CharacterAdded)
-    player.CharacterAdded:Connect(function(char)
-        applyAppearance(char)
-    end)
-end
+-- ==========================================
+-- [[ 系統啟動流程 (Workspace 全域監聽) ]]
+-- ==========================================
 
--- ==========================================
--- [[ 系統啟動流程 ]]
--- ==========================================
+local function processModelIfCharacter(model)
+    if isValidCharacter(model) then
+        task.spawn(applyAppearance, model)
+    end
+end
 
 task.spawn(function()
     print("//// #### [M4] GLOBAL_APPEARANCE_SYSTEM_RUNNING #### ////")
 
-    -- 1. 對當前伺服器內的所有玩家執行
-    for _, player in ipairs(Players:GetPlayers()) do
-        setupPlayer(player)
+    -- 1. 初次掃描 Workspace 底下的所有物件 (包含 Rigs, Players 等任意深層資料夾)
+    for _, descendant in ipairs(Workspace:GetDescendants()) do
+        if descendant:IsA("Humanoid") and descendant.Parent then
+            processModelIfCharacter(descendant.Parent)
+        end
     end
-    
-    -- 2. 監聽未來加入的玩家 (PlayerAdded)
-    Players.PlayerAdded:Connect(function(player)
-        setupPlayer(player)
+
+    -- 2. 動態監聽 Workspace 新增的 Humanoid (支援重生、新 Model 生成)
+    Workspace.DescendantAdded:Connect(function(descendant)
+        if descendant:IsA("Humanoid") then
+            task.delay(0.3, function() -- 稍微等待角色零件載入齊全
+                if descendant.Parent then
+                    processModelIfCharacter(descendant.Parent)
+                end
+            end)
+        end
     end)
 end)
