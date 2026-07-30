@@ -391,7 +391,7 @@ local function createUI()
         end
     end)
 
-	createButton(pagePlayer, "Recorder", function()
+	createButton(pagePlayer, "Movement Recorder", function()
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/recorder"))() end)
     end)
 	
@@ -526,16 +526,16 @@ local function createUI()
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/timecontrol"))() end)
     end)
 
+    createButton(pageEntertain, "Edge", function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/edge"))() end)
+    end)
+
     createButton(pageEntertain, "Renamer", function()
         pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/Renamer"))() end)
     end)
 
-    createButton(pageEntertain, "Movement Recorder", function()
-        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/recorder"))() end)
-    end)
-
-    createButton(pageEntertain, "Edge", function()
-        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/edge"))() end)
+    createButton(pageEntertain, "Item Data Swapper", function()
+        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/IDS"))() end)
     end)
 
 	createButton(pageEntertain, "shader", function()
@@ -580,9 +580,6 @@ local function createUI()
         end
     end)
 
-	createButton(pageEntertain, "Item Data Swapper", function()
-        pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/E5alR9/E5s/refs/heads/main/IDS"))() end)
-    end)
 
 
     -- ==========================================
