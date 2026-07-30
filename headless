@@ -1,4 +1,4 @@
-local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 
 local HEADLESS_MESH_ID = "rbxassetid://134079402"
 
@@ -6,7 +6,7 @@ local HEADLESS_MESH_ID = "rbxassetid://134079402"
 -- 狀態管理與切換邏輯
 -- ==========================================
 
--- 初始化全局變數
+-- 初始化全局變數 (無頭專用，避免與其他腳本衝突)
 if _G.HeadlessEnabled == nil then
     _G.HeadlessEnabled = false
 end
@@ -15,7 +15,7 @@ _G.HeadlessConnections = _G.HeadlessConnections or {}
 -- 切換開關狀態
 _G.HeadlessEnabled = not _G.HeadlessEnabled
 
--- 每次執行時，先清理舊的監聽器 (避免重複執行導致效能問題或多次觸發)
+-- 清理舊的監聽器 (避免重複執行導致效能問題)
 for _, conn in ipairs(_G.HeadlessConnections) do
     if conn.Connected then
         conn:Disconnect()
@@ -23,34 +23,66 @@ for _, conn in ipairs(_G.HeadlessConnections) do
 end
 table.clear(_G.HeadlessConnections)
 
--- 如果狀態是關閉，就印出提示並停止執行後續代碼
+-- 如果狀態是關閉，印出提示並停止執行後續代碼
 if not _G.HeadlessEnabled then
-    print("🔴 無頭效果：已關閉 (下次死亡重生後頭部將恢復原狀)")
+    print("🔴 無頭效果：已關閉 (下次重生或重新載入後頭部將恢復原狀)")
     return
 end
 
-print("🟢 無頭效果：已開啟 (每次重生都會持續套用)")
+print("🟢 無頭效果：已開啟 (自動全域掃描 Workspace 中的角色 Model)")
 
 -- ==========================================
--- 核心功能
+-- 核心功能與驗證機制
 -- ==========================================
+
+-- 檢查是否為完整的 R6 角色/玩家模型
+local function isValidCharacter(char)
+    if not char or not char:IsA("Model") then return false end
+
+    -- 必須具備的完整身體部位清單 (R6 標準結構)
+    local requiredParts = {
+        "Head",
+        "Torso",
+        "Left Arm",
+        "Left Leg",
+        "Right Arm",
+        "Right Leg"
+    }
+
+    for _, partName in ipairs(requiredParts) do
+        if not char:FindFirstChild(partName) then
+            return false
+        end
+    end
+
+    -- 必須含有 Humanoid
+    if not char:FindFirstChildOfClass("Humanoid") then
+        return false
+    end
+
+    return true
+end
 
 local function applyHeadless(char)
-    -- 如果已經關閉了，就不再執行
     if not char or not _G.HeadlessEnabled then return end
-    
-    task.spawn(function()
-        local head = char:WaitForChild("Head", 10)
-        if not head or not _G.HeadlessEnabled then return end
-        task.wait(0.2) 
-        
-        -- 隱藏臉部
+
+    -- 等待 Head 載入（最多等待 3 秒）
+    local head = char:WaitForChild("Head", 3)
+
+    -- 驗證模型結構是否符合標準角色
+    if not isValidCharacter(char) then
+        return
+    end
+
+    if head and _G.HeadlessEnabled then
+        -- 1. 隱藏臉部貼圖 (Decal / Texture)
         for _, obj in ipairs(head:GetChildren()) do
             if obj:IsA("Decal") or obj:IsA("Texture") then
                 obj.Transparency = 1
             end
         end
 
+        -- 2. 套用無頭 Mesh 或隱藏 MeshPart
         if head:IsA("MeshPart") then
             head.Transparency = 1 
         else
@@ -67,27 +99,36 @@ local function applyHeadless(char)
                 head.Transparency = 0 
             end
         end
-    end)
-end
-
-local function setupPlayer(player)
-    -- 1. 當前已存在角色直接套用
-    if player.Character then
-        applyHeadless(player.Character)
     end
-    
-    -- 2. 監聽重生，並將連線存入 _G.HeadlessConnections 以便未來關閉
-    local conn = player.CharacterAdded:Connect(applyHeadless)
-    table.insert(_G.HeadlessConnections, conn)
 end
 
 -- ==========================================
--- 啟動執行邏輯
+-- Workspace 自動掃描與監聽邏輯
 -- ==========================================
 
-for _, player in ipairs(Players:GetPlayers()) do
-    setupPlayer(player)
+local function processModelIfCharacter(model)
+    if not _G.HeadlessEnabled then return end
+    if isValidCharacter(model) then
+        task.spawn(applyHeadless, model)
+    end
 end
 
-local playerAddedConn = Players.PlayerAdded:Connect(setupPlayer)
-table.insert(_G.HeadlessConnections, playerAddedConn)
+-- 1. 初次掃描 Workspace 底下的所有物件 (包含 Rigs, Players 等子資料夾)
+for _, descendant in ipairs(Workspace:GetDescendants()) do
+    if descendant:IsA("Humanoid") and descendant.Parent then
+        processModelIfCharacter(descendant.Parent)
+    end
+end
+
+-- 2. 監聽 Workspace 動態新增的 Humanoid (支援角色重生、新 Rig 生成等)
+local descendantAddedConn = Workspace.DescendantAdded:Connect(function(descendant)
+    if descendant:IsA("Humanoid") then
+        task.delay(0.3, function() -- 稍微等待角色零件載入齊全
+            if descendant.Parent then
+                processModelIfCharacter(descendant.Parent)
+            end
+        end)
+    end
+end)
+
+table.insert(_G.HeadlessConnections, descendantAddedConn)
