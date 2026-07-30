@@ -1,4 +1,4 @@
-local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 
 -- 改為 "rbxassetid://" 格式以符合 SpecialMesh 的讀取要求
 local K_LEFT_MESH_ID = "rbxassetid://101851582"
@@ -28,20 +28,55 @@ table.clear(_G.KorbloxLeftConnections)
 
 -- 如果狀態是關閉，印出提示並停止執行後續代碼
 if not _G.KorbloxLeftEnabled then
-    print("🔴 冰魔左腿效果：已關閉 (下次死亡重生後腿部將恢復原狀)")
+    print("🔴 冰魔左腿效果：已關閉 (下次重生或重新載入後腿部將恢復原狀)")
     return
 end
 
-print("🟢 冰魔左腿效果：已開啟 (每次重生都會持續套用)")
+print("🟢 冰魔左腿效果：已開啟 (自動全域掃描 Workspace 中的角色 Model)")
 
 -- ==========================================
--- 核心功能
+-- 核心功能與驗證機制
 -- ==========================================
+
+-- 檢查是否為完整的 R6 角色/玩家模型
+local function isValidCharacter(char)
+    if not char or not char:IsA("Model") then return false end
+
+    -- 必須具備的完整身體部位清單 (R6 標準結構)
+    local requiredParts = {
+        "Head",
+        "Torso",
+        "Left Arm",
+        "Left Leg",
+        "Right Arm",
+        "Right Leg"
+    }
+
+    for _, partName in ipairs(requiredParts) do
+        if not char:FindFirstChild(partName) then
+            return false
+        end
+    end
+
+    -- 必須含有 Humanoid
+    if not char:FindFirstChildOfClass("Humanoid") then
+        return false
+    end
+
+    return true
+end
 
 local function applyTargetColor(char)
     if not char or not _G.KorbloxLeftEnabled then return end
 
-    local lLeg = char:WaitForChild("Left Leg", 5)
+    -- 等待部位載入（最多等待 3 秒）
+    local lLeg = char:WaitForChild("Left Leg", 3)
+    
+    -- 驗證模型結構是否符合標準角色
+    if not isValidCharacter(char) then
+        return
+    end
+
     if lLeg and _G.KorbloxLeftEnabled then
         -- 1. 清理原版的 CharacterMesh，避免與 SpecialMesh 衝突
         for _, v in ipairs(char:GetChildren()) do
@@ -66,10 +101,9 @@ local function applyTargetColor(char)
         lLeg.Transparency = 0
         lLeg.Material = Enum.Material.Plastic 
         
-        -- 強力鎖定，防止被遊戲改回皮膚色
+        -- 強力鎖定，防止被遊戲機制改回皮膚色
         task.spawn(function()
-            -- 【關鍵】加上 _G.KorbloxLeftEnabled 判斷，關閉時終止迴圈
-            while char and char.Parent and lLeg.Parent and _G.KorbloxLeftEnabled do
+            while char and char.Parent and lLeg.Parent and _G.KorbloxLeftEnabled and isValidCharacter(char) do
                 if lLeg.Color ~= K_COLOR then 
                     lLeg.Color = K_COLOR 
                 end
@@ -79,27 +113,33 @@ local function applyTargetColor(char)
     end
 end
 
-local function setupPlayer(player)
-    -- 1. 當前已存在角色直接套用
-    if player.Character then
-        task.spawn(applyTargetColor, player.Character)
+-- ==========================================
+-- Workspace 自動掃描與監聽邏輯
+-- ==========================================
+
+local function processModelIfCharacter(model)
+    if not _G.KorbloxLeftEnabled then return end
+    if isValidCharacter(model) then
+        task.spawn(applyTargetColor, model)
     end
-    
-    -- 2. 監聽重生，並存入 _G.KorbloxLeftConnections 以便未來關閉
-    local conn = player.CharacterAdded:Connect(function(c)
-        task.wait(0.5)
-        applyTargetColor(c)
-    end)
-    table.insert(_G.KorbloxLeftConnections, conn)
 end
 
--- ==========================================
--- 啟動執行邏輯
--- ==========================================
-
-for _, p in pairs(Players:GetPlayers()) do
-    setupPlayer(p)
+-- 1. 初次掃描 Workspace 底下的所有物件 (包含 Rigs, Players 等子資料夾)
+for _, descendant in ipairs(Workspace:GetDescendants()) do
+    if descendant:IsA("Humanoid") and descendant.Parent then
+        processModelIfCharacter(descendant.Parent)
+    end
 end
 
-local playerAddedConn = Players.PlayerAdded:Connect(setupPlayer)
-table.insert(_G.KorbloxLeftConnections, playerAddedConn)
+-- 2. 監聽 Workspace 動態新增的 Humanoid (支援角色重生、新 Rig 生成等)
+local descendantAddedConn = Workspace.DescendantAdded:Connect(function(descendant)
+    if descendant:IsA("Humanoid") then
+        task.delay(0.3, function() -- 稍微等待角色零件載入齊全
+            if descendant.Parent then
+                processModelIfCharacter(descendant.Parent)
+            end
+        end)
+    end
+end)
+
+table.insert(_G.KorbloxLeftConnections, descendantAddedConn)
