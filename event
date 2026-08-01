@@ -164,14 +164,31 @@ task.spawn(function()
         -- 回合重置判定
         if previousTime <= 5 and currentRemainingTime > 10 then
             hasEvacuated = false
-            print("🔄 新回合開始，重置避難標記！")
+            -- 新回合重置安全高度，避免好幾場下來飛出地圖邊界
+            SAFE_HEIGHT_POS = Vector3.new(3000, 3005, 3000) 
+            print("🔄 新回合開始，重置避難標記與安全高度！")
         end
         previousTime = currentRemainingTime
         
         if rootPart then
+            -- 提前取得資料夾，讓最後5秒也能抓取鬼的資料
+            local playersFolder, mapFolder, effectsFolder = getGameFolders()
+
             -- 【最高優先權】剩餘秒數 <= 5 秒：絕對停止撿取並鎖定在高空待命點
             if currentRemainingTime <= 5 then
                 _G.IsBusy = true
+                
+                -- ====== 新增：最後5秒防瞬移鬼動態爬升機制 ======
+                if playersFolder then
+                    local ais = getActiveAIs(playersFolder)
+                    if not isSafe(rootPart.Position, ais) then
+                        -- 發現半徑內有鬼，把安全座標再往上拉高 500
+                        SAFE_HEIGHT_POS = SAFE_HEIGHT_POS + Vector3.new(0, 500, 0)
+                        print("🚨 警告！鬼瞬移來了！緊急向上爬升至高度：" .. tostring(SAFE_HEIGHT_POS.Y))
+                    end
+                end
+                -- ==============================================
+
                 rootPart.CFrame = CFrame.new(SAFE_HEIGHT_POS)
                 
                 if not hasEvacuated then
@@ -182,8 +199,6 @@ task.spawn(function()
                 task.wait(0.2)
                 continue -- 直接跳過後續所有目標搜尋與傳送撿取邏輯
             end
-
-            local playersFolder, mapFolder, effectsFolder = getGameFolders()
             
             if playersFolder or effectsFolder then
                 local ais = getActiveAIs(playersFolder)
