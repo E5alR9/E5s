@@ -229,7 +229,7 @@ task.spawn(function()
                 task.wait(0.1) 
                 if IsFieldClean() then
                     pcall(function() 
-                        task.wait(1)
+                        task.wait(2.5)
                         ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!time 1")
                         print("time 1")
                     end)
