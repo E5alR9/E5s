@@ -68,7 +68,7 @@ end
 -----------------------------------------------------------
 pcall(function()
     game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("AddMap", "WorkFacility")
-    game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!map Spleef")
+    game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!map WorkFacility")
     game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Gamemode Pro")
 end)
 
@@ -253,9 +253,9 @@ local wasMonsterPresent = false -- 記錄上一刻鬼是否存在
 -- 換圖觸發函式
 local function TriggerMapChange(rounds)
     pcall(function()
-        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!map Spleef")
+        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!map WorkFacility")
     end)
-    print("[系統提示] 累計回合達 " .. tostring(rounds) .. "，已發送換圖指令：Spleef")
+    print("[系統提示] 累計回合達 " .. tostring(rounds) .. "，已發送換圖指令：WorkFacility")
 end
 
 task.spawn(function()
