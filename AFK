@@ -67,8 +67,8 @@ end
 -- 0. 執行初始伺服器設定
 -----------------------------------------------------------
 pcall(function()
-    game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("AddMap", "Vibrance")
-    game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!map Vibrance")
+    game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("AddMap", "TrainTerminal")
+    game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!map TrainTerminal")
     game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Gamemode Pro")
 end)
 
@@ -254,9 +254,9 @@ local wasMonsterPresent = false -- 記錄上一刻鬼是否存在
 -- 換圖觸發函式
 local function TriggerMapChange(rounds)
     pcall(function()
-        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!map Vibrance")
+        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!map TrainTerminal")
     end)
-    print("[系統提示] 累計回合達 " .. tostring(rounds) .. "，已發送換圖指令：Vibrance")
+    print("[系統提示] 累計回合達 " .. tostring(rounds) .. "，已發送換圖指令：TrainTerminal")
 end
 
 task.spawn(function()
