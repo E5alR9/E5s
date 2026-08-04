@@ -259,6 +259,14 @@ local function TriggerMapChange(rounds)
     print("[系統提示] 累計回合達 " .. tostring(rounds) .. "，已發送換圖指令：TrainTerminal")
 end
 
+-- 地圖縮放觸發函式
+local function TriggerMapScale()
+    pcall(function()
+        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!mapscale 100")
+    end)
+    print("mapscale 100")
+end
+
 task.spawn(function()
     print("[系統提示] 鬼實體 (無到有) 獨立計數器已啟動...")
     
@@ -269,10 +277,14 @@ task.spawn(function()
         if not wasMonsterPresent and isMonsterPresentNow then
             currentRounds = currentRounds + 1
             counterLabel.Text = "目前累計回合: " .. currentRounds
-            print("[系統提示] 偵測到鬼刷出！回合數 $+1$，當前累計: " .. currentRounds)
-            
+            print("[系統提示] 偵測到鬼刷出！回合數 +1，當前累計: " .. currentRounds)
 
-            -- 每滿 3 回合觸發換圖
+            -- 1, 4, 7, 10... 回合執行
+            if currentRounds % 3 == 1 then
+                TriggerMapScale()
+            end
+
+            -- 每滿 3 回合 (3, 6, 9...) 觸發換圖
             if currentRounds > 0 and (currentRounds % 3 == 0) then
                 task.wait(0.5)
                 TriggerMapChange(currentRounds)
