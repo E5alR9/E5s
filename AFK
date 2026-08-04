@@ -262,9 +262,9 @@ end
 -- 地圖縮放觸發函式
 local function TriggerMapScale()
     pcall(function()
-        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!mapscale 100")
+        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!mapscale 30")
     end)
-    print("mapscale 100")
+    print("mapscale 30")
 end
 
 task.spawn(function()
