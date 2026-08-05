@@ -88,7 +88,7 @@ task.spawn(function()
     while true do
         pcall(function()
             game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!specialround Plushie Hell")
-            ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!flipmap 1000000000000000000000000000000000")
+            game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Flipmap 1")
         end)
         task.wait(1)
     end
@@ -264,9 +264,9 @@ end
 
 local function TriggerMapScale()
     pcall(function()
-        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!mapscale 0.001")
+        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!mapscale 0.01")
     end)
-    print("mapscale 0.001")
+    print("mapscale 0.01")
 end
 
 
