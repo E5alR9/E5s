@@ -88,8 +88,9 @@ task.spawn(function()
     while true do
         pcall(function()
             game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!specialround Plushie Hell")
+            ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!flipmap 1")
         end)
-        task.wait(3)
+        task.wait(1)
     end
 end)
 
@@ -260,12 +261,14 @@ local function TriggerMapChange(rounds)
 end
 
 -- 地圖縮放觸發函式
+--[[
 local function TriggerMapScale()
     pcall(function()
-        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!mapscale 30")
+        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!mapscale 100")
     end)
-    print("mapscale 30")
+    print("mapscale 100")
 end
+]]
 
 task.spawn(function()
     print("[系統提示] 鬼實體 (無到有) 獨立計數器已啟動...")
@@ -280,9 +283,11 @@ task.spawn(function()
             print("[系統提示] 偵測到鬼刷出！回合數 +1，當前累計: " .. currentRounds)
 
             -- 1, 4, 7, 10... 回合執行
+            --[[
             if currentRounds % 3 == 1 then
                 TriggerMapScale()
             end
+            ]]
 
             -- 每滿 3 回合 (3, 6, 9...) 觸發換圖
             if currentRounds > 0 and (currentRounds % 3 == 0) then
