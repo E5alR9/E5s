@@ -99,7 +99,7 @@ end)
 -----------------------------------------------------------
 task.spawn(function()
     while true do
-        task.wait(0.5) -- 每 0.5 秒檢測一次狀態
+        task.wait(0.25) -- 每 0.5 秒檢測一次狀態
         
         -- 動態獲取 Remote，避免載入時間差導致變數永久變成 nil
         local reviveRemote = ReplicatedStorage:FindFirstChild("Events")
@@ -130,8 +130,7 @@ task.spawn(function()
 
                     if isDead or isDowned then
                         reviveRemote:FireServer(true)
-                        print("respawn")
-                        task.wait(2) 
+                        print("respawn") 
                     end
                 end
             end)
@@ -230,6 +229,7 @@ task.spawn(function()
                 task.wait(0.1) 
                 if IsFieldClean() then
                     pcall(function() 
+                    	game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Flipmap 1")
                         task.wait(2.5)
                         ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!time 1")
                         print("time 1")
