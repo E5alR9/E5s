@@ -69,26 +69,26 @@ end
 local debounce = false -- 防連跳冷卻開關
 
 local function setupCactusAutoJump()
-    local gameFolder = workspace:FindFirstChild("Game")
-    if not gameFolder then 
-        sendNotif("⚠️ 掃描失敗", "找不到 Game 資料夾", 5)
-        _G.CactusAutoJumpEnabled = false -- 失敗則把狀態改回關閉
+    -- 根據截圖，Map 直接位於 workspace 底下
+    local mapFolder = workspace:FindFirstChild("Map")
+    if not mapFolder then 
+        sendNotif("⚠️ 掃描失敗", "找不到 Map 資料夾", 5)
+        _G.CactusAutoJumpEnabled = false
         return 
     end
     
-    local propsFolder = gameFolder:FindFirstChild("Map") 
-        and gameFolder.Map:FindFirstChild("Parts") 
-        and gameFolder.Map.Parts:FindFirstChild("ImmovableProps")
-        
-    if not propsFolder then 
-        sendNotif("⚠️ 掃描失敗", "找不到 ImmovableProps 資料夾", 5)
+    -- 找到 Map 底下的 Parts 資料夾
+    local partsFolder = mapFolder:FindFirstChild("Parts")
+    if not partsFolder then 
+        sendNotif("⚠️ 掃描失敗", "找不到 Parts 資料夾", 5)
         _G.CactusAutoJumpEnabled = false
         return 
     end
 
     local count = 0
 
-    for _, obj in pairs(propsFolder:GetChildren()) do
+    -- 使用 GetDescendants() 往下層搜尋，避免內部還有其他分類資料夾導致找不到
+    for _, obj in pairs(partsFolder:GetDescendants()) do
         if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
             
             local highestPart = getHighestPart(obj)
@@ -112,8 +112,6 @@ local function setupCactusAutoJump()
                             -- 強制改狀態 + Jump 指令
                             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                             humanoid.Jump = true
-                            
-                        
                             
                             debounce = false
                         end
