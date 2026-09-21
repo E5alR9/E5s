@@ -1,110 +1,97 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService") -- 加入輸入服務，電腦版關鍵
+local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 -- [[ 1. 開關邏輯：檢查是否已經執行過 ]]
-local existingGui = player.PlayerGui:FindFirstChild("AutoJumpOverlay")
+-- 因為不再創建 UI，我們改在 PlayerGui 放入一個隱藏的 Tag 來當作開關標記
+local tagFileName = "AutoJumpTag_Running"
+local existingTag = player.PlayerGui:FindFirstChild(tagFileName)
 
-if existingGui then
-    existingGui:Destroy()
+if existingTag then
+    existingTag:Destroy() -- 刪除標記，底下的迴圈偵測到標記消失就會自動停止
     print("Auto Jump: OFF")
     return 
 else
+    local newTag = Instance.new("Folder")
+    newTag.Name = tagFileName
+    newTag.Parent = player.PlayerGui
     print("Auto Jump: ON")
 end
 
--- [[ 2. 初始化變數與 UI ]]
+-- [[ 2. 初始化變數與事件管理 ]]
 local isHolding = false
-local spacePressed = false -- 偵測鍵盤空白鍵狀態
+local spacePressed = false 
+local connections = {} -- 統一管理事件，方便關閉時清理
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoJumpOverlay"
-screenGui.ResetOnSpawn = false 
-screenGui.Parent = player:WaitForChild("PlayerGui")
+-- 當角色死亡/重生時，重置按鍵狀態，避免卡在跳躍狀態
+table.insert(connections, player.CharacterAdded:Connect(function()
+    isHolding = false
+    spacePressed = false
+end))
 
-local jumpButton = Instance.new("TextButton")
-jumpButton.Name = "JumpButton"
-jumpButton.BackgroundTransparency = 1 
-jumpButton.TextTransparency = 1        
-jumpButton.Text = "AUTO JUMP"
-jumpButton.Parent = screenGui
-
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(1, 0)
-uiCorner.Parent = jumpButton
-
--- [[ 3. 定位邏輯 ]]
-local function syncPosition()
-    if not screenGui.Parent then return end 
-    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
-    local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
-    
-    if realBtn then
-        jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
-        jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
-    else
-        -- 電腦版預設位置（右下角）
-        jumpButton.Size = UDim2.new(0, 80, 0, 80)
-        jumpButton.Position = UDim2.new(1, -120, 1, -90)
-    end
-end
-
-task.spawn(function()
-    while screenGui.Parent do
-        syncPosition()
-        task.wait(1)
-    end
-end)
-
--- [[ 4. 偵測輸入 ]]
-
--- A. UI 按鈕偵測 (手機/滑鼠)
-jumpButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        isHolding = true
-        jumpButton.BackgroundTransparency = 0.8
-        jumpButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    end
-end)
-
-jumpButton.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        isHolding = false
-        jumpButton.BackgroundTransparency = 1
-    end
-end)
-
--- B. 鍵盤偵測 (電腦版專用)
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end -- 避免打字時跳躍
+-- [[ 3. 鍵盤偵測 (電腦版專用) ]]
+table.insert(connections, UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end 
     if input.KeyCode == Enum.KeyCode.Space then
         spacePressed = true
     end
-end)
+end))
 
-UserInputService.InputEnded:Connect(function(input)
+table.insert(connections, UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.Space then
         spacePressed = false
     end
-end)
+end))
 
--- [[ 5. 核心連跳邏輯 ]]
-local connection
-connection = RunService.Heartbeat:Connect(function()
-    if not screenGui.Parent then 
-        connection:Disconnect() 
+-- [[ 4. 核心連跳邏輯 & 手機官方按鈕動態綁定 ]]
+local heartbeatConn
+heartbeatConn = RunService.Heartbeat:Connect(function()
+    -- 如果開關標記被刪除（代表玩家再次執行了腳本，想要關閉功能），則清理所有事件並結束
+    if not player.PlayerGui:FindFirstChild(tagFileName) then 
+        heartbeatConn:Disconnect() 
+        for _, conn in ipairs(connections) do
+            conn:Disconnect()
+        end
         return 
     end
 
-    -- 只要「點擊 UI」或是「按住空白鍵」其中一個成立，就觸發
+    -- ================= 動態綁定官方手機按鈕 =================
+    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
+    local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
+    
+    -- 如果找到了官方按鈕，且還沒被我們綁定過
+    if realBtn and not realBtn:GetAttribute("AutoJumpHooked") then
+        realBtn:SetAttribute("AutoJumpHooked", true) -- 標記已綁定，避免重複觸發
+        
+        -- 綁定官方按鈕按下
+        local btnBegan = realBtn.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                isHolding = true
+            end
+        end)
+        
+        -- 綁定官方按鈕鬆開
+        local btnEnded = realBtn.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                isHolding = false
+            end
+        end)
+        
+        table.insert(connections, btnBegan)
+        table.insert(connections, btnEnded)
+    end
+    -- ========================================================
+
+    -- ================= 強力 Bhop 連跳邏輯 ===================
+    -- 只要「按住手機官方跳躍鍵」或是「按住空白鍵」其中一個成立，就觸發
     if isHolding or spacePressed then
         local character = player.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         
         if humanoid and humanoid.Health > 0 then
-            -- 強力 Bhop 邏輯
             if humanoid.FloorMaterial ~= Enum.Material.Air then
+                -- 3 代表 Enum.HumanoidStateType.Jumping
                 humanoid:ChangeState(3) 
             end
         end
