@@ -4,104 +4,124 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 -- [[ 1. 開關邏輯：檢查是否已經執行過 ]]
-local tagFileName = "AutoJumpTag_Running"
-local existingTag = player.PlayerGui:FindFirstChild(tagFileName)
+-- 保留你原本的架構，用 AutoJumpOverlay 當作腳本是否運行的標記
+local existingGui = player.PlayerGui:FindFirstChild("AutoJumpOverlay")
 
-if existingTag then
-    existingTag:Destroy()
+if existingGui then
+    existingGui:Destroy() -- 刪除這個 Gui，底下的 Heartbeat 偵測到就會停止腳本
     print("Auto Jump: OFF")
     return 
 else
-    local newTag = Instance.new("Folder")
-    newTag.Name = tagFileName
-    newTag.Parent = player.PlayerGui
+    -- 創建一個空的 ScreenGui 只當作「開關標記」，裡面不再放實體按鈕
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AutoJumpOverlay"
+    screenGui.ResetOnSpawn = false 
+    screenGui.Parent = player:WaitForChild("PlayerGui")
     print("Auto Jump: ON")
 end
 
--- [[ 2. 初始化變數與事件管理 ]]
+-- [[ 2. 初始化變數與狀態管理 ]]
 local isHolding = false
 local spacePressed = false 
-local jumpInputObject = nil -- 用來追蹤按住跳躍鍵的那根手指
-local connections = {} 
+local activeTouches = {} -- 記錄哪幾根手指正壓在跳躍鍵的座標上
+local connections = {}   -- 統一管理所有事件，關閉時一起清理
 
+local function updateHoldingState()
+    local state = false
+    for _, _ in pairs(activeTouches) do
+        state = true
+        break
+    end
+    isHolding = state
+end
+
+-- 角色死亡時清空按壓狀態，避免復活後自動一直跳
 table.insert(connections, player.CharacterAdded:Connect(function()
     isHolding = false
     spacePressed = false
-    jumpInputObject = nil
+    table.clear(activeTouches)
 end))
 
--- [[ 3. 核心偵測函數：檢查觸控座標是否在跳躍按鈕內 ]]
-local function isInsideJumpButton(pos)
-    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
-    local jumpBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
-    if not jumpBtn then return false end
-    
-    local absPos = jumpBtn.AbsolutePosition
-    local absSize = jumpBtn.AbsoluteSize
-    
-    -- 給手機觸控一點容錯空間（外擴 30 像素），避免手指太大按偏卻沒感應到
-    local padding = 30 
-    
-    return pos.X >= (absPos.X - padding) and pos.X <= (absPos.X + absSize.X + padding)
-       and pos.Y >= (absPos.Y - padding) and pos.Y <= (absPos.Y + absSize.Y + padding)
-end
+-- [[ 3. 全螢幕座標判定 (Hitbox Detection) & 鍵盤偵測 ]]
 
--- [[ 4. 全域輸入監聽 (繞過 Roblox 官方按鈕攔截) ]]
+-- A. 按下/點擊偵測
 table.insert(connections, UserInputService.InputBegan:Connect(function(input, processed)
-    -- 鍵盤空白鍵
+    -- 鍵盤空白鍵 (保留 processed 避免打字時觸發)
     if input.KeyCode == Enum.KeyCode.Space then
         if not processed then spacePressed = true end
         return
     end
-    
+
     -- 手機觸控 / 滑鼠點擊
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        if isInsideJumpButton(input.Position) then
-            jumpInputObject = input -- 鎖定這根手指
-            isHolding = true
+        -- 核心：發射射線檢測點擊座標下的所有 UI 元素
+        local guis = player.PlayerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
+        for _, gui in ipairs(guis) do
+            -- 如果座標底下有官方的 JumpButton，就判定為按住
+            if gui.Name == "JumpButton" then
+                activeTouches[input] = true 
+                updateHoldingState()
+                break
+            end
         end
     end
 end))
 
+-- B. 滑動防呆 (防止手指滑出跳躍鍵卻還在跳)
 table.insert(connections, UserInputService.InputChanged:Connect(function(input)
-    -- 如果手指在螢幕上滑動
-    if input == jumpInputObject then
-        -- 檢查手指是不是滑出了跳躍鍵的範圍
-        if not isInsideJumpButton(input.Position) then
-            jumpInputObject = nil
-            isHolding = false
+    if activeTouches[input] then
+        local isStillOnButton = false
+        local guis = player.PlayerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
+        for _, gui in ipairs(guis) do
+            if gui.Name == "JumpButton" then
+                isStillOnButton = true
+                break
+            end
+        end
+        
+        -- 手指滑出按鈕 Hitbox 範圍了
+        if not isStillOnButton then
+            activeTouches[input] = nil
+            updateHoldingState()
         end
     end
 end))
 
+-- C. 鬆開偵測
 table.insert(connections, UserInputService.InputEnded:Connect(function(input)
-    -- 鬆開按鍵
+    -- 鬆開空白鍵
     if input.KeyCode == Enum.KeyCode.Space then
         spacePressed = false
-    elseif input == jumpInputObject then
-        jumpInputObject = nil
-        isHolding = false
+        return
+    end
+
+    -- 鬆開觸控/滑鼠
+    if activeTouches[input] then
+        activeTouches[input] = nil
+        updateHoldingState()
     end
 end))
 
--- [[ 5. 強力 Bhop 連跳執行邏輯 ]]
+-- [[ 4. 核心連跳邏輯 ]]
 local heartbeatConn
 heartbeatConn = RunService.Heartbeat:Connect(function()
-    -- 關閉腳本時的清理
-    if not player.PlayerGui:FindFirstChild(tagFileName) then 
+    -- 開關機制：如果 ScreenGui 被刪除，就徹底終止腳本
+    if not player.PlayerGui:FindFirstChild("AutoJumpOverlay") then 
         heartbeatConn:Disconnect() 
         for _, conn in ipairs(connections) do
             conn:Disconnect()
         end
+        table.clear(activeTouches)
         return 
     end
 
+    -- 連跳觸發區
     if isHolding or spacePressed then
         local character = player.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         
         if humanoid and humanoid.Health > 0 then
-            -- 你的思路：落地瞬間強制切換開關，逼迫引擎 100% 執行跳躍
+            -- 你提出的神級邏輯：落地瞬間強制切換開關 (false -> true)
             if humanoid.FloorMaterial ~= Enum.Material.Air then
                 humanoid.Jump = false 
                 humanoid.Jump = true  
