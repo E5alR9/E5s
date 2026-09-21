@@ -4,127 +4,109 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 -- [[ 1. 開關邏輯：檢查是否已經執行過 ]]
--- 保留你原本的架構，用 AutoJumpOverlay 當作腳本是否運行的標記
 local existingGui = player.PlayerGui:FindFirstChild("AutoJumpOverlay")
 
 if existingGui then
-    existingGui:Destroy() -- 刪除這個 Gui，底下的 Heartbeat 偵測到就會停止腳本
+    existingGui:Destroy()
     print("Auto Jump: OFF")
     return 
 else
-    -- 創建一個空的 ScreenGui 只當作「開關標記」，裡面不再放實體按鈕
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "AutoJumpOverlay"
-    screenGui.ResetOnSpawn = false 
-    screenGui.Parent = player:WaitForChild("PlayerGui")
     print("Auto Jump: ON")
 end
 
--- [[ 2. 初始化變數與狀態管理 ]]
+-- [[ 2. 初始化變數與 UI ]]
 local isHolding = false
 local spacePressed = false 
-local activeTouches = {} -- 記錄哪幾根手指正壓在跳躍鍵的座標上
-local connections = {}   -- 統一管理所有事件，關閉時一起清理
 
-local function updateHoldingState()
-    local state = false
-    for _, _ in pairs(activeTouches) do
-        state = true
-        break
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoJumpOverlay"
+screenGui.ResetOnSpawn = false 
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local jumpButton = Instance.new("TextButton")
+jumpButton.Name = "JumpButton"
+jumpButton.BackgroundTransparency = 1 
+jumpButton.TextTransparency = 1        
+jumpButton.Text = "AUTO JUMP"
+jumpButton.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(1, 0)
+uiCorner.Parent = jumpButton
+
+-- [[ 3. 定位邏輯 ]]
+local function syncPosition()
+    if not screenGui.Parent then return end 
+    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
+    local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
+    
+    if realBtn then
+        jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
+        jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
+    else
+        -- 電腦版預設位置
+        jumpButton.Size = UDim2.new(0, 80, 0, 80)
+        jumpButton.Position = UDim2.new(1, -120, 1, -90)
     end
-    isHolding = state
 end
 
--- 角色死亡時清空按壓狀態，避免復活後自動一直跳
-table.insert(connections, player.CharacterAdded:Connect(function()
-    isHolding = false
-    spacePressed = false
-    table.clear(activeTouches)
-end))
+task.spawn(function()
+    while screenGui.Parent do
+        syncPosition()
+        -- 【優化】：原本是 1 秒，改成 0.1 秒可以確保透明按鈕完美貼合，不會因為畫面變動跑位
+        task.wait(0.1) 
+    end
+end)
 
--- [[ 3. 全螢幕座標判定 (Hitbox Detection) & 鍵盤偵測 ]]
+-- [[ 4. 偵測輸入 ]]
 
--- A. 按下/點擊偵測
-table.insert(connections, UserInputService.InputBegan:Connect(function(input, processed)
-    -- 鍵盤空白鍵 (保留 processed 避免打字時觸發)
+-- A. UI 按鈕偵測 (手機/滑鼠)
+jumpButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isHolding = true
+        jumpButton.BackgroundTransparency = 0.8
+        jumpButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
+
+jumpButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isHolding = false
+        jumpButton.BackgroundTransparency = 1
+    end
+end)
+
+-- B. 鍵盤偵測 (電腦版專用)
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end 
     if input.KeyCode == Enum.KeyCode.Space then
-        if not processed then spacePressed = true end
-        return
+        spacePressed = true
     end
+end)
 
-    -- 手機觸控 / 滑鼠點擊
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        -- 核心：發射射線檢測點擊座標下的所有 UI 元素
-        local guis = player.PlayerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
-        for _, gui in ipairs(guis) do
-            -- 如果座標底下有官方的 JumpButton，就判定為按住
-            if gui.Name == "JumpButton" then
-                activeTouches[input] = true 
-                updateHoldingState()
-                break
-            end
-        end
-    end
-end))
-
--- B. 滑動防呆 (防止手指滑出跳躍鍵卻還在跳)
-table.insert(connections, UserInputService.InputChanged:Connect(function(input)
-    if activeTouches[input] then
-        local isStillOnButton = false
-        local guis = player.PlayerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
-        for _, gui in ipairs(guis) do
-            if gui.Name == "JumpButton" then
-                isStillOnButton = true
-                break
-            end
-        end
-        
-        -- 手指滑出按鈕 Hitbox 範圍了
-        if not isStillOnButton then
-            activeTouches[input] = nil
-            updateHoldingState()
-        end
-    end
-end))
-
--- C. 鬆開偵測
-table.insert(connections, UserInputService.InputEnded:Connect(function(input)
-    -- 鬆開空白鍵
+UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.Space then
         spacePressed = false
-        return
     end
+end)
 
-    -- 鬆開觸控/滑鼠
-    if activeTouches[input] then
-        activeTouches[input] = nil
-        updateHoldingState()
-    end
-end))
-
--- [[ 4. 核心連跳邏輯 ]]
-local heartbeatConn
-heartbeatConn = RunService.Heartbeat:Connect(function()
-    -- 開關機制：如果 ScreenGui 被刪除，就徹底終止腳本
-    if not player.PlayerGui:FindFirstChild("AutoJumpOverlay") then 
-        heartbeatConn:Disconnect() 
-        for _, conn in ipairs(connections) do
-            conn:Disconnect()
-        end
-        table.clear(activeTouches)
+-- [[ 5. 核心連跳邏輯 ]]
+local connection
+connection = RunService.Heartbeat:Connect(function()
+    if not screenGui.Parent then 
+        connection:Disconnect() 
         return 
     end
 
-    -- 連跳觸發區
     if isHolding or spacePressed then
         local character = player.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         
         if humanoid and humanoid.Health > 0 then
-            -- 你提出的神級邏輯：落地瞬間強制切換開關 (false -> true)
+            -- 強力 Bhop 邏輯 (結合你之前的開關思路)
             if humanoid.FloorMaterial ~= Enum.Material.Air then
-                humanoid.Jump = false 
-                humanoid.Jump = true  
+                humanoid.Jump = false
+                humanoid.Jump = true 
             end
         end
     end
