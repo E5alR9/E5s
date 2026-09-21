@@ -4,12 +4,11 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 -- [[ 1. 開關邏輯：檢查是否已經執行過 ]]
--- 因為不再創建 UI，我們改在 PlayerGui 放入一個隱藏的 Tag 來當作開關標記
 local tagFileName = "AutoJumpTag_Running"
 local existingTag = player.PlayerGui:FindFirstChild(tagFileName)
 
 if existingTag then
-    existingTag:Destroy() -- 刪除標記，底下的迴圈偵測到標記消失就會自動停止
+    existingTag:Destroy()
     print("Auto Jump: OFF")
     return 
 else
@@ -22,7 +21,7 @@ end
 -- [[ 2. 初始化變數與事件管理 ]]
 local isHolding = false
 local spacePressed = false 
-local connections = {} -- 統一管理事件，方便關閉時清理
+local connections = {} 
 
 -- 當角色死亡/重生時，重置按鍵狀態，避免卡在跳躍狀態
 table.insert(connections, player.CharacterAdded:Connect(function()
@@ -60,39 +59,46 @@ heartbeatConn = RunService.Heartbeat:Connect(function()
     local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
     local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
     
-    -- 如果找到了官方按鈕，且還沒被我們綁定過
     if realBtn and not realBtn:GetAttribute("AutoJumpHooked") then
-        realBtn:SetAttribute("AutoJumpHooked", true) -- 標記已綁定，避免重複觸發
+        realBtn:SetAttribute("AutoJumpHooked", true) 
         
-        -- 綁定官方按鈕按下
-        local btnBegan = realBtn.InputBegan:Connect(function(input)
+        -- 使用多重事件綁定，確保不管是用手指點、滑鼠點，絕對能感應到
+        local function setHolding() isHolding = true end
+        local function setNotHolding() isHolding = false end
+
+        -- 綁定 Input 事件
+        table.insert(connections, realBtn.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                isHolding = true
+                setHolding()
             end
-        end)
-        
-        -- 綁定官方按鈕鬆開
-        local btnEnded = realBtn.InputEnded:Connect(function(input)
+        end))
+        table.insert(connections, realBtn.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                isHolding = false
+                setNotHolding()
             end
-        end)
+        end))
         
-        table.insert(connections, btnBegan)
-        table.insert(connections, btnEnded)
+        -- 綁定 Touch 事件 (手機專屬防呆)
+        table.insert(connections, realBtn.TouchBegan:Connect(setHolding))
+        table.insert(connections, realBtn.TouchEnded:Connect(setNotHolding))
+        
+        -- 綁定 Mouse 事件 (相容模擬器與防滑出)
+        table.insert(connections, realBtn.MouseButton1Down:Connect(setHolding))
+        table.insert(connections, realBtn.MouseButton1Up:Connect(setNotHolding))
+        table.insert(connections, realBtn.MouseLeave:Connect(setNotHolding)) -- 手指滑出按鈕範圍取消按住
     end
-    -- ========================================================
 
     -- ================= 強力 Bhop 連跳邏輯 ===================
-    -- 只要「按住手機官方跳躍鍵」或是「按住空白鍵」其中一個成立，就觸發
     if isHolding or spacePressed then
         local character = player.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         
         if humanoid and humanoid.Health > 0 then
+            -- 加入你的強制切換開關邏輯：
+            -- 只有在碰觸地面時，才切換開關，100% 逼迫系統執行跳躍
             if humanoid.FloorMaterial ~= Enum.Material.Air then
-                -- 3 代表 Enum.HumanoidStateType.Jumping
-                humanoid:ChangeState(3) 
+                humanoid.Jump = false -- 先強制關閉，重置系統狀態
+                humanoid.Jump = true  -- 瞬間開啟，觸發無縫起跳
             end
         end
     end
