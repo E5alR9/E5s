@@ -21,32 +21,73 @@ end
 -- [[ 2. 初始化變數與事件管理 ]]
 local isHolding = false
 local spacePressed = false 
+local jumpInputObject = nil -- 用來追蹤按住跳躍鍵的那根手指
 local connections = {} 
 
--- 當角色死亡/重生時，重置按鍵狀態，避免卡在跳躍狀態
 table.insert(connections, player.CharacterAdded:Connect(function()
     isHolding = false
     spacePressed = false
+    jumpInputObject = nil
 end))
 
--- [[ 3. 鍵盤偵測 (電腦版專用) ]]
+-- [[ 3. 核心偵測函數：檢查觸控座標是否在跳躍按鈕內 ]]
+local function isInsideJumpButton(pos)
+    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
+    local jumpBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
+    if not jumpBtn then return false end
+    
+    local absPos = jumpBtn.AbsolutePosition
+    local absSize = jumpBtn.AbsoluteSize
+    
+    -- 給手機觸控一點容錯空間（外擴 30 像素），避免手指太大按偏卻沒感應到
+    local padding = 30 
+    
+    return pos.X >= (absPos.X - padding) and pos.X <= (absPos.X + absSize.X + padding)
+       and pos.Y >= (absPos.Y - padding) and pos.Y <= (absPos.Y + absSize.Y + padding)
+end
+
+-- [[ 4. 全域輸入監聽 (繞過 Roblox 官方按鈕攔截) ]]
 table.insert(connections, UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end 
+    -- 鍵盤空白鍵
     if input.KeyCode == Enum.KeyCode.Space then
-        spacePressed = true
+        if not processed then spacePressed = true end
+        return
+    end
+    
+    -- 手機觸控 / 滑鼠點擊
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if isInsideJumpButton(input.Position) then
+            jumpInputObject = input -- 鎖定這根手指
+            isHolding = true
+        end
+    end
+end))
+
+table.insert(connections, UserInputService.InputChanged:Connect(function(input)
+    -- 如果手指在螢幕上滑動
+    if input == jumpInputObject then
+        -- 檢查手指是不是滑出了跳躍鍵的範圍
+        if not isInsideJumpButton(input.Position) then
+            jumpInputObject = nil
+            isHolding = false
+        end
     end
 end))
 
 table.insert(connections, UserInputService.InputEnded:Connect(function(input)
+    -- 鬆開按鍵
     if input.KeyCode == Enum.KeyCode.Space then
         spacePressed = false
+    elseif input == jumpInputObject then
+        jumpInputObject = nil
+        isHolding = false
     end
 end))
 
--- [[ 4. 核心連跳邏輯 & 手機官方按鈕動態綁定 ]]
+-- [[ 5. 強力 Bhop 連跳執行邏輯 ]]
 local heartbeatConn
 heartbeatConn = RunService.Heartbeat:Connect(function()
-    -- 如果開關標記被刪除（代表玩家再次執行了腳本，想要關閉功能），則清理所有事件並結束
+    -- 關閉腳本時的清理
     if not player.PlayerGui:FindFirstChild(tagFileName) then 
         heartbeatConn:Disconnect() 
         for _, conn in ipairs(connections) do
@@ -55,50 +96,15 @@ heartbeatConn = RunService.Heartbeat:Connect(function()
         return 
     end
 
-    -- ================= 動態綁定官方手機按鈕 =================
-    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
-    local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
-    
-    if realBtn and not realBtn:GetAttribute("AutoJumpHooked") then
-        realBtn:SetAttribute("AutoJumpHooked", true) 
-        
-        -- 使用多重事件綁定，確保不管是用手指點、滑鼠點，絕對能感應到
-        local function setHolding() isHolding = true end
-        local function setNotHolding() isHolding = false end
-
-        -- 綁定 Input 事件
-        table.insert(connections, realBtn.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                setHolding()
-            end
-        end))
-        table.insert(connections, realBtn.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                setNotHolding()
-            end
-        end))
-        
-        -- 綁定 Touch 事件 (手機專屬防呆)
-        table.insert(connections, realBtn.TouchBegan:Connect(setHolding))
-        table.insert(connections, realBtn.TouchEnded:Connect(setNotHolding))
-        
-        -- 綁定 Mouse 事件 (相容模擬器與防滑出)
-        table.insert(connections, realBtn.MouseButton1Down:Connect(setHolding))
-        table.insert(connections, realBtn.MouseButton1Up:Connect(setNotHolding))
-        table.insert(connections, realBtn.MouseLeave:Connect(setNotHolding)) -- 手指滑出按鈕範圍取消按住
-    end
-
-    -- ================= 強力 Bhop 連跳邏輯 ===================
     if isHolding or spacePressed then
         local character = player.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         
         if humanoid and humanoid.Health > 0 then
-            -- 加入你的強制切換開關邏輯：
-            -- 只有在碰觸地面時，才切換開關，100% 逼迫系統執行跳躍
+            -- 你的思路：落地瞬間強制切換開關，逼迫引擎 100% 執行跳躍
             if humanoid.FloorMaterial ~= Enum.Material.Air then
-                humanoid.Jump = false -- 先強制關閉，重置系統狀態
-                humanoid.Jump = true  -- 瞬間開啟，觸發無縫起跳
+                humanoid.Jump = false 
+                humanoid.Jump = true  
             end
         end
     end
