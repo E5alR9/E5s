@@ -1,6 +1,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UserInputService = game:GetService("UserInputService") -- 加入輸入服務，電腦版關鍵
 local player = Players.LocalPlayer
 
 -- [[ 1. 開關邏輯：檢查是否已經執行過 ]]
@@ -16,7 +16,7 @@ end
 
 -- [[ 2. 初始化變數與 UI ]]
 local isHolding = false
-local spacePressed = false 
+local spacePressed = false -- 偵測鍵盤空白鍵狀態
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoJumpOverlay"
@@ -44,7 +44,7 @@ local function syncPosition()
         jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
         jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
     else
-        -- 電腦版預設位置
+        -- 電腦版預設位置（右下角）
         jumpButton.Size = UDim2.new(0, 80, 0, 80)
         jumpButton.Position = UDim2.new(1, -120, 1, -90)
     end
@@ -53,8 +53,7 @@ end
 task.spawn(function()
     while screenGui.Parent do
         syncPosition()
-        -- 【優化】：原本是 1 秒，改成 0.1 秒可以確保透明按鈕完美貼合，不會因為畫面變動跑位
-        task.wait(0.1) 
+        task.wait(1)
     end
 end)
 
@@ -78,7 +77,7 @@ end)
 
 -- B. 鍵盤偵測 (電腦版專用)
 UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end 
+    if processed then return end -- 避免打字時跳躍
     if input.KeyCode == Enum.KeyCode.Space then
         spacePressed = true
     end
@@ -98,15 +97,15 @@ connection = RunService.Heartbeat:Connect(function()
         return 
     end
 
+    -- 只要「點擊 UI」或是「按住空白鍵」其中一個成立，就觸發
     if isHolding or spacePressed then
         local character = player.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         
         if humanoid and humanoid.Health > 0 then
-            -- 強力 Bhop 邏輯 (結合你之前的開關思路)
+            -- 強力 Bhop 邏輯
             if humanoid.FloorMaterial ~= Enum.Material.Air then
-                humanoid.Jump = false
-                humanoid.Jump = true 
+                humanoid:ChangeState(3) 
             end
         end
     end
