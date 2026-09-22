@@ -1,6 +1,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService") -- 加入輸入服務，電腦版關鍵
+local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 -- [[ 1. 開關邏輯：檢查是否已經執行過 ]]
@@ -27,9 +27,10 @@ local jumpButton = Instance.new("ImageButton")
 jumpButton.Name = "JumpButton"
 jumpButton.BackgroundTransparency = 1 
 jumpButton.Image = "rbxasset://textures/ui/TouchControls/Jump.png" 
-jumpButton.Visible = false -- 【修改點】：預設先隱藏，確定是手機版才顯示
+jumpButton.Visible = false -- 電腦版預設隱藏
 jumpButton.Parent = screenGui
 
+-- 這個 UICorner 讓背景變成完美的圓形，是實現「圓形反白」的關鍵
 local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(1, 0)
 uiCorner.Parent = jumpButton
@@ -41,19 +42,16 @@ local function syncPosition()
     local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
     
     if realBtn then
-        -- 偵測到手機版官方按鈕，顯示我們的按鈕並覆蓋上去
         jumpButton.Visible = true
         jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
         jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
         
-        -- 動態複製官方跳躍按鈕的材質
         if realBtn:IsA("ImageButton") or realBtn:IsA("ImageLabel") then
             jumpButton.Image = realBtn.Image
             jumpButton.ImageRectOffset = realBtn.ImageRectOffset
             jumpButton.ImageRectSize = realBtn.ImageRectSize
         end
     else
-        -- 【修改點】：電腦版沒有官方觸控按鈕，直接隱藏我們的按鈕
         jumpButton.Visible = false
     end
 end
@@ -71,20 +69,23 @@ end)
 jumpButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = true
-        jumpButton.ImageTransparency = 0.5 
+        -- 【關鍵修改】：按下時，產生跟原版一樣的半透明白色圓形反白效果
+        jumpButton.BackgroundTransparency = 0.5 
+        jumpButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200) 
     end
 end)
 
 jumpButton.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = false
-        jumpButton.ImageTransparency = 0 
+        -- 【關鍵修改】：鬆開時，恢復成全透明背景
+        jumpButton.BackgroundTransparency = 1 
     end
 end)
 
 -- B. 鍵盤偵測 (電腦版專用)
 UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end -- 避免打字時跳躍
+    if processed then return end 
     if input.KeyCode == Enum.KeyCode.Space then
         spacePressed = true
     end
@@ -104,7 +105,6 @@ connection = RunService.Heartbeat:Connect(function()
         return 
     end
 
-    -- 只要「點擊 UI」或是「按住空白鍵」其中一個成立，就觸發
     if isHolding or spacePressed then
         local character = player.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
