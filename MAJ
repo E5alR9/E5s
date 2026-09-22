@@ -23,11 +23,11 @@ screenGui.Name = "AutoJumpOverlay"
 screenGui.ResetOnSpawn = false 
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
-local jumpButton = Instance.new("TextButton")
+local jumpButton = Instance.new("ImageButton")
 jumpButton.Name = "JumpButton"
 jumpButton.BackgroundTransparency = 1 
-jumpButton.TextTransparency = 1        
-jumpButton.Text = "AUTO JUMP"
+jumpButton.Image = "rbxasset://textures/ui/TouchControls/Jump.png" 
+jumpButton.Visible = false -- 【修改點】：預設先隱藏，確定是手機版才顯示
 jumpButton.Parent = screenGui
 
 local uiCorner = Instance.new("UICorner")
@@ -41,12 +41,20 @@ local function syncPosition()
     local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
     
     if realBtn then
+        -- 偵測到手機版官方按鈕，顯示我們的按鈕並覆蓋上去
+        jumpButton.Visible = true
         jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
         jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
+        
+        -- 動態複製官方跳躍按鈕的材質
+        if realBtn:IsA("ImageButton") or realBtn:IsA("ImageLabel") then
+            jumpButton.Image = realBtn.Image
+            jumpButton.ImageRectOffset = realBtn.ImageRectOffset
+            jumpButton.ImageRectSize = realBtn.ImageRectSize
+        end
     else
-        -- 電腦版預設位置（右下角）
-        jumpButton.Size = UDim2.new(0, 80, 0, 80)
-        jumpButton.Position = UDim2.new(1, -120, 1, -90)
+        -- 【修改點】：電腦版沒有官方觸控按鈕，直接隱藏我們的按鈕
+        jumpButton.Visible = false
     end
 end
 
@@ -63,15 +71,14 @@ end)
 jumpButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = true
-        jumpButton.BackgroundTransparency = 0.8
-        jumpButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        jumpButton.ImageTransparency = 0.5 
     end
 end)
 
 jumpButton.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = false
-        jumpButton.BackgroundTransparency = 1
+        jumpButton.ImageTransparency = 0 
     end
 end)
 
