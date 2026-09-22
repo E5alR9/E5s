@@ -8,6 +8,14 @@ local existingGui = player.PlayerGui:FindFirstChild("AutoJumpOverlay")
 
 if existingGui then
     existingGui:Destroy()
+    
+    -- 【新增】：關閉腳本時，尋找官方跳躍按鈕並將它恢復顯示
+    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
+    local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
+    if realBtn then
+        realBtn.Visible = true
+    end
+    
     print("Auto Jump: OFF")
     return 
 else
@@ -30,7 +38,6 @@ jumpButton.Image = "rbxasset://textures/ui/TouchControls/Jump.png"
 jumpButton.Visible = false -- 電腦版預設隱藏
 jumpButton.Parent = screenGui
 
--- 這個 UICorner 讓背景變成完美的圓形，是實現「圓形反白」的關鍵
 local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(1, 0)
 uiCorner.Parent = jumpButton
@@ -51,6 +58,9 @@ local function syncPosition()
             jumpButton.ImageRectOffset = realBtn.ImageRectOffset
             jumpButton.ImageRectSize = realBtn.ImageRectSize
         end
+        
+        -- 【新增】：已經把我們的按鈕蓋上去了，就把官方的隱藏起來
+        realBtn.Visible = false
     else
         jumpButton.Visible = false
     end
@@ -69,7 +79,6 @@ end)
 jumpButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = true
-        -- 【關鍵修改】：按下時，產生跟原版一樣的半透明白色圓形反白效果
         jumpButton.BackgroundTransparency = 0.5 
         jumpButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200) 
     end
@@ -78,7 +87,6 @@ end)
 jumpButton.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = false
-        -- 【關鍵修改】：鬆開時，恢復成全透明背景
         jumpButton.BackgroundTransparency = 1 
     end
 end)
