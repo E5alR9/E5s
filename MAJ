@@ -9,7 +9,7 @@ local existingGui = player.PlayerGui:FindFirstChild("AutoJumpOverlay")
 if existingGui then
     existingGui:Destroy()
     
-    -- 【新增】：關閉腳本時，尋找官方跳躍按鈕並將它恢復顯示
+    -- 關閉腳本時，將官方跳躍按鈕恢復顯示
     local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
     local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
     if realBtn then
@@ -58,9 +58,6 @@ local function syncPosition()
             jumpButton.ImageRectOffset = realBtn.ImageRectOffset
             jumpButton.ImageRectSize = realBtn.ImageRectSize
         end
-        
-        -- 【新增】：已經把我們的按鈕蓋上去了，就把官方的隱藏起來
-        realBtn.Visible = false
     else
         jumpButton.Visible = false
     end
@@ -111,6 +108,13 @@ connection = RunService.Heartbeat:Connect(function()
     if not screenGui.Parent then 
         connection:Disconnect() 
         return 
+    end
+
+    -- 【關鍵修復】：每幀強制壓制官方按鈕，讓它絕對無法顯示出來干擾我們
+    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
+    local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
+    if realBtn then
+        realBtn.Visible = false
     end
 
     if isHolding or spacePressed then
