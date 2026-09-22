@@ -8,14 +8,6 @@ local existingGui = player.PlayerGui:FindFirstChild("AutoJumpOverlay")
 
 if existingGui then
     existingGui:Destroy()
-    
-    -- 關閉腳本時，將官方跳躍按鈕恢復顯示
-    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
-    local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
-    if realBtn then
-        realBtn.Visible = true
-    end
-    
     print("Auto Jump: OFF")
     return 
 else
@@ -24,23 +16,25 @@ end
 
 -- [[ 2. 初始化變數與 UI ]]
 local isHolding = false
-local spacePressed = false -- 偵測鍵盤空白鍵狀態
+local spacePressed = false 
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoJumpOverlay"
 screenGui.ResetOnSpawn = false 
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
-local jumpButton = Instance.new("ImageButton")
+-- 創建「事件穿透」透明按鈕
+local jumpButton = Instance.new("TextButton")
 jumpButton.Name = "JumpButton"
-jumpButton.BackgroundTransparency = 1 
-jumpButton.Image = "rbxasset://textures/ui/TouchControls/Jump.png" 
+jumpButton.Text = "" 
+jumpButton.BackgroundTransparency = 1 -- 100% 透明，完全露出底下的官方圖案
+jumpButton.ZIndex = 999 
+
+-- 【超級關鍵的魔法屬性】：設為 false 讓點擊可以穿透到下方的官方按鈕！
+jumpButton.Active = false 
+
 jumpButton.Visible = false -- 電腦版預設隱藏
 jumpButton.Parent = screenGui
-
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(1, 0)
-uiCorner.Parent = jumpButton
 
 -- [[ 3. 定位邏輯 ]]
 local function syncPosition()
@@ -50,14 +44,9 @@ local function syncPosition()
     
     if realBtn then
         jumpButton.Visible = true
+        -- 精準覆蓋在官方按鈕上
         jumpButton.Position = UDim2.new(0, realBtn.AbsolutePosition.X, 0, realBtn.AbsolutePosition.Y)
         jumpButton.Size = UDim2.new(0, realBtn.AbsoluteSize.X, 0, realBtn.AbsoluteSize.Y)
-        
-        if realBtn:IsA("ImageButton") or realBtn:IsA("ImageLabel") then
-            jumpButton.Image = realBtn.Image
-            jumpButton.ImageRectOffset = realBtn.ImageRectOffset
-            jumpButton.ImageRectSize = realBtn.ImageRectSize
-        end
     else
         jumpButton.Visible = false
     end
@@ -72,19 +61,17 @@ end)
 
 -- [[ 4. 偵測輸入 ]]
 
--- A. UI 按鈕偵測 (手機/滑鼠)
+-- A. 穿透按鈕偵測 (啟動我們的連跳，同時畫面交給官方處理)
 jumpButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = true
-        jumpButton.BackgroundTransparency = 0.5 
-        jumpButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200) 
+        -- (這裡不再寫變色的代碼，因為穿透下去後，官方按鈕自己會顯示那個灰色的反白動畫！)
     end
 end)
 
 jumpButton.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isHolding = false
-        jumpButton.BackgroundTransparency = 1 
     end
 end)
 
@@ -110,19 +97,11 @@ connection = RunService.Heartbeat:Connect(function()
         return 
     end
 
-    -- 【關鍵修復】：每幀強制壓制官方按鈕，讓它絕對無法顯示出來干擾我們
-    local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
-    local realBtn = touchGui and touchGui:FindFirstChild("JumpButton", true)
-    if realBtn then
-        realBtn.Visible = false
-    end
-
     if isHolding or spacePressed then
         local character = player.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         
         if humanoid and humanoid.Health > 0 then
-            -- 強力 Bhop 邏輯
             if humanoid.FloorMaterial ~= Enum.Material.Air then
                 humanoid:ChangeState(3) 
             end
