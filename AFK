@@ -234,7 +234,7 @@ task.spawn(function()
                         ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!time 1")
                         print("time 1")
                         task.wait(2)
-                        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!time 163")
+
                         
                     end)
                     task.wait(4)
