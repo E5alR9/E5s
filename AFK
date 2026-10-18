@@ -88,7 +88,7 @@ task.spawn(function()
     while true do
         pcall(function()
             game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!specialround Plushie Hell")
-            game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Flipmap 1")
+            --game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Flipmap 1")
         end)
         task.wait(1)
     end
@@ -229,7 +229,7 @@ task.spawn(function()
                 task.wait(0.1) 
                 if IsFieldClean() then
                     pcall(function() 
-                    	game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Flipmap 1")
+                    	--game.ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!Flipmap 1")
                         task.wait(2.5)
                         ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!time 1")
                         print("time 1")
@@ -266,7 +266,7 @@ end
 
 local function TriggerMapScale()
     pcall(function()
-        ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!mapscale 0.01")
+        --ReplicatedStorage.Events.Admin.VIPCommand:FireServer("!mapscale 0.01")
     end)
     print("mapscale 0.01")
 end
